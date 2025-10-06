@@ -21378,6 +21378,61 @@ environment <floatenv>` *except* for the rounding mode.
 This intrinsic is not supported on all targets. Some targets may not support
 all rounding modes.
 
+'``llvm.arbitrary.fp.convert``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare <type> @llvm.arbitrary.fp.convert(
+          <type> <value>, metadata <result interpretation>,
+          metadata <input interpretation>, metadata <rounding mode>)
+
+Overview:
+"""""""""
+
+The ``llvm.arbitrary.fp.convert`` intrinsic performs conversions
+between values whose logical interpretation differs from their representation
+in LLVM IR. The intrinsic is overloaded on both its return type and first
+argument. Metadata operands describe how the raw bits should be interpreted
+before and after the conversion.
+
+Arguments:
+""""""""""
+
+``value``
+  The value to convert. Its interpretation is described by ``input
+  interpretation``.
+
+``result interpretation``
+  A metadata string that describes the logical type of the result. The string
+  must be ``"none"``, ``"signed"``, ``"unsigned"`` or match one of the
+  :ref:`APFloat semantics <apfloat>`. Using ``"none"`` indicates the converted
+  bits already have the desired LLVM IR type.
+
+``input interpretation``
+  Mirrors ``result interpretation`` but applies to the first argument. For
+  example, an ``i8`` value accompanied by ``metadata !"Float8E4M3"`` is
+  interpreted as an FP8 value encoded using the ``Float8E4M3`` semantics.
+
+``rounding mode``
+  A metadata string. The permitted strings match those accepted by
+  :ref:`llvm.fptrunc.round <int_fptrunc_round>` (for example,
+  ``"round.tonearest"`` or ``"round.towardzero"``). The string ``"none"`` may be
+  used to indicate that the default rounding behaviour of the conversion should
+  be used.
+
+Semantics:
+""""""""""
+
+The intrinsic interprets the first argument according to ``input
+interpretation``, applies the requested rounding mode, and produces a value
+whose logical type is described by ``result interpretation``. The physical LLVM
+types of the argument and result determine how the converted bits are materialized
+in IR.
+
 Convergence Intrinsics
 ----------------------
 

@@ -80,6 +80,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/EHPersonalities.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/FPEnv.h"
 #include "llvm/IR/GCStrategy.h"
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalValue.h"
@@ -5834,6 +5835,66 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
         convertStrToRoundingMode(cast<MDString>(MD)->getString());
     Check(RoundMode && *RoundMode != RoundingMode::Dynamic,
           "unsupported rounding mode argument", Call);
+    break;
+  }
+  case Intrinsic::arbitrary_fp_convert: {
+    auto *ResultMAV = dyn_cast<MetadataAsValue>(Call.getArgOperand(1));
+    Check(ResultMAV, "missing result interpretation metadata operand", Call);
+    auto *ResultStr = dyn_cast<MDString>(ResultMAV->getMetadata());
+    Check(ResultStr, "result interpretation metadata operand must be a string",
+          Call);
+    StringRef ResultInterp = ResultStr->getString();
+
+    auto *InputMAV = dyn_cast<MetadataAsValue>(Call.getArgOperand(2));
+    Check(InputMAV, "missing input interpretation metadata operand", Call);
+    auto *InputStr = dyn_cast<MDString>(InputMAV->getMetadata());
+    Check(InputStr, "input interpretation metadata operand must be a string",
+          Call);
+    StringRef InputInterp = InputStr->getString();
+
+    auto *RoundingMAV = dyn_cast<MetadataAsValue>(Call.getArgOperand(3));
+    Check(RoundingMAV, "missing rounding mode metadata operand", Call);
+    auto *RoundingStr = dyn_cast<MDString>(RoundingMAV->getMetadata());
+    Check(RoundingStr, "rounding mode metadata operand must be a string",
+          Call);
+    StringRef RoundingInterp = RoundingStr->getString();
+
+    auto CheckInterpretation = [&](StringRef Value, StringRef ArgName) {
+      Check(!Value.empty(), ArgName + " metadata string must not be empty",
+            Call);
+      bool IsKnown = Value == "none" || Value == "signed" || Value == "unsigned";
+      if (!IsKnown)
+        IsKnown = Value.starts_with("Float") || Value == "TF32";
+      Check(IsKnown, "unsupported " + ArgName + " metadata string", Call);
+    };
+
+    CheckInterpretation(ResultInterp, "result interpretation");
+    CheckInterpretation(InputInterp, "input interpretation");
+
+    if (RoundingInterp != "none") {
+      std::optional<RoundingMode> RM =
+          convertStrToRoundingMode(RoundingInterp);
+      Check(RM && *RM != RoundingMode::Dynamic,
+            "unsupported rounding mode argument", Call);
+    }
+
+    bool ResultIsInteger =
+        ResultInterp == "signed" || ResultInterp == "unsigned";
+    bool InputIsInteger = InputInterp == "signed" || InputInterp == "unsigned";
+    bool ResultIsNone = ResultInterp == "none";
+    bool InputIsNone = InputInterp == "none";
+
+    if (ResultIsInteger || ResultIsNone)
+      Check(RoundingInterp == "none",
+            "rounding mode must be \"none\" when result interpretation is "
+            "\"none\" or integer",
+            Call);
+
+    if (InputIsInteger)
+      Check(RoundingInterp == "none",
+            "rounding mode must be \"none\" when input interpretation is "
+            "integer",
+            Call);
     break;
   }
 #define BEGIN_REGISTER_VP_INTRINSIC(VPID, ...) case Intrinsic::VPID:
