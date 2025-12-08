@@ -21407,7 +21407,7 @@ This intrinsic is not supported on all targets. Some targets may not support
 all rounding modes.
 
 '``llvm.convert.to.arbitrary.fp``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""
@@ -21447,9 +21447,16 @@ Arguments:
   ``"round.tonearest"`` or ``"round.towardzero"``).
 
 ``saturation``
-  A compile-time constant boolean value (``i1``). When ``true``, values outside the
-  representable range of the target format are clamped to the minimum or maximum normal value.
-  When ``false``, no saturation is applied. This parameter must be an immediate constant.
+  A compile-time constant boolean value (``i1``). This parameter controls how values outside the
+  representable finite range of the target format are handled:
+
+  - When ``true``: values are clamped to the minimum or maximum representable finite value
+    (saturating to the largest negative finite value or largest positive finite value).
+  - When ``false``: values that exceed the finite range are converted to infinity (±Inf) if the
+    target format supports infinity, or return a poison value if infinity is not supported
+    by the target format.
+
+  This parameter must be an immediate constant.
 
 Semantics:
 """"""""""
@@ -21457,9 +21464,26 @@ Semantics:
 The intrinsic converts the native LLVM floating-point value to the arbitrary FP
 format specified by ``interpretation``, applying the requested rounding mode and
 saturation behavior. The result is returned as an integer (e.g., ``i8`` for FP8,
-``i6`` for FP6) containing the encoded arbitrary FP bits. When saturation is enabled,
-values that exceed the representable range are clamped to the minimum or maximum
-normal value of the target format.
+``i6`` for FP6) containing the encoded arbitrary FP bits.
+
+**Handling of special values:**
+
+- **NaN**: If the input is NaN and the target format supports NaN, it is converted to a NaN
+  representation in the target format (quiet NaN is preserved as quiet NaN). If the target format
+  does not support NaN (indicated by "FN" suffix, meaning "finite"), the intrinsic returns a poison value.
+- **Infinity**: If the input is ±Inf:
+
+  - When ``saturation`` is ``false`` and the target format supports infinity, ±Inf is preserved.
+  - When ``saturation`` is ``false`` and the target format does not support infinity (e.g., formats
+    with "FN" suffix), the intrinsic returns a poison value.
+  - When ``saturation`` is ``true``, ±Inf is clamped to the maximum/minimum representable finite value.
+
+- **Overflow**: When a finite value exceeds the representable range:
+
+  - When ``saturation`` is ``true``, the value is clamped to the maximum/minimum representable finite value.
+  - When ``saturation`` is ``false`` and the target format supports infinity, the value becomes ±Inf.
+  - When ``saturation`` is ``false`` and the target format does not support infinity, the intrinsic
+    returns a poison value.
 
 Example:
 """"""""
@@ -21477,7 +21501,7 @@ Example:
           metadata !"round.towardzero", i1 true)
 
 '``llvm.convert.from.arbitrary.fp``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""
@@ -21516,18 +21540,42 @@ Arguments:
   ``"round.tonearest"`` or ``"round.towardzero"``).
 
 ``saturation``
-  A compile-time constant boolean value (``i1``). When ``true``, values outside the
-  representable range of the target format are clamped to the minimum or maximum normal value.
-  When ``false``, no saturation is applied. This parameter must be an immediate constant.
+  A compile-time constant boolean value (``i1``). This parameter controls how values outside the
+  representable finite range of the target format are handled:
+
+  - When ``true``: values are clamped to the minimum or maximum representable finite value
+    (saturating to the largest negative finite value or largest positive finite value).
+  - When ``false``: values that exceed the finite range are converted to infinity (±Inf) if the
+    target format supports infinity, or return a poison value if infinity is not supported
+    by the target format.
+
+  This parameter must be an immediate constant.
 
 Semantics:
 """"""""""
 
 The intrinsic interprets the integer value as arbitrary FP bits according to
 ``interpretation``, then converts to the native LLVM floating-point result type,
-applying the requested rounding mode and saturation behavior. When saturation is
-enabled, values that exceed the representable range of the target format are
-clamped to the minimum or maximum normal value.
+applying the requested rounding mode and saturation behavior.
+
+**Handling of special values:**
+
+- **NaN**: If the input bits represent NaN in the source format (when the source format supports NaN),
+  it is converted to a NaN representation in the target LLVM floating-point type (quiet NaN is
+  preserved as quiet NaN). If the source format does not support NaN but the bits would decode to an
+  invalid encoding, the intrinsic returns a poison value.
+- **Infinity**: If the input bits represent ±Inf in the source format:
+
+  - The value is converted to ±Inf in the target LLVM floating-point type.
+  - If the source format does not support infinity (e.g., formats with "FN" suffix), such bit patterns
+    should not occur; the intrinsic returns a poison value if they do.
+
+- **Overflow**: When converting from the source format to a narrower target format and a finite value
+  exceeds the target's representable range:
+
+  - When ``saturation`` is ``true``, the value is clamped to the maximum/minimum representable finite
+    value of the target format.
+  - When ``saturation`` is ``false``, the value becomes ±Inf in the target format.
 
 Example:
 """"""""
