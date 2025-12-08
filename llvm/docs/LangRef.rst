@@ -21452,7 +21452,7 @@ Arguments:
 
   - When ``true``: values are clamped to the minimum or maximum representable finite value
     (saturating to the largest negative finite value or largest positive finite value).
-  - When ``false``: values that exceed the finite range are converted to infinity (±Inf) if the
+  - When ``false``: values that exceed the finite range are converted to infinity (preserving sign of the original value) if the
     target format supports infinity, or return a poison value if infinity is not supported
     by the target format.
 
@@ -21471,17 +21471,17 @@ saturation behavior. The result is returned as an integer (e.g., ``i8`` for FP8,
 - **NaN**: If the input is NaN and the target format supports NaN, it is converted to a NaN
   representation in the target format (quiet NaN is preserved as quiet NaN). If the target format
   does not support NaN (indicated by "FN" suffix, meaning "finite"), the intrinsic returns a poison value.
-- **Infinity**: If the input is ±Inf:
+- **Infinity**: If the input is +/-Inf:
 
-  - When ``saturation`` is ``false`` and the target format supports infinity, ±Inf is preserved.
+  - When ``saturation`` is ``false`` and the target format supports infinity, +/-Inf is preserved.
   - When ``saturation`` is ``false`` and the target format does not support infinity (e.g., formats
     with "FN" suffix), the intrinsic returns a poison value.
-  - When ``saturation`` is ``true``, ±Inf is clamped to the maximum/minimum representable finite value.
+  - When ``saturation`` is ``true``, +/-Inf is clamped to the maximum/minimum representable finite value.
 
 - **Overflow**: When a finite value exceeds the representable range:
 
   - When ``saturation`` is ``true``, the value is clamped to the maximum/minimum representable finite value.
-  - When ``saturation`` is ``false`` and the target format supports infinity, the value becomes ±Inf.
+  - When ``saturation`` is ``false`` and the target format supports infinity, the value becomes +/-Inf.
   - When ``saturation`` is ``false`` and the target format does not support infinity, the intrinsic
     returns a poison value.
 
@@ -21545,7 +21545,7 @@ Arguments:
 
   - When ``true``: values are clamped to the minimum or maximum representable finite value
     (saturating to the largest negative finite value or largest positive finite value).
-  - When ``false``: values that exceed the finite range are converted to infinity (±Inf) if the
+  - When ``false``: values that exceed the finite range are converted to infinity (preserving sign of the original value) if the
     target format supports infinity, or return a poison value if infinity is not supported
     by the target format.
 
@@ -21564,9 +21564,9 @@ applying the requested rounding mode and saturation behavior.
   it is converted to a NaN representation in the target LLVM floating-point type (quiet NaN is
   preserved as quiet NaN). If the source format does not support NaN but the bits would decode to an
   invalid encoding, the intrinsic returns a poison value.
-- **Infinity**: If the input bits represent ±Inf in the source format:
+- **Infinity**: If the input bits represent +/-Inf in the source format:
 
-  - The value is converted to ±Inf in the target LLVM floating-point type.
+  - The value is converted to +/-Inf in the target LLVM floating-point type.
   - If the source format does not support infinity (e.g., formats with "FN" suffix), such bit patterns
     should not occur; the intrinsic returns a poison value if they do.
 
@@ -21575,7 +21575,7 @@ applying the requested rounding mode and saturation behavior.
 
   - When ``saturation`` is ``true``, the value is clamped to the maximum/minimum representable finite
     value of the target format.
-  - When ``saturation`` is ``false``, the value becomes ±Inf in the target format.
+  - When ``saturation`` is ``false``, the value becomes +/-Inf in the target format.
 
 Example:
 """"""""
