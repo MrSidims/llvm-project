@@ -6085,6 +6085,23 @@ bool APFloatBase::isValidArbitraryFPFormat(StringRef Format) {
   return llvm::is_contained(ValidFormats, Format);
 }
 
+std::optional<APFloatBase::Semantics>
+APFloatBase::convertStrToArbitraryFPSemantics(StringRef Format) {
+  return llvm::StringSwitch<std::optional<Semantics>>(Format)
+      .Case("Float8E5M2", S_Float8E5M2)
+      .Case("Float8E5M2FNUZ", S_Float8E5M2FNUZ)
+      .Case("Float8E4M3", S_Float8E4M3)
+      .Case("Float8E4M3FN", S_Float8E4M3FN)
+      .Case("Float8E4M3FNUZ", S_Float8E4M3FNUZ)
+      .Case("Float8E4M3B11FNUZ", S_Float8E4M3B11FNUZ)
+      .Case("Float8E3M4", S_Float8E3M4)
+      .Case("Float8E8M0FNU", S_Float8E8M0FNU)
+      .Case("Float6E3M2FN", S_Float6E3M2FN)
+      .Case("Float6E2M3FN", S_Float6E2M3FN)
+      .Case("Float4E2M1FN", S_Float4E2M1FN)
+      .Default(std::nullopt);
+}
+
 APFloat::Storage::~Storage() {
   if (usesLayout<IEEEFloat>(*semantics)) {
     IEEE.~IEEEFloat();

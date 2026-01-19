@@ -7085,6 +7085,55 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
 
     return;
   }
+  case Intrinsic::convert_to_arbitrary_fp: {
+    // Operands: FP value, format metadata, rounding mode metadata, saturation
+    // flag
+    SDValue FPVal = getValue(I.getArgOperand(0));
+
+    Metadata *FormatMD =
+        cast<MetadataAsValue>(I.getArgOperand(1))->getMetadata();
+    StringRef FormatStr = cast<MDString>(FormatMD)->getString();
+    std::optional<APFloatBase::Semantics> FmtSemantics =
+        APFloatBase::convertStrToArbitraryFPSemantics(FormatStr);
+    assert(FmtSemantics && "Invalid arbitrary FP format");
+
+    Metadata *RoundMD =
+        cast<MetadataAsValue>(I.getArgOperand(2))->getMetadata();
+    std::optional<RoundingMode> RoundMode =
+        convertStrToRoundingMode(cast<MDString>(RoundMD)->getString());
+    assert(RoundMode && "Invalid rounding mode");
+
+    SDValue Saturation = getValue(I.getArgOperand(3));
+
+    EVT ResultVT = TLI.getValueType(DAG.getDataLayout(), I.getType());
+
+    SDValue Result = DAG.getNode(
+        ISD::CONVERT_TO_ARBITRARY_FP, sdl, ResultVT, FPVal,
+        DAG.getTargetConstant(static_cast<int>(*FmtSemantics), sdl, MVT::i32),
+        DAG.getTargetConstant(static_cast<int>(*RoundMode), sdl, MVT::i32),
+        Saturation);
+    setValue(&I, Result);
+    return;
+  }
+  case Intrinsic::convert_from_arbitrary_fp: {
+    // Operands: integer value, format metadata
+    SDValue IntVal = getValue(I.getArgOperand(0));
+
+    Metadata *FormatMD =
+        cast<MetadataAsValue>(I.getArgOperand(1))->getMetadata();
+    StringRef FormatStr = cast<MDString>(FormatMD)->getString();
+    std::optional<APFloatBase::Semantics> FmtSemantics =
+        APFloatBase::convertStrToArbitraryFPSemantics(FormatStr);
+    assert(FmtSemantics && "Invalid arbitrary FP format");
+
+    EVT ResultVT = TLI.getValueType(DAG.getDataLayout(), I.getType());
+
+    SDValue Result = DAG.getNode(
+        ISD::CONVERT_FROM_ARBITRARY_FP, sdl, ResultVT, IntVal,
+        DAG.getTargetConstant(static_cast<int>(*FmtSemantics), sdl, MVT::i32));
+    setValue(&I, Result);
+    return;
+  }
   case Intrinsic::fmuladd: {
     EVT VT = TLI.getValueType(DAG.getDataLayout(), I.getType());
     if (TM.Options.AllowFPOpFusion != FPOpFusion::Strict &&

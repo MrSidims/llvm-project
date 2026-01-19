@@ -198,6 +198,9 @@ void DAGTypeLegalizer::PromoteIntegerResult(SDNode *N, unsigned ResNo) {
   case ISD::STRICT_FP_TO_FP16:
     Res = PromoteIntRes_STRICT_FP_TO_FP16_BF16(N);
     break;
+  case ISD::CONVERT_TO_ARBITRARY_FP:
+    Res = PromoteIntRes_CONVERT_TO_ARBITRARY_FP(N);
+    break;
   case ISD::GET_ROUNDING: Res = PromoteIntRes_GET_ROUNDING(N); break;
 
   case ISD::AND:
@@ -957,6 +960,15 @@ SDValue DAGTypeLegalizer::PromoteIntRes_STRICT_FP_TO_FP16_BF16(SDNode *N) {
                             N->getOperand(0), N->getOperand(1));
   ReplaceValueWith(SDValue(N, 1), Res.getValue(1));
   return Res;
+}
+
+SDValue DAGTypeLegalizer::PromoteIntRes_CONVERT_TO_ARBITRARY_FP(SDNode *N) {
+  // Operands: FP value, format enum, rounding mode, saturation flag
+  EVT NVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
+  SDLoc dl(N);
+
+  return DAG.getNode(N->getOpcode(), dl, NVT, N->getOperand(0), N->getOperand(1),
+                     N->getOperand(2), N->getOperand(3));
 }
 
 SDValue DAGTypeLegalizer::PromoteIntRes_XRINT(SDNode *N) {
@@ -2104,6 +2116,12 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
   case ISD::UINT_TO_FP:   Res = PromoteIntOp_UINT_TO_FP(N); break;
   case ISD::STRICT_FP16_TO_FP:
   case ISD::STRICT_UINT_TO_FP:  Res = PromoteIntOp_STRICT_UINT_TO_FP(N); break;
+  case ISD::CONVERT_FROM_ARBITRARY_FP:
+    Res = PromoteIntOp_CONVERT_FROM_ARBITRARY_FP(N);
+    break;
+  case ISD::CONVERT_TO_ARBITRARY_FP:
+    Res = PromoteIntOp_CONVERT_TO_ARBITRARY_FP(N);
+    break;
   case ISD::ZERO_EXTEND:  Res = PromoteIntOp_ZERO_EXTEND(N); break;
   case ISD::VP_ZERO_EXTEND: Res = PromoteIntOp_VP_ZERO_EXTEND(N); break;
   case ISD::EXTRACT_SUBVECTOR: Res = PromoteIntOp_EXTRACT_SUBVECTOR(N); break;
@@ -2694,6 +2712,25 @@ SDValue DAGTypeLegalizer::PromoteIntOp_UINT_TO_FP(SDNode *N) {
 SDValue DAGTypeLegalizer::PromoteIntOp_STRICT_UINT_TO_FP(SDNode *N) {
   return SDValue(DAG.UpdateNodeOperands(N, N->getOperand(0),
                                 ZExtPromotedInteger(N->getOperand(1))), 0);
+}
+
+SDValue DAGTypeLegalizer::PromoteIntOp_CONVERT_FROM_ARBITRARY_FP(SDNode *N) {
+  // Operands: integer value, format enum (TargetConstant)
+  // Zero-extend the integer operand to the promoted type
+  return SDValue(
+      DAG.UpdateNodeOperands(N, ZExtPromotedInteger(N->getOperand(0)),
+                             N->getOperand(1)),
+      0);
+}
+
+SDValue DAGTypeLegalizer::PromoteIntOp_CONVERT_TO_ARBITRARY_FP(SDNode *N) {
+  // Operands: FP value, format enum, rounding mode, saturation flag (i1)
+  // The saturation flag (operand 3) may need promotion
+  return SDValue(
+      DAG.UpdateNodeOperands(N, N->getOperand(0), N->getOperand(1),
+                             N->getOperand(2),
+                             ZExtPromotedInteger(N->getOperand(3))),
+      0);
 }
 
 SDValue DAGTypeLegalizer::PromoteIntOp_ZERO_EXTEND(SDNode *N) {

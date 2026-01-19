@@ -1013,6 +1013,19 @@ enum NodeType {
   STRICT_BF16_TO_FP,
   STRICT_FP_TO_BF16,
 
+  /// CONVERT_FROM_ARBITRARY_FP - Convert from an arbitrary precision
+  /// floating-point format (stored as an integer) to a native FP type.
+  /// Operands: integer value, format enum (as TargetConstant).
+  /// Result: floating-point value.
+  CONVERT_FROM_ARBITRARY_FP,
+
+  /// CONVERT_TO_ARBITRARY_FP - Convert from a native FP type to an arbitrary
+  /// precision floating-point format (stored as an integer).
+  /// Operands: FP value, format enum (TargetConstant), rounding mode
+  /// (TargetConstant), saturation flag (TargetConstant).
+  /// Result: integer value.
+  CONVERT_TO_ARBITRARY_FP,
+
   /// Perform various unary floating-point operations inspired by libm. For
   /// FPOWI, the result is undefined if the integer operand doesn't fit into
   /// sizeof(int).

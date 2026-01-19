@@ -412,6 +412,11 @@ public:
   /// format interpretation for llvm.convert.to.arbitrary.fp and
   /// llvm.convert.from.arbitrary.fp intrinsics.
   LLVM_ABI static bool isValidArbitraryFPFormat(StringRef Format);
+
+  /// Converts a format string to the corresponding Semantics enum value.
+  /// Returns std::nullopt if the format string is not recognized.
+  LLVM_ABI static std::optional<Semantics>
+  convertStrToArbitraryFPSemantics(StringRef Format);
 };
 
 namespace detail {

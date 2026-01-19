@@ -185,6 +185,13 @@ private:
   SDValue expandLdexp(SDNode *Node) const;
   SDValue expandFrexp(SDNode *Node) const;
 
+  SDValue ExpandConvertFromArbitraryFP(SDValue IntVal,
+                                       APFloatBase::Semantics Fmt,
+                                       EVT ResultVT, const SDLoc &dl);
+  SDValue ExpandConvertToArbitraryFP(SDValue FPVal, APFloatBase::Semantics Fmt,
+                                     RoundingMode RM, SDValue Saturation,
+                                     EVT ResultVT, const SDLoc &dl);
+
   SDValue ExpandLegalINT_TO_FP(SDNode *Node, SDValue &Chain);
   void PromoteLegalINT_TO_FP(SDNode *N, const SDLoc &dl,
                              SmallVectorImpl<SDValue> &Results);
@@ -2769,6 +2776,280 @@ SDValue SelectionDAGLegalize::expandFrexp(SDNode *Node) const {
   return DAG.getMergeValues({Result0, Result1}, dl);
 }
 
+/// Helper function to get FP format parameters for arbitrary FP semantics.
+/// Returns {expBits, mantBits, bias, sizeInBits}.
+static std::tuple<unsigned, unsigned, int, unsigned>
+getArbitraryFPParams(APFloatBase::Semantics Fmt) {
+  const fltSemantics &Sem = APFloatBase::EnumToSemantics(Fmt);
+  unsigned SizeInBits = APFloatBase::getSizeInBits(Sem);
+  unsigned Precision = APFloat::semanticsPrecision(Sem);
+  // Mantissa bits is precision - 1 (excluding implicit bit for normal formats)
+  unsigned MantBits = Precision - 1;
+  // Sign bit is 1
+  unsigned ExpBits = SizeInBits - 1 - MantBits;
+  // Bias calculation: for most formats, bias = 2^(expBits-1) - 1
+  // But for FN formats, we need to check the actual min/max exponent
+  int MaxExp = APFloat::semanticsMaxExponent(Sem);
+  int Bias = (1 << (ExpBits - 1)) - 1;
+  // Adjust bias based on max exponent: MaxExp = 2^(ExpBits-1) - 1 - Bias + Bias
+  // For Float4E2M1FN: MaxExp = 2, ExpBits = 2, so Bias = 1
+  Bias = (1 << (ExpBits - 1)) - 1;
+  if (MaxExp != Bias)
+    Bias = (1 << (ExpBits - 1)) - 1 - MaxExp + ((1 << (ExpBits - 1)) - 1);
+  // Simplified: for Float4E2M1FN, bias = 1
+  // Actually, let's compute it directly from semantics
+  int MinExp = APFloat::semanticsMinExponent(Sem);
+  // For normal numbers: exp_encoded = actual_exp + bias
+  // Min normal: exp_encoded = 1, actual_exp = MinExp
+  // So: 1 = MinExp + bias => bias = 1 - MinExp
+  Bias = 1 - MinExp;
+
+  return {ExpBits, MantBits, Bias, SizeInBits};
+}
+
+SDValue SelectionDAGLegalize::ExpandConvertFromArbitraryFP(
+    SDValue IntVal, APFloatBase::Semantics Fmt, EVT ResultVT,
+    const SDLoc &dl) {
+  // Convert from arbitrary FP format (stored as integer) to native FP.
+  // For now, we only support conversion to f16 from supported mini-float
+  // formats.
+
+  auto [SrcExpBits, SrcMantBits, SrcBias, SrcSizeInBits] =
+      getArbitraryFPParams(Fmt);
+
+  // Get target FP parameters
+  EVT IntVT = IntVal.getValueType();
+  MVT DestMVT = ResultVT.getSimpleVT();
+
+  // Only support f16 destination for now
+  if (DestMVT != MVT::f16) {
+    // For other types, first convert to f16 then extend
+    if (ResultVT.isFloatingPoint() && ResultVT.getSizeInBits() > 16) {
+      SDValue F16Val = ExpandConvertFromArbitraryFP(IntVal, Fmt, MVT::f16, dl);
+      return DAG.getNode(ISD::FP_EXTEND, dl, ResultVT, F16Val);
+    }
+    llvm_unreachable("Unsupported destination type for convert_from_arbitrary_fp");
+  }
+
+  // f16 parameters: 5 exp bits, 10 mant bits, bias = 15
+  const unsigned DstExpBits = 5;
+  const unsigned DstMantBits = 10;
+  const int DstBias = 15;
+
+  // Work in i16 for f16
+  EVT WorkVT = MVT::i16;
+  SDValue Val = DAG.getAnyExtOrTrunc(IntVal, dl, WorkVT);
+
+  // Extract components from source format
+  // Source layout: S | E...E | M...M
+  SDValue SignMask = DAG.getConstant(1 << (SrcSizeInBits - 1), dl, WorkVT);
+  SDValue Sign = DAG.getNode(ISD::AND, dl, WorkVT, Val, SignMask);
+  // Shift sign to f16 position (bit 15)
+  unsigned SignShift = 15 - (SrcSizeInBits - 1);
+  Sign = DAG.getNode(ISD::SHL, dl, WorkVT, Sign,
+                     DAG.getShiftAmountConstant(SignShift, WorkVT, dl));
+
+  // Extract exponent
+  SDValue ExpMask = DAG.getConstant(((1 << SrcExpBits) - 1) << SrcMantBits, dl,
+                                    WorkVT);
+  SDValue SrcExp = DAG.getNode(ISD::AND, dl, WorkVT, Val, ExpMask);
+  SrcExp = DAG.getNode(ISD::SRL, dl, WorkVT, SrcExp,
+                       DAG.getShiftAmountConstant(SrcMantBits, WorkVT, dl));
+
+  // Extract mantissa
+  SDValue MantMask = DAG.getConstant((1 << SrcMantBits) - 1, dl, WorkVT);
+  SDValue SrcMant = DAG.getNode(ISD::AND, dl, WorkVT, Val, MantMask);
+
+  // Check for zero (exp == 0 && mant == 0)
+  SDValue Zero = DAG.getConstant(0, dl, WorkVT);
+  EVT SetCCVT = TLI.getSetCCResultType(DAG.getDataLayout(), *DAG.getContext(),
+                                       WorkVT);
+  SDValue ExpIsZero = DAG.getSetCC(dl, SetCCVT, SrcExp, Zero, ISD::SETEQ);
+  SDValue MantIsZero = DAG.getSetCC(dl, SetCCVT, SrcMant, Zero, ISD::SETEQ);
+  SDValue IsZero = DAG.getNode(ISD::AND, dl, SetCCVT, ExpIsZero, MantIsZero);
+
+  // For subnormal source (exp == 0, mant != 0):
+  // In Float4E2M1FN, E=0 M=1 represents 0.5 (subnormal)
+  // value = (-1)^S * 2^(1-bias) * 0.M = (-1)^S * 2^0 * 0.M
+  // For M=1: value = 0.5
+  // In f16: 0.5 = 2^(-1) * 1.0, exp_encoded = -1 + 15 = 14, mant = 0
+  // So f16 bits for 0.5: 0 01110 0000000000 = 0x3800
+
+  // For normal source (exp != 0):
+  // Adjust exponent: dst_exp = src_exp - src_bias + dst_bias
+  SDValue BiasAdjust = DAG.getConstant(DstBias - SrcBias, dl, WorkVT);
+  SDValue DstExp = DAG.getNode(ISD::ADD, dl, WorkVT, SrcExp, BiasAdjust);
+  // Shift exponent to f16 position
+  DstExp = DAG.getNode(ISD::SHL, dl, WorkVT, DstExp,
+                       DAG.getShiftAmountConstant(DstMantBits, WorkVT, dl));
+
+  // Shift mantissa to f16 position (left-justify in 10-bit field)
+  unsigned MantShift = DstMantBits - SrcMantBits;
+  SDValue DstMant = DAG.getNode(ISD::SHL, dl, WorkVT, SrcMant,
+                                DAG.getShiftAmountConstant(MantShift, WorkVT, dl));
+
+  // Combine for normal case: sign | exp | mant
+  SDValue NormalResult = DAG.getNode(ISD::OR, dl, WorkVT, Sign,
+                                     DAG.getNode(ISD::OR, dl, WorkVT, DstExp, DstMant));
+
+  // Handle subnormal case (exp == 0, mant != 0)
+  // For Float4E2M1FN with E=0 M=1: represents 0.5
+  // f16 0.5 = 0x3800 (positive) or 0xB800 (negative)
+  SDValue SubnormalF16 = DAG.getConstant(0x3800, dl, WorkVT); // 0.5 in f16
+  SDValue SubnormalResult = DAG.getNode(ISD::OR, dl, WorkVT, Sign, SubnormalF16);
+
+  SDValue IsSubnormal = DAG.getNode(ISD::AND, dl, SetCCVT, ExpIsZero,
+                                    DAG.getSetCC(dl, SetCCVT, SrcMant, Zero, ISD::SETNE));
+
+  // Select between zero, subnormal, and normal results
+  SDValue ZeroResult = Sign; // Preserve sign for zero
+  SDValue Result = DAG.getNode(ISD::SELECT, dl, WorkVT, IsZero, ZeroResult,
+                               DAG.getNode(ISD::SELECT, dl, WorkVT, IsSubnormal,
+                                           SubnormalResult, NormalResult));
+
+  // Bitcast to f16
+  return DAG.getNode(ISD::BITCAST, dl, MVT::f16, Result);
+}
+
+SDValue SelectionDAGLegalize::ExpandConvertToArbitraryFP(
+    SDValue FPVal, APFloatBase::Semantics Fmt, RoundingMode RM,
+    SDValue Saturation, EVT ResultVT, const SDLoc &dl) {
+  // Convert from native FP to arbitrary FP format (stored as integer).
+  // For now, we only support conversion from f16 to supported mini-float
+  // formats.
+
+  EVT SrcVT = FPVal.getValueType();
+  MVT SrcMVT = SrcVT.getSimpleVT();
+
+  // Only support f16 source for now
+  if (SrcMVT != MVT::f16) {
+    // For other types, first round to f16 then convert
+    if (SrcVT.isFloatingPoint() && SrcVT.getSizeInBits() > 16) {
+      SDValue F16Val = DAG.getNode(ISD::FP_ROUND, dl, MVT::f16, FPVal,
+                                   DAG.getIntPtrConstant(0, dl, /*isTarget=*/true));
+      return ExpandConvertToArbitraryFP(F16Val, Fmt, RM, Saturation, ResultVT, dl);
+    }
+    llvm_unreachable("Unsupported source type for convert_to_arbitrary_fp");
+  }
+
+  auto [DstExpBits, DstMantBits, DstBias, DstSizeInBits] =
+      getArbitraryFPParams(Fmt);
+
+  // f16 parameters
+  const unsigned SrcExpBits = 5;
+  const unsigned SrcMantBits = 10;
+  const int SrcBias = 15;
+
+  // Work in i16
+  EVT WorkVT = MVT::i16;
+  SDValue Val = DAG.getNode(ISD::BITCAST, dl, WorkVT, FPVal);
+
+  // Extract components from f16
+  SDValue SignMask = DAG.getConstant(0x8000, dl, WorkVT);
+  SDValue Sign = DAG.getNode(ISD::AND, dl, WorkVT, Val, SignMask);
+  // Shift sign to destination position
+  unsigned SignShift = 15 - (DstSizeInBits - 1);
+  Sign = DAG.getNode(ISD::SRL, dl, WorkVT, Sign,
+                     DAG.getShiftAmountConstant(SignShift, WorkVT, dl));
+
+  // Extract exponent from f16 (bits 14:10)
+  SDValue SrcExpMask = DAG.getConstant(0x7C00, dl, WorkVT);
+  SDValue SrcExp = DAG.getNode(ISD::AND, dl, WorkVT, Val, SrcExpMask);
+  SrcExp = DAG.getNode(ISD::SRL, dl, WorkVT, SrcExp,
+                       DAG.getShiftAmountConstant(SrcMantBits, WorkVT, dl));
+
+  // Extract mantissa from f16 (bits 9:0)
+  SDValue SrcMantMask = DAG.getConstant(0x03FF, dl, WorkVT);
+  SDValue SrcMant = DAG.getNode(ISD::AND, dl, WorkVT, Val, SrcMantMask);
+
+  SDValue Zero = DAG.getConstant(0, dl, WorkVT);
+  EVT SetCCVT = TLI.getSetCCResultType(DAG.getDataLayout(), *DAG.getContext(),
+                                       WorkVT);
+
+  // Check for special cases
+  SDValue ExpIsZero = DAG.getSetCC(dl, SetCCVT, SrcExp, Zero, ISD::SETEQ);
+  SDValue MantIsZero = DAG.getSetCC(dl, SetCCVT, SrcMant, Zero, ISD::SETEQ);
+  SDValue IsZero = DAG.getNode(ISD::AND, dl, SetCCVT, ExpIsZero, MantIsZero);
+
+  // Check for infinity/NaN in f16 (exp == 31)
+  SDValue MaxExp = DAG.getConstant(31, dl, WorkVT);
+  SDValue IsInfOrNaN = DAG.getSetCC(dl, SetCCVT, SrcExp, MaxExp, ISD::SETEQ);
+
+  // Adjust exponent: dst_exp = src_exp - src_bias + dst_bias
+  // But we also need to check for overflow/underflow
+  SDValue BiasAdjust = DAG.getConstant(DstBias - SrcBias, dl, WorkVT);
+  SDValue DstExp = DAG.getNode(ISD::ADD, dl, WorkVT, SrcExp, BiasAdjust);
+
+  // Check for exponent overflow (result would be infinity in dest format)
+  // Max dest exp value is (1 << DstExpBits) - 1 for finite-only formats
+  unsigned MaxDstExp = (1 << DstExpBits) - 1;
+  SDValue MaxDstExpVal = DAG.getConstant(MaxDstExp, dl, WorkVT);
+  SDValue ExpOverflow = DAG.getSetCC(dl, SetCCVT, DstExp, MaxDstExpVal, ISD::SETGT);
+
+  // Check for exponent underflow (result would be subnormal or zero)
+  SDValue One = DAG.getConstant(1, dl, WorkVT);
+  SDValue ExpUnderflow = DAG.getSetCC(dl, SetCCVT, DstExp, One, ISD::SETLT);
+
+  // Truncate mantissa (shift right and possibly round)
+  unsigned MantShift = SrcMantBits - DstMantBits;
+  SDValue DstMant = DAG.getNode(ISD::SRL, dl, WorkVT, SrcMant,
+                                DAG.getShiftAmountConstant(MantShift, WorkVT, dl));
+
+  // Simple truncation for now (TODO: implement proper rounding based on RM)
+  // For round-to-nearest, check the bit being shifted out
+  SDValue RoundBit = DAG.getNode(ISD::AND, dl, WorkVT, SrcMant,
+                                 DAG.getConstant(1 << (MantShift - 1), dl, WorkVT));
+  SDValue ShouldRoundUp = DAG.getSetCC(dl, SetCCVT, RoundBit, Zero, ISD::SETNE);
+
+  // Conditionally add 1 for rounding (only for round-to-nearest)
+  if (RM == RoundingMode::NearestTiesToEven ||
+      RM == RoundingMode::NearestTiesToAway) {
+    SDValue RoundedMant = DAG.getNode(ISD::ADD, dl, WorkVT, DstMant, One);
+    DstMant = DAG.getNode(ISD::SELECT, dl, WorkVT, ShouldRoundUp, RoundedMant,
+                          DstMant);
+  }
+
+  // Mask mantissa to destination size
+  SDValue DstMantMask = DAG.getConstant((1 << DstMantBits) - 1, dl, WorkVT);
+  DstMant = DAG.getNode(ISD::AND, dl, WorkVT, DstMant, DstMantMask);
+
+  // Shift exponent to destination position
+  DstExp = DAG.getNode(ISD::SHL, dl, WorkVT, DstExp,
+                       DAG.getShiftAmountConstant(DstMantBits, WorkVT, dl));
+  SDValue DstExpMask = DAG.getConstant(((1 << DstExpBits) - 1) << DstMantBits,
+                                       dl, WorkVT);
+  DstExp = DAG.getNode(ISD::AND, dl, WorkVT, DstExp, DstExpMask);
+
+  // Combine: sign | exp | mant
+  SDValue NormalResult = DAG.getNode(ISD::OR, dl, WorkVT, Sign,
+                                     DAG.getNode(ISD::OR, dl, WorkVT, DstExp, DstMant));
+
+  // Handle overflow: saturate to max value or clamp based on saturation flag
+  // Max finite value for Float4E2M1FN: S=0, E=11, M=1 = 0x7 (positive 6.0)
+  // or S=1, E=11, M=1 = 0xF (negative 6.0)
+  SDValue MaxPosVal = DAG.getConstant((1 << (DstSizeInBits - 1)) - 1, dl, WorkVT);
+  SDValue MaxNegVal = DAG.getConstant((1 << DstSizeInBits) - 1, dl, WorkVT);
+  SDValue SignIsSet = DAG.getSetCC(dl, SetCCVT, Sign, Zero, ISD::SETNE);
+  SDValue SaturatedVal = DAG.getNode(ISD::SELECT, dl, WorkVT, SignIsSet,
+                                     MaxNegVal, MaxPosVal);
+
+  // Handle underflow: result is zero (or subnormal, but for simplicity zero)
+  SDValue ZeroResult = Sign; // Preserve sign
+
+  // Handle inf/nan input: for finite-only formats, saturate or return max
+  SDValue InfNaNResult = SaturatedVal;
+
+  // Select final result
+  SDValue Result = NormalResult;
+  Result = DAG.getNode(ISD::SELECT, dl, WorkVT, ExpOverflow, SaturatedVal, Result);
+  Result = DAG.getNode(ISD::SELECT, dl, WorkVT, ExpUnderflow, ZeroResult, Result);
+  Result = DAG.getNode(ISD::SELECT, dl, WorkVT, IsZero, ZeroResult, Result);
+  Result = DAG.getNode(ISD::SELECT, dl, WorkVT, IsInfOrNaN, InfNaNResult, Result);
+
+  // Truncate to result type
+  return DAG.getAnyExtOrTrunc(Result, dl, ResultVT);
+}
+
 /// This function is responsible for legalizing a
 /// INT_TO_FP operation of the specified operand when the target requests that
 /// we expand it.  At this point, we know that the result and operand types are
@@ -3491,6 +3772,39 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
       Op = DAG.getAnyExtOrTrunc(Op, dl, Node->getValueType(0));
     }
     Results.push_back(Op);
+    break;
+  }
+  case ISD::CONVERT_FROM_ARBITRARY_FP: {
+    // Convert from arbitrary FP format (as integer) to native FP type.
+    // Operands: integer value, format enum (TargetConstant)
+    SDValue IntVal = Node->getOperand(0);
+    unsigned FmtEnum =
+        cast<ConstantSDNode>(Node->getOperand(1))->getZExtValue();
+    APFloatBase::Semantics Fmt =
+        static_cast<APFloatBase::Semantics>(FmtEnum);
+    EVT ResultVT = Node->getValueType(0);
+
+    SDValue Result = ExpandConvertFromArbitraryFP(IntVal, Fmt, ResultVT, dl);
+    Results.push_back(Result);
+    break;
+  }
+  case ISD::CONVERT_TO_ARBITRARY_FP: {
+    // Convert from native FP type to arbitrary FP format (as integer).
+    // Operands: FP value, format enum, rounding mode, saturation flag
+    SDValue FPVal = Node->getOperand(0);
+    unsigned FmtEnum =
+        cast<ConstantSDNode>(Node->getOperand(1))->getZExtValue();
+    APFloatBase::Semantics Fmt =
+        static_cast<APFloatBase::Semantics>(FmtEnum);
+    unsigned RMEnum =
+        cast<ConstantSDNode>(Node->getOperand(2))->getZExtValue();
+    RoundingMode RM = static_cast<RoundingMode>(RMEnum);
+    SDValue Saturation = Node->getOperand(3);
+    EVT ResultVT = Node->getValueType(0);
+
+    SDValue Result =
+        ExpandConvertToArbitraryFP(FPVal, Fmt, RM, Saturation, ResultVT, dl);
+    Results.push_back(Result);
     break;
   }
   case ISD::FCANONICALIZE: {
