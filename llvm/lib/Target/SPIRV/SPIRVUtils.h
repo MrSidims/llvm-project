@@ -588,8 +588,23 @@ getSpirvLinkageTypeFor(const SPIRVSubtarget &ST, const GlobalValue &GV);
 // Expand integer dot product to multiply and add operations.
 // Used when OpSDot/OpUDot are not available (SPIRV < 1.6 without
 // SPV_KHR_integer_dot_product extension).
+// IsVec0Signed/IsVec1Signed indicate whether each vector's elements should be
+// sign-extended (true) or zero-extended (false) when element type is narrower
+// than the result type.
 bool generateIntegerDotExpansion(MachineIRBuilder &MIRBuilder, Register ResVReg,
                                  Register Vec0, Register Vec1,
-                                 SPIRVGlobalRegistry *GR);
+                                 SPIRVGlobalRegistry *GR, bool IsVec0Signed,
+                                 bool IsVec1Signed);
+
+// Expand a packed 4x8-bit integer dot product operation when native
+// OpSDot/OpUDot/OpSUDot instructions are not available. Uses bit field
+// extraction to get each byte, extends to result type, multiplies, and
+// accumulates.
+bool generateIntegerDotPackedExpansion(MachineIRBuilder &MIRBuilder,
+                                       Register ResVReg, Register Packed0,
+                                       Register Packed1, Register AccReg,
+                                       SPIRVGlobalRegistry *GR,
+                                       bool IsPacked0Signed,
+                                       bool IsPacked1Signed);
 } // namespace llvm
 #endif // LLVM_LIB_TARGET_SPIRV_SPIRVUTILS_H

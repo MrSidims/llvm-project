@@ -1850,12 +1850,52 @@ static bool generateDotOrFMulInst(const StringRef DemangledCall,
       ST->canUseExtension(SPIRV::Extension::SPV_KHR_integer_dot_product) ||
       ST->isAtLeastSPIRVVer(VersionTuple(1, 6));
 
-  // For integer vectors without native OpSDot/OpUDot support, expand to
-  // element-wise multiply and add.
-  if (IsInt && IsVec && !HasIntDotOps)
+  // Determine signedness for integer dot products.
+  bool IsFirstSigned = true;
+  bool IsSecondSigned = true;
+  if (IsInt && IsVec) {
+    LLVMContext &Ctx = MIRBuilder.getContext();
+    SmallVector<StringRef, 10> TypeStrs;
+    SPIRV::parseBuiltinTypeStr(TypeStrs, DemangledCall, Ctx);
+    IsFirstSigned = TypeStrs.size() > 0 && TypeStrs[0].trim()[0] != 'u';
+    IsSecondSigned = TypeStrs.size() > 1 && TypeStrs[1].trim()[0] != 'u';
+  }
+
+  // For integer vectors without native OpSDot/OpUDot support, expand directly
+  // to element-wise multiply and accumulate. This is done here (not via
+  // intrinsics) to avoid DCE issues during instruction selection.
+  if (IsInt && IsVec && !HasIntDotOps) {
     return generateIntegerDotExpansion(MIRBuilder, Call->ReturnRegister,
                                        Call->Arguments[0], Call->Arguments[1],
-                                       GR);
+                                       GR, IsFirstSigned, IsSecondSigned);
+  }
+
+  // Handle packed 4x8 format without native support by expanding to
+  // bit field extraction, multiply, and accumulate.
+  bool IsPacked = Call->Builtin->Name.contains("4x8packed");
+  if (IsInt && !IsVec && IsPacked && !HasIntDotOps) {
+    // Determine signedness from builtin name:
+    // _ss_ = signed-signed, _uu_ = unsigned-unsigned
+    // _su_ = signed-unsigned, _us_ = unsigned-signed
+    StringRef Name = Call->Builtin->Name;
+    bool IsSignedFirst = Name.contains("_ss_") || Name.contains("_su_");
+    bool IsSignedSecond = Name.contains("_ss_") || Name.contains("_us_");
+
+    // Get or create zero constant for accumulator if not provided
+    Register AccReg;
+    if (Call->Arguments.size() >= 3) {
+      // dot_acc_sat_4x8packed_* has accumulator as third argument
+      AccReg = Call->Arguments[2];
+    } else {
+      // dot_4x8packed_* needs zero accumulator
+      SPIRVType *ResType = GR->getSPIRVTypeForVReg(Call->ReturnRegister);
+      AccReg = GR->buildConstantInt(0, MIRBuilder, ResType, false);
+    }
+
+    return generateIntegerDotPackedExpansion(
+        MIRBuilder, Call->ReturnRegister, Call->Arguments[0], Call->Arguments[1],
+        AccReg, GR, IsSignedFirst, IsSignedSecond);
+  }
 
   // Use OpDot only in case of vector args and OpFMul in case of scalar args.
   uint32_t OC = IsVec ? SPIRV::OpDot : SPIRV::OpFMulS;
@@ -1871,12 +1911,6 @@ static bool generateDotOrFMulInst(const StringRef DemangledCall,
     } else if (IsVec) {
       // Handling "dot" and "dot_acc_sat" builtins which use vectors of
       // integers.
-      LLVMContext &Ctx = MIRBuilder.getContext();
-      SmallVector<StringRef, 10> TypeStrs;
-      SPIRV::parseBuiltinTypeStr(TypeStrs, DemangledCall, Ctx);
-      bool IsFirstSigned = TypeStrs.size() > 0 && TypeStrs[0].trim()[0] != 'u';
-      bool IsSecondSigned = TypeStrs.size() > 1 && TypeStrs[1].trim()[0] != 'u';
-
       if (Call->BuiltinName == "dot") {
         if (IsFirstSigned && IsSecondSigned)
           OC = SPIRV::OpSDot;

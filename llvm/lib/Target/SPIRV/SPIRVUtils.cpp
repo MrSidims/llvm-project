@@ -1200,52 +1200,214 @@ getSpirvLinkageTypeFor(const SPIRVSubtarget &ST, const GlobalValue &GV) {
 
 bool generateIntegerDotExpansion(MachineIRBuilder &MIRBuilder, Register ResVReg,
                                  Register Vec0, Register Vec1,
-                                 SPIRVGlobalRegistry *GR) {
+                                 SPIRVGlobalRegistry *GR, bool IsVec0Signed,
+                                 bool IsVec1Signed) {
   // Expand integer dot product to element-wise multiply and sum:
   //   dot(a, b) = a[0]*b[0] + a[1]*b[1] + ... + a[n-1]*b[n-1]
+  // Per SPIR-V spec, elements are sign/zero-extended to result width before
+  // multiplication to avoid overflow.
   MachineRegisterInfo *MRI = MIRBuilder.getMRI();
   SPIRVType *VecType = GR->getSPIRVTypeForVReg(Vec0);
   SPIRVType *ResType = GR->getSPIRVTypeForVReg(ResVReg);
+  SPIRVType *ElemType = GR->getScalarOrVectorComponentType(VecType);
 
   assert(VecType && VecType->getOpcode() == SPIRV::OpTypeVector &&
          "Expected vector type for integer dot product");
   unsigned NumComponents = GR->getScalarOrVectorComponentCount(VecType);
   assert(NumComponents > 1 && "dot product requires vector of at least 2");
 
-  // Multiply the vectors element-wise.
-  Register TmpVec = MRI->createVirtualRegister(GR->getRegClass(VecType));
-  MIRBuilder.buildInstr(SPIRV::OpIMulV)
-      .addDef(TmpVec)
-      .addUse(GR->getSPIRVTypeID(VecType))
-      .addUse(Vec0)
-      .addUse(Vec1);
+  unsigned ElemBitWidth = GR->getScalarOrVectorBitWidth(ElemType);
+  unsigned ResBitWidth = GR->getScalarOrVectorBitWidth(ResType);
+  bool NeedsExtension = ElemBitWidth < ResBitWidth;
 
-  // Extract first element as initial sum.
-  Register Sum = MRI->createVirtualRegister(GR->getRegClass(ResType));
-  MIRBuilder.buildInstr(SPIRV::OpCompositeExtract)
-      .addDef(Sum)
-      .addUse(GR->getSPIRVTypeID(ResType))
-      .addUse(TmpVec)
-      .addImm(0);
+  // Optimized path when element type matches result type: use vector multiply
+  // then extract and sum. This avoids per-element extraction before multiply.
+  if (!NeedsExtension) {
+    // Multiply the vectors element-wise.
+    Register TmpVec = MRI->createVirtualRegister(GR->getRegClass(VecType));
+    MIRBuilder.buildInstr(SPIRV::OpIMulV)
+        .addDef(TmpVec)
+        .addUse(GR->getSPIRVTypeID(VecType))
+        .addUse(Vec0)
+        .addUse(Vec1);
 
-  // Extract remaining elements and add to sum.
-  for (unsigned i = 1; i < NumComponents; ++i) {
-    Register Elt = MRI->createVirtualRegister(GR->getRegClass(ResType));
+    // Extract first element as initial sum.
+    Register Sum = MRI->createVirtualRegister(GR->getRegClass(ResType));
     MIRBuilder.buildInstr(SPIRV::OpCompositeExtract)
-        .addDef(Elt)
+        .addDef(Sum)
         .addUse(GR->getSPIRVTypeID(ResType))
         .addUse(TmpVec)
-        .addImm(i);
+        .addImm(0);
 
-    Register NewSum =
-        (i == NumComponents - 1)
-            ? ResVReg
-            : MRI->createVirtualRegister(GR->getRegClass(ResType));
+    // Extract remaining elements and add to sum.
+    for (unsigned i = 1; i < NumComponents; ++i) {
+      Register Elt = MRI->createVirtualRegister(GR->getRegClass(ResType));
+      MIRBuilder.buildInstr(SPIRV::OpCompositeExtract)
+          .addDef(Elt)
+          .addUse(GR->getSPIRVTypeID(ResType))
+          .addUse(TmpVec)
+          .addImm(i);
+
+      Register NewSum = (i == NumComponents - 1)
+                            ? ResVReg
+                            : MRI->createVirtualRegister(GR->getRegClass(ResType));
+      MIRBuilder.buildInstr(SPIRV::OpIAddS)
+          .addDef(NewSum)
+          .addUse(GR->getSPIRVTypeID(ResType))
+          .addUse(Sum)
+          .addUse(Elt);
+      Sum = NewSum;
+    }
+    return true;
+  }
+
+  // Path for when extension is needed: extract elements, extend to result
+  // width, multiply, and sum. This correctly handles cases like <4 x i8> -> i32
+  // where we need to sign/zero extend before multiplication.
+  auto ExtractAndExtend = [&](Register Vec, unsigned Idx,
+                              bool IsSigned) -> Register {
+    Register Elt = MRI->createVirtualRegister(GR->getRegClass(ElemType));
+    MIRBuilder.buildInstr(SPIRV::OpCompositeExtract)
+        .addDef(Elt)
+        .addUse(GR->getSPIRVTypeID(ElemType))
+        .addUse(Vec)
+        .addImm(Idx);
+
+    // Extend to result type width.
+    Register Extended = MRI->createVirtualRegister(GR->getRegClass(ResType));
+    unsigned ExtOp = IsSigned ? SPIRV::OpSConvert : SPIRV::OpUConvert;
+    MIRBuilder.buildInstr(ExtOp)
+        .addDef(Extended)
+        .addUse(GR->getSPIRVTypeID(ResType))
+        .addUse(Elt);
+    return Extended;
+  };
+
+  // Compute the dot product by extracting, extending, multiplying, and summing.
+  Register Sum;
+  for (unsigned i = 0; i < NumComponents; ++i) {
+    Register A = ExtractAndExtend(Vec0, i, IsVec0Signed);
+    Register B = ExtractAndExtend(Vec1, i, IsVec1Signed);
+
+    // Multiply extended elements.
+    Register Product = MRI->createVirtualRegister(GR->getRegClass(ResType));
+    MIRBuilder.buildInstr(SPIRV::OpIMulS)
+        .addDef(Product)
+        .addUse(GR->getSPIRVTypeID(ResType))
+        .addUse(A)
+        .addUse(B);
+
+    if (i == 0) {
+      Sum = Product;
+    } else {
+      // Add to running sum.
+      Register NewSum = (i == NumComponents - 1)
+                            ? ResVReg
+                            : MRI->createVirtualRegister(GR->getRegClass(ResType));
+      MIRBuilder.buildInstr(SPIRV::OpIAddS)
+          .addDef(NewSum)
+          .addUse(GR->getSPIRVTypeID(ResType))
+          .addUse(Sum)
+          .addUse(Product);
+      Sum = NewSum;
+    }
+  }
+
+  // For single-component vectors, copy the product to the result register.
+  if (NumComponents == 1) {
+    MIRBuilder.buildCopy(ResVReg, Sum);
+  }
+
+  return true;
+}
+
+bool generateIntegerDotPackedExpansion(MachineIRBuilder &MIRBuilder,
+                                       Register ResVReg, Register Packed0,
+                                       Register Packed1, Register AccReg,
+                                       SPIRVGlobalRegistry *GR,
+                                       bool IsPacked0Signed,
+                                       bool IsPacked1Signed) {
+  // Expand packed 4x8-bit integer dot product:
+  //   dot(a, b) = a[byte0]*b[byte0] + a[byte1]*b[byte1] + ...
+  // Each byte is extracted using shift and mask operations (to avoid
+  // requiring the Shader capability that bit field ops need), then
+  // sign/zero extended to result width, multiplied, and accumulated.
+
+  MachineRegisterInfo *MRI = MIRBuilder.getMRI();
+  SPIRVType *ResType = GR->getSPIRVTypeForVReg(ResVReg);
+
+  // Create constants for shift amounts and mask
+  Register Shift24 = GR->buildConstantInt(24, MIRBuilder, ResType, false);
+  Register Mask8 = GR->buildConstantInt(0xFF, MIRBuilder, ResType, false);
+  SmallVector<Register, 4> ShiftAmounts;
+  for (unsigned i = 0; i < 4; ++i) {
+    ShiftAmounts.push_back(
+        GR->buildConstantInt(i * 8, MIRBuilder, ResType, false));
+  }
+
+  auto ExtractByte = [&](Register Packed, unsigned ByteIdx,
+                         bool IsSigned) -> Register {
+    if (IsSigned) {
+      // For signed: shift left to high position, then arithmetic shift right
+      // to sign-extend. shift_left = (24 - offset), then shift_right = 24
+      Register ShiftLeft = GR->buildConstantInt(24 - ByteIdx * 8, MIRBuilder,
+                                                ResType, false);
+      Register Shifted = MRI->createVirtualRegister(GR->getRegClass(ResType));
+      MIRBuilder.buildInstr(SPIRV::OpShiftLeftLogicalS)
+          .addDef(Shifted)
+          .addUse(GR->getSPIRVTypeID(ResType))
+          .addUse(Packed)
+          .addUse(ShiftLeft);
+
+      Register Extended = MRI->createVirtualRegister(GR->getRegClass(ResType));
+      MIRBuilder.buildInstr(SPIRV::OpShiftRightArithmeticS)
+          .addDef(Extended)
+          .addUse(GR->getSPIRVTypeID(ResType))
+          .addUse(Shifted)
+          .addUse(Shift24);
+      return Extended;
+    } else {
+      // For unsigned: shift right by offset, then mask with 0xFF
+      Register Shifted = MRI->createVirtualRegister(GR->getRegClass(ResType));
+      MIRBuilder.buildInstr(SPIRV::OpShiftRightLogicalS)
+          .addDef(Shifted)
+          .addUse(GR->getSPIRVTypeID(ResType))
+          .addUse(Packed)
+          .addUse(ShiftAmounts[ByteIdx]);
+
+      Register Masked = MRI->createVirtualRegister(GR->getRegClass(ResType));
+      MIRBuilder.buildInstr(SPIRV::OpBitwiseAndS)
+          .addDef(Masked)
+          .addUse(GR->getSPIRVTypeID(ResType))
+          .addUse(Shifted)
+          .addUse(Mask8);
+      return Masked;
+    }
+  };
+
+  // Start with accumulator
+  Register Sum = AccReg;
+
+  for (unsigned i = 0; i < 4; ++i) {
+    Register A = ExtractByte(Packed0, i, IsPacked0Signed);
+    Register B = ExtractByte(Packed1, i, IsPacked1Signed);
+
+    // Multiply extracted bytes
+    Register Product = MRI->createVirtualRegister(GR->getRegClass(ResType));
+    MIRBuilder.buildInstr(SPIRV::OpIMulS)
+        .addDef(Product)
+        .addUse(GR->getSPIRVTypeID(ResType))
+        .addUse(A)
+        .addUse(B);
+
+    // Add to running sum
+    Register NewSum = (i == 3) ? ResVReg
+                               : MRI->createVirtualRegister(GR->getRegClass(ResType));
     MIRBuilder.buildInstr(SPIRV::OpIAddS)
         .addDef(NewSum)
         .addUse(GR->getSPIRVTypeID(ResType))
         .addUse(Sum)
-        .addUse(Elt);
+        .addUse(Product);
     Sum = NewSum;
   }
 
