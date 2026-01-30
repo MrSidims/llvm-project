@@ -1462,6 +1462,8 @@ SDValue AMDGPUTargetLowering::LowerOperation(SDValue Op,
   case ISD::CTLZ:
   case ISD::CTLZ_ZERO_UNDEF:
     return LowerCTLZ_CTTZ(Op, DAG);
+  case ISD::CTLS:
+    return LowerCTLS(Op, DAG);
   case ISD::DYNAMIC_STACKALLOC: return LowerDYNAMIC_STACKALLOC(Op, DAG);
   }
   return Op;
@@ -3285,6 +3287,17 @@ SDValue AMDGPUTargetLowering::LowerCTLZ_CTTZ(SDValue Op, SelectionDAG &DAG) cons
   return DAG.getNode(ISD::ZERO_EXTEND, SL, MVT::i64, NewOpr);
 }
 
+SDValue AMDGPUTargetLowering::LowerCTLS(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc SL(Op);
+  SDValue Src = Op.getOperand(0);
+  unsigned BitWidth = Src.getValueType().getScalarSizeInBits();
+  SDValue Ffbh = DAG.getNode(AMDGPUISD::FFBH_I32, SL, MVT::i32, Src);
+  SDValue Clamped = DAG.getNode(ISD::UMIN, SL, MVT::i32, Ffbh,
+                                DAG.getConstant(BitWidth, SL, MVT::i32));
+  return DAG.getNode(ISD::SUB, SL, MVT::i32, Clamped,
+                     DAG.getConstant(1, SL, MVT::i32));
+}
+
 SDValue AMDGPUTargetLowering::LowerINT_TO_FP32(SDValue Op, SelectionDAG &DAG,
                                                bool Signed) const {
   // The regular method converting a 64-bit integer to float roughly consists of
@@ -3349,7 +3362,7 @@ SDValue AMDGPUTargetLowering::LowerINT_TO_FP32(SDValue Op, SelectionDAG &DAG,
         DAG.getNode(ISD::ADD, SL, MVT::i32, DAG.getConstant(32, SL, MVT::i32),
                     OppositeSign);
     // Count the leading sign bits.
-    ShAmt = DAG.getNode(ISD::CTLS, SL, MVT::i32, Hi);
+    ShAmt = DAG.getNode(AMDGPUISD::FFBH_I32, SL, MVT::i32, Hi);
     // Different from unsigned conversion, the shift should be one bit less to
     // preserve the sign bit.
     ShAmt = DAG.getNode(ISD::SUB, SL, MVT::i32, ShAmt,
