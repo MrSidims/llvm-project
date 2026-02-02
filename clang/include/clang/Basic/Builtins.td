@@ -5399,3 +5399,9 @@ def CountedByRef : Builtin {
   let Attributes = [NoThrow, CustomTypeChecking];
   let Prototype = "int(...)";
 }
+
+def ConvertFromArbitraryFP : Builtin {
+  let Spellings = ["__builtin_convert_from_arbitrary_fp"];
+  let Attributes = [NoThrow, Const];
+  let Prototype = "float(unsigned int, _Constant int)";
+}

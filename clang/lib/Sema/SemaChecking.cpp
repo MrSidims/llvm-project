@@ -2971,6 +2971,10 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (BuiltinConstantArgRange(TheCall, 1, 0, 3))
       return ExprError();
     break;
+  case Builtin::BI__builtin_convert_from_arbitrary_fp:
+    if (BuiltinConstantArgRange(TheCall, 1, 0, 4))
+      return ExprError();
+    break;
   case Builtin::BI__builtin_longjmp:
     if (BuiltinLongjmp(TheCall))
       return ExprError();
