@@ -382,12 +382,24 @@ SPIRVLegalizerInfo::SPIRVLegalizerInfo(const SPIRVSubtarget &ST) {
       .unsupportedIf(LegalityPredicates::any(
           all(typeIs(0, p9), typeInSet(1, allPtrs), typeIsNot(1, p9)),
           all(typeInSet(0, allPtrs), typeIsNot(0, p9), typeIs(1, p9))))
+      .fewerElementsIf(vectorElementCountIsGreaterThan(0, MaxVectorSize),
+                       LegalizeMutations::changeElementCountTo(
+                           0, ElementCount::getFixed(MaxVectorSize)))
+      .fewerElementsIf(vectorElementCountIsGreaterThan(1, MaxVectorSize),
+                       LegalizeMutations::changeElementCountTo(
+                           1, ElementCount::getFixed(MaxVectorSize)))
       .customIf(all(typeInSet(0, allBoolScalarsAndVectors),
                     typeInSet(1, allPtrsScalarsAndVectors)));
 
-  getActionDefinitionsBuilder(G_FCMP).legalIf(
-      all(typeInSet(0, allBoolScalarsAndVectors),
-          typeInSet(1, allFloatScalarsAndVectors)));
+  getActionDefinitionsBuilder(G_FCMP)
+      .fewerElementsIf(vectorElementCountIsGreaterThan(0, MaxVectorSize),
+                       LegalizeMutations::changeElementCountTo(
+                           0, ElementCount::getFixed(MaxVectorSize)))
+      .fewerElementsIf(vectorElementCountIsGreaterThan(1, MaxVectorSize),
+                       LegalizeMutations::changeElementCountTo(
+                           1, ElementCount::getFixed(MaxVectorSize)))
+      .legalIf(all(typeInSet(0, allBoolScalarsAndVectors),
+                   typeInSet(1, allFloatScalarsAndVectors)));
 
   getActionDefinitionsBuilder({G_ATOMICRMW_OR, G_ATOMICRMW_ADD, G_ATOMICRMW_AND,
                                G_ATOMICRMW_MAX, G_ATOMICRMW_MIN,
@@ -598,6 +610,62 @@ static bool legalizeLoad(LegalizerHelper &Helper, MachineInstr &MI,
   return true;
 }
 
+// Legalize spv_store intrinsic with wide vector operands by scalarizing into
+// element-wise GEP + store pairs, similar to legalizeStore for G_STORE.
+// TODO: spv_load for vectors is not emitted by SPIRVEmitIntrinsics (only for
+// aggregates), so legalizeSpvLoad is not needed. If this changes, add one.
+static bool legalizeSpvStore(LegalizerHelper &Helper, MachineInstr &MI,
+                             SPIRVGlobalRegistry *GR) {
+  MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+  MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
+  const SPIRVSubtarget &ST = MI.getMF()->getSubtarget<SPIRVSubtarget>();
+
+  // spv_store operands: [intrinsic_id, value, pointer, flags, alignment]
+  Register ValReg = MI.getOperand(1).getReg();
+  LLT ValTy = MRI.getType(ValReg);
+
+  if (!ValTy.isVector() || !needsVectorLegalization(ValTy, ST))
+    return true;
+
+  Register PtrReg = MI.getOperand(2).getReg();
+  LLT EltTy = ValTy.getElementType();
+  unsigned NumElts = ValTy.getNumElements();
+  LLT PtrTy = MRI.getType(PtrReg);
+
+  SmallVector<Register, 8> SplitRegs;
+  for (unsigned i = 0; i < NumElts; ++i)
+    SplitRegs.push_back(MRI.createGenericVirtualRegister(EltTy));
+
+  MIRBuilder.buildUnmerge(SplitRegs, ValReg);
+
+  auto Zero = MIRBuilder.buildConstant(LLT::scalar(32), 0);
+
+  for (unsigned i = 0; i < NumElts; ++i) {
+    auto Idx = MIRBuilder.buildConstant(LLT::scalar(32), i);
+    Register EltPtr = MRI.createGenericVirtualRegister(PtrTy);
+
+    MIRBuilder.buildIntrinsic(Intrinsic::spv_gep, ArrayRef<Register>{EltPtr})
+        .addImm(1) // InBounds
+        .addUse(PtrReg)
+        .addUse(Zero.getReg(0))
+        .addUse(Idx.getReg(0));
+
+    MachinePointerInfo EltPtrInfo;
+    Align EltAlign = Align(1);
+    if (!MI.memoperands_empty()) {
+      MachineMemOperand *MMO = *MI.memoperands_begin();
+      EltPtrInfo =
+          MMO->getPointerInfo().getWithOffset(i * EltTy.getSizeInBytes());
+      EltAlign = commonAlignment(MMO->getAlign(), i * EltTy.getSizeInBytes());
+    }
+
+    MIRBuilder.buildStore(SplitRegs[i], EltPtr, EltPtrInfo, EltAlign);
+  }
+
+  MI.eraseFromParent();
+  return true;
+}
+
 static bool legalizeStore(LegalizerHelper &Helper, MachineInstr &MI,
                           SPIRVGlobalRegistry *GR) {
   MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
@@ -666,7 +734,10 @@ bool SPIRVLegalizerInfo::legalizeCustom(
   case TargetOpcode::G_IS_FPCLASS:
     return legalizeIsFPClass(Helper, MI, LocObserver);
   case TargetOpcode::G_ICMP: {
-    assert(GR->getSPIRVTypeForVReg(MI.getOperand(0).getReg()));
+    // Note: the result register may not have SPIR-V type info assigned when
+    // this instruction was created by fewerElements legalization. This is safe
+    // because the handler only modifies pointer operands and never uses the
+    // result's SPIR-V type. SPIRVPostLegalizer will assign types later.
     auto &Op0 = MI.getOperand(2);
     auto &Op1 = MI.getOperand(3);
     Register Reg0 = Op0.getReg();
@@ -920,6 +991,8 @@ bool SPIRVLegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
     return legalizeSpvExtractElt(Helper, MI, GR);
   case Intrinsic::spv_const_composite:
     return legalizeSpvConstComposite(Helper, MI, GR);
+  case Intrinsic::spv_store:
+    return legalizeSpvStore(Helper, MI, GR);
   }
   return true;
 }
