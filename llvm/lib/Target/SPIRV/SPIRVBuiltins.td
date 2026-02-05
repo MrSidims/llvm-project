@@ -119,6 +119,7 @@ def : DemangledBuiltin<"__spirv_DotAccSat", OpenCL_std, IntegerDot, 3, 3>;
 def : DemangledBuiltin<"read_imagei", OpenCL_std, ReadImage, 2, 4>;
 def : DemangledBuiltin<"read_imageui", OpenCL_std, ReadImage, 2, 4>;
 def : DemangledBuiltin<"read_imagef", OpenCL_std, ReadImage, 2, 4>;
+def : DemangledBuiltin<"read_imageh", OpenCL_std, ReadImage, 2, 4>;
 def : DemangledBuiltin<"__spirv_ImageRead", OpenCL_std, ReadImage, 2, 0>;
 
 def : DemangledBuiltin<"write_imagef", OpenCL_std, WriteImage, 3, 4>;
@@ -1540,6 +1541,7 @@ defm : DemangledImageQueryBuiltin<"get_image_array_size", OpenCL_std, 3>;
 defm : DemangledNativeBuiltin<"get_image_num_samples", OpenCL_std, ImageMiscQuery, 1, 1, OpImageQuerySamples>;
 defm : DemangledNativeBuiltin<"get_image_num_mip_levels", OpenCL_std, ImageMiscQuery, 1, 1, OpImageQueryLevels>;
 defm : DemangledNativeBuiltin<"get_image_channel_data_type", OpenCL_std, ImageChannelDataTypes, 1, 1, OpImageQueryFormat>;
+defm : DemangledNativeBuiltin<"get_image_channel_order", OpenCL_std, ImageChannelDataTypes, 1, 1, OpImageQueryOrder>;
 
 //===----------------------------------------------------------------------===//
 // Class defining a "convert_destType<_sat><_roundingMode>" call record for

@@ -1670,21 +1670,28 @@ void addInstrRequirements(const MachineInstr &MI,
       }
     };
 
-    for (MachineInstr &UseInst : MRI.use_instructions(ResultReg)) {
-      unsigned Opc = UseInst.getOpcode();
+    // Collect registers to check: the OpImageQueryFormat result and any
+    // OpIAdd results (from the OpenCL enum offset adjustment).
+    SmallVector<Register, 2> RegsToCheck = {ResultReg};
+    for (unsigned Idx = 0; Idx < RegsToCheck.size(); ++Idx) {
+      for (MachineInstr &UseInst : MRI.use_instructions(RegsToCheck[Idx])) {
+        unsigned Opc = UseInst.getOpcode();
 
-      if (Opc == SPIRV::OpSwitch) {
-        for (const MachineOperand &Op : UseInst.operands())
-          if (Op.isImm())
-            CheckAndAddExtension(Op.getImm());
-      } else if (llvm::is_contained(CompareOps, Opc)) {
-        for (unsigned i = 1; i < UseInst.getNumOperands(); ++i) {
-          Register UseReg = UseInst.getOperand(i).getReg();
-          MachineInstr *ConstInst = MRI.getVRegDef(UseReg);
-          if (ConstInst && ConstInst->getOpcode() == SPIRV::OpConstantI) {
-            int64_t ImmVal = ConstInst->getOperand(2).getImm();
-            if (ImmVal)
-              CheckAndAddExtension(ImmVal);
+        if (Opc == SPIRV::OpIAddS || Opc == SPIRV::OpIAddV) {
+          RegsToCheck.push_back(UseInst.getOperand(0).getReg());
+        } else if (Opc == SPIRV::OpSwitch) {
+          for (const MachineOperand &Op : UseInst.operands())
+            if (Op.isImm())
+              CheckAndAddExtension(Op.getImm());
+        } else if (llvm::is_contained(CompareOps, Opc)) {
+          for (unsigned i = 1; i < UseInst.getNumOperands(); ++i) {
+            Register UseReg = UseInst.getOperand(i).getReg();
+            MachineInstr *ConstInst = MRI.getVRegDef(UseReg);
+            if (ConstInst && ConstInst->getOpcode() == SPIRV::OpConstantI) {
+              int64_t ImmVal = ConstInst->getOperand(2).getImm();
+              if (ImmVal)
+                CheckAndAddExtension(ImmVal);
+            }
           }
         }
       }

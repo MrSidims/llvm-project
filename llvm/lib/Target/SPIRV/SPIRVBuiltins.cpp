@@ -1083,11 +1083,37 @@ static bool buildImageChannelDataTypeInst(const SPIRV::IncomingCall *Call,
     return buildOpFromWrapper(MIRBuilder, Opcode, Call,
                               GR->getSPIRVTypeID(Call->ReturnType));
 
+  // OpenCL get_image_channel_data_type/get_image_channel_order return
+  // CL_* enum values which differ from SPIR-V ImageChannelDataType/
+  // ImageChannelOrder enum values by a constant offset. We emit
+  // OpImageQueryFormat/OpImageQueryOrder followed by OpIAdd with
+  // the appropriate offset to match the llvm-spirv convention.
+  constexpr unsigned OCLImageChannelDataTypeOffset = 0x10D0; // 4304
+  constexpr unsigned OCLImageChannelOrderOffset = 0x10B0;    // 4272
+  unsigned Offset = Opcode == SPIRV::OpImageQueryFormat
+                        ? OCLImageChannelDataTypeOffset
+                        : OCLImageChannelOrderOffset;
+
+  MachineRegisterInfo *MRI = MIRBuilder.getMRI();
+  Register QueryReg = MRI->createVirtualRegister(&SPIRV::iIDRegClass);
+  MRI->setType(QueryReg, LLT::scalar(32));
+  GR->assignSPIRVTypeToVReg(Call->ReturnType, QueryReg, MIRBuilder.getMF());
+
   auto MIB = MIRBuilder.buildInstr(Opcode)
-                 .addDef(Call->ReturnRegister)
+                 .addDef(QueryReg)
                  .addUse(GR->getSPIRVTypeID(Call->ReturnType));
   for (unsigned i = 0; i < Call->Arguments.size(); ++i)
     MIB.addUse(Call->Arguments[i]);
+
+  Register OffsetReg = GR->buildConstantInt(
+      Offset, MIRBuilder,
+      GR->getOrCreateSPIRVIntegerType(32, MIRBuilder), true);
+
+  MIRBuilder.buildInstr(SPIRV::OpIAddS)
+      .addDef(Call->ReturnRegister)
+      .addUse(GR->getSPIRVTypeID(Call->ReturnType))
+      .addUse(QueryReg)
+      .addUse(OffsetReg);
 
   return true;
 }
