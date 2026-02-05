@@ -67,6 +67,107 @@ static cl::list<std::string> SPVAllowUnknownIntrinsics(
              "provided, and only intrinsics carrying a listed prefix get "
              "emitted as described."),
     cl::value_desc("intrinsic_prefix_0,intrinsic_prefix_1"), cl::ValueOptional);
+
+static unsigned getAggregateNumFields(Type *Ty) {
+  if (auto *ST = dyn_cast<StructType>(Ty))
+    return ST->getNumElements();
+  if (auto *AT = dyn_cast<ArrayType>(Ty))
+    return AT->getNumElements();
+  llvm_unreachable("Expected aggregate type");
+}
+
+// Scalarize a select on aggregate type into per-field extractvalue + scalar
+// select + insertvalue chain. IRBuilder::CreateExtractValue constant-folds
+// aggregate constants (e.g. zeroinitializer -> i64 0), so no extractvalue
+// instructions are emitted for constant operands.
+static void scalarizeSelect(SelectInst *Sel) {
+  IRBuilder<> B(Sel);
+  Type *AggrTy = Sel->getType();
+  unsigned NumFields = getAggregateNumFields(AggrTy);
+  if (NumFields == 0)
+    return;
+  Value *Cond = Sel->getCondition();
+  Value *TV = Sel->getTrueValue();
+  Value *FV = Sel->getFalseValue();
+
+  Value *Result = PoisonValue::get(AggrTy);
+  for (unsigned I = 0; I < NumFields; I++) {
+    Value *TVField = B.CreateExtractValue(TV, I);
+    Value *FVField = B.CreateExtractValue(FV, I);
+    Value *SelField = B.CreateSelect(Cond, TVField, FVField);
+    Result = B.CreateInsertValue(Result, SelField, I);
+  }
+
+  Sel->replaceAllUsesWith(Result);
+  Sel->eraseFromParent();
+}
+
+// Scalarize a PHI on aggregate type into per-field scalar PHIs with
+// extractvalue from each incoming value (inserted before the predecessor's
+// terminator) and an insertvalue chain to reconstruct the aggregate (inserted
+// after the last PHI in the block). Constant incoming values are
+// constant-folded by IRBuilder::CreateExtractValue.
+static void scalarizePHI(PHINode *Phi) {
+  Type *AggrTy = Phi->getType();
+  unsigned NumFields = getAggregateNumFields(AggrTy);
+  if (NumFields == 0)
+    return;
+  unsigned NumIncoming = Phi->getNumIncomingValues();
+  BasicBlock *BB = Phi->getParent();
+
+  // First pass: create scalar PHIs (must come before any non-PHI).
+  SmallVector<PHINode *, 4> FieldPhis;
+  BasicBlock::iterator InsertIt = BB->getFirstNonPHIIt();
+  for (unsigned I = 0; I < NumFields; I++) {
+    Type *FieldTy = ExtractValueInst::getIndexedType(AggrTy, I);
+    PHINode *FieldPhi = PHINode::Create(FieldTy, NumIncoming, "", InsertIt);
+
+    for (unsigned J = 0; J < NumIncoming; J++) {
+      Value *InVal = Phi->getIncomingValue(J);
+      BasicBlock *InBB = Phi->getIncomingBlock(J);
+      IRBuilder<> PredB(InBB->getTerminator());
+      Value *Field = PredB.CreateExtractValue(InVal, I);
+      FieldPhi->addIncoming(Field, InBB);
+    }
+    FieldPhis.push_back(FieldPhi);
+  }
+
+  // Second pass: build insertvalue chain after all PHIs.
+  IRBuilder<> B(BB, BB->getFirstNonPHIIt());
+  Value *Result = PoisonValue::get(AggrTy);
+  for (unsigned I = 0; I < NumFields; I++)
+    Result = B.CreateInsertValue(Result, FieldPhis[I], I);
+
+  Phi->replaceAllUsesWith(Result);
+  Phi->eraseFromParent();
+}
+
+// Scalarize all aggregate-typed select and PHI instructions in F.
+// Repeats until no more remain, to handle nested aggregate types.
+static bool scalarizeAggregatePHIsAndSelects(Function &F) {
+  bool Changed = false;
+  bool Repeat = true;
+  while (Repeat) {
+    Repeat = false;
+    for (Instruction &I : make_early_inc_range(instructions(F))) {
+      if (auto *Sel = dyn_cast<SelectInst>(&I)) {
+        if (Sel->getType()->isAggregateType()) {
+          scalarizeSelect(Sel);
+          Repeat = true;
+          Changed = true;
+        }
+      } else if (auto *Phi = dyn_cast<PHINode>(&I)) {
+        if (Phi->getType()->isAggregateType()) {
+          scalarizePHI(Phi);
+          Repeat = true;
+          Changed = true;
+        }
+      }
+    }
+  }
+  return Changed;
+}
+
 } // namespace
 
 char SPIRVPrepareFunctions::ID = 0;
@@ -569,6 +670,12 @@ SPIRVPrepareFunctions::removeAggregateTypesFromSignature(Function *F) {
 
   CloneFunctionInto(NewF, F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Returns);
+  // CloneFunctionInto copies the body as-is but constants are not in VMap,
+  // so aggregate constants in PHI/select retain their original types while
+  // the function signature now uses i32. Scalarize them immediately so
+  // broken IR is never visible outside this function.
+  if (!NewF->isDeclaration())
+    scalarizeAggregatePHIsAndSelects(*NewF);
   NewF->takeName(F);
 
   addFunctionTypeMutation(
@@ -685,6 +792,14 @@ bool SPIRVPrepareFunctions::runOnModule(Module &M) {
       Changed = true;
     }
   }
+
+  // Scalarize aggregate-typed select/phi in non-cloned functions (e.g.
+  // kernels with aggregate selects). Cloned functions are already handled
+  // inside removeAggregateTypesFromSignature right after CloneFunctionInto.
+  for (auto &F : M)
+    if (!F.isDeclaration())
+      Changed |= scalarizeAggregatePHIsAndSelects(F);
+
   return Changed;
 }
 
