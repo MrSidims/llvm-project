@@ -293,9 +293,6 @@ struct Configuration {
   // Used for /print-symbol-order:
   StringRef printSymbolOrder;
 
-  // Used for /vfsoverlay:
-  std::unique_ptr<llvm::vfs::FileSystem> vfs;
-
   uint64_t align = 4096;
   uint64_t imageBase = -1;
   uint64_t fileAlign = 512;

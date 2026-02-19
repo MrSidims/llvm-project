@@ -14,6 +14,7 @@
 #include "PDB.h"
 #include "Symbols.h"
 #include "lld/Common/ErrorHandler.h"
+#include "lld/Common/Filesystem.h"
 #include "lld/Common/Memory.h"
 #include "lld/Common/Timer.h"
 #include "llvm/DebugInfo/DIContext.h"
@@ -1300,9 +1301,8 @@ void SymbolTable::assignExportOrdinals() {
 void SymbolTable::parseModuleDefs(StringRef path) {
   llvm::TimeTraceScope timeScope("Parse def file");
   std::unique_ptr<MemoryBuffer> mb =
-      CHECK(MemoryBuffer::getFile(path, /*IsText=*/false,
-                                  /*RequiresNullTerminator=*/false,
-                                  /*IsVolatile=*/true),
+      CHECK(lld::readFileVFS(ctx.vfs.get(), path, /*isText=*/false,
+                             /*requiresNullTerminator=*/false),
             "could not open " + path);
   COFFModuleDefinition m = check(parseCOFFModuleDefinition(
       mb->getMemBufferRef(), machine, ctx.config.mingw));

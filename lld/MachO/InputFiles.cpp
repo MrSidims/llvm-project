@@ -58,6 +58,7 @@
 
 #include "lld/Common/CommonLinkerContext.h"
 #include "lld/Common/DWARF.h"
+#include "lld/Common/Filesystem.h"
 #include "lld/Common/Reproduce.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/BinaryFormat/MachO.h"
@@ -218,7 +219,8 @@ std::optional<MemoryBufferRef> macho::readFile(StringRef path) {
     return entry->second;
 
   ErrorOr<std::unique_ptr<MemoryBuffer>> mbOrErr =
-      MemoryBuffer::getFile(path, false, /*RequiresNullTerminator=*/false);
+      lld::readFileVFS(lld::commonContext().vfs.get(), path, /*isText=*/false,
+                       /*requiresNullTerminator=*/false);
   if (std::error_code ec = mbOrErr.getError()) {
     error("cannot open " + path + ": " + ec.message());
     return std::nullopt;

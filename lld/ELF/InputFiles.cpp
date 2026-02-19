@@ -17,6 +17,7 @@
 #include "SyntheticSections.h"
 #include "Target.h"
 #include "lld/Common/DWARF.h"
+#include "lld/Common/Filesystem.h"
 #include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/LTO/LTO.h"
@@ -250,8 +251,8 @@ std::optional<MemoryBufferRef> elf::readFile(Ctx &ctx, StringRef path) {
   Log(ctx) << path;
   ctx.arg.dependencyFiles.insert(llvm::CachedHashString(path));
 
-  auto mbOrErr = MemoryBuffer::getFile(path, /*IsText=*/false,
-                                       /*RequiresNullTerminator=*/false);
+  auto mbOrErr = lld::readFileVFS(ctx.vfs.get(), path, /*isText=*/false,
+                                  /*requiresNullTerminator=*/false);
   if (auto ec = mbOrErr.getError()) {
     ErrAlways(ctx) << "cannot open " << path << ": " << ec.message();
     return std::nullopt;
@@ -390,7 +391,7 @@ static void addDependentLibrary(Ctx &ctx, StringRef specifier,
     ctx.driver.addFile(ctx.saver.save(*s), /*withLOption=*/true);
   else if (std::optional<std::string> s = findFromSearchPaths(ctx, specifier))
     ctx.driver.addFile(ctx.saver.save(*s), /*withLOption=*/true);
-  else if (fs::exists(specifier))
+  else if (lld::existsVFS(ctx.vfs.get(), specifier))
     ctx.driver.addFile(specifier, /*withLOption=*/false);
   else
     ErrAlways(ctx)

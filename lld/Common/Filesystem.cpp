@@ -15,9 +15,11 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Support/FileOutputBuffer.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Parallel.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TimeProfiler.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #if LLVM_ON_UNIX
 #include <unistd.h>
 #endif
@@ -154,4 +156,48 @@ std::unique_ptr<raw_fd_ostream> lld::openLTOOutputFile(StringRef file) {
   if (!ec)
     return fs;
   return openFile(file);
+}
+
+ErrorOr<std::unique_ptr<MemoryBuffer>>
+lld::readFileVFS(llvm::vfs::FileSystem *vfs, const Twine &path, bool isText,
+                 bool requiresNullTerminator) {
+  if (!vfs)
+    return MemoryBuffer::getFile(path, isText, requiresNullTerminator);
+
+  auto bufOrErr = vfs->getBufferForFile(path, /*FileSize=*/-1,
+                                        requiresNullTerminator,
+                                        /*IsVolatile=*/false, isText);
+  if (!bufOrErr)
+    return bufOrErr.getError();
+  return std::move(*bufOrErr);
+}
+
+bool lld::existsVFS(llvm::vfs::FileSystem *vfs, const Twine &path) {
+  if (!vfs)
+    return sys::fs::exists(path);
+  return vfs->exists(path);
+}
+
+IntrusiveRefCntPtr<llvm::vfs::FileSystem> lld::createVFSFromOverlay(
+    StringRef overlayPath,
+    IntrusiveRefCntPtr<llvm::vfs::FileSystem> baseFS,
+    function_ref<void(const Twine &)> errHandler) {
+  if (!baseFS)
+    baseFS = llvm::vfs::createPhysicalFileSystem();
+
+  auto bufOrErr = baseFS->getBufferForFile(overlayPath);
+  if (!bufOrErr) {
+    errHandler("cannot open VFS overlay file " + overlayPath + ": " +
+               bufOrErr.getError().message());
+    return baseFS;
+  }
+
+  auto fs = llvm::vfs::getVFSFromYAML(std::move(*bufOrErr),
+                                       /*DiagHandler=*/nullptr, overlayPath,
+                                       /*DiagContext=*/nullptr, baseFS);
+  if (!fs) {
+    errHandler("invalid VFS overlay file " + overlayPath);
+    return baseFS;
+  }
+  return fs;
 }

@@ -72,7 +72,7 @@ static lto::Config createConfig(Ctx &ctx) {
       c.Options.BBSections = BasicBlockSection::None;
     } else {
       ErrorOr<std::unique_ptr<MemoryBuffer>> MBOrErr =
-          MemoryBuffer::getFile(ctx.arg.ltoBasicBlockSections.str());
+          lld::readFileVFS(ctx.vfs.get(), ctx.arg.ltoBasicBlockSections.str());
       if (!MBOrErr) {
         ErrAlways(ctx) << "cannot open " << ctx.arg.ltoBasicBlockSections << ":"
                        << MBOrErr.getError().message();

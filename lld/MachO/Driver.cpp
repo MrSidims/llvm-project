@@ -26,6 +26,7 @@
 #include "lld/Common/Args.h"
 #include "lld/Common/CommonLinkerContext.h"
 #include "lld/Common/ErrorHandler.h"
+#include "lld/Common/Filesystem.h"
 #include "lld/Common/LLVM.h"
 #include "lld/Common/Memory.h"
 #include "lld/Common/Reproduce.h"
@@ -50,6 +51,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/TimeProfiler.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TextAPI/Architecture.h"
 #include "llvm/TextAPI/PackedVersion.h"
@@ -1709,9 +1711,12 @@ static SmallVector<StringRef, 0> getAllowableClients(opt::InputArgList &args) {
 namespace lld {
 namespace macho {
 bool link(ArrayRef<const char *> argsArr, llvm::raw_ostream &stdoutOS,
-          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput) {
+          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput,
+          llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs) {
   // This driver-specific context will be freed later by lldMain().
   auto *ctx = new CommonLinkerContext;
+
+  ctx->vfs = std::move(vfs);
 
   ctx->e.initialize(stdoutOS, stderrOS, exitEarly, disableOutput);
   ctx->e.cleanupCallback = []() {
@@ -1763,6 +1768,14 @@ bool link(ArrayRef<const char *> argsArr, llvm::raw_ostream &stdoutOS,
   if (args.hasArg(OPT_version)) {
     message(getLLDVersion());
     return true;
+  }
+
+  // Parse --vfs-overlay option.
+  if (auto *arg = args.getLastArg(OPT_vfs_overlay)) {
+    auto baseFS = ctx->vfs ? ctx->vfs : llvm::vfs::createPhysicalFileSystem();
+    ctx->vfs = lld::createVFSFromOverlay(
+        arg->getValue(), std::move(baseFS),
+        [](const Twine &msg) { error(msg); });
   }
 
   config = std::make_unique<Configuration>();

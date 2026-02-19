@@ -7,12 +7,12 @@
 
 # RUN: not lld-link %S/Inputs/hello64.obj /libpath:/noexist /out:%t.exe /entry:main /defaultlib:notstd64 /vfsoverlay:noexist 2>&1 \
 # RUN:   | FileCheck %s
-# CHECK: error: {{[Nn]}}o such file or directory
+# CHECK: error: cannot open VFS overlay file noexist:
 
 # RUN: echo "invalid yaml" > %t/badoverlay.yaml
 # RUN: not lld-link %S/Inputs/hello64.obj /libpath:/noexist /out:%t.exe /entry:main /defaultlib:notstd64 /vfsoverlay:%t/badoverlay.yaml 2>&1 \
 # RUN:   | FileCheck %s --check-prefix=BAD-OVERLAY
-# BAD-OVERLAY: error: Invalid vfs overlay
+# BAD-OVERLAY: error: invalid VFS overlay file
 
 #--- overlay.yaml.in
 {

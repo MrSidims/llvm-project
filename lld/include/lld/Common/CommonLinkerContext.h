@@ -21,7 +21,9 @@
 
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Memory.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/Support/StringSaver.h"
+#include "llvm/Support/VirtualFileSystem.h"
 
 namespace llvm {
 class raw_ostream;
@@ -42,6 +44,10 @@ public:
   llvm::DenseMap<void *, SpecificAllocBase *> instances;
 
   ErrorHandler e;
+
+  // Virtual file system for reading input files. When null, files are read
+  // directly from disk via MemoryBuffer::getFile().
+  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs;
 };
 
 // Retrieve the global state. Currently only one state can exist per process,

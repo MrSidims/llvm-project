@@ -31,6 +31,7 @@
 #include "llvm/Support/Process.h"
 #include "llvm/Support/TarWriter.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/TargetParser/Host.h"
 #include <optional>
 
@@ -69,6 +70,7 @@ void Ctx::reset() {
   isPic = false;
   legacyFunctionTable = false;
   emitBssSegments = false;
+  vfs = nullptr;
   sym = WasmSym{};
 }
 
@@ -126,9 +128,12 @@ static bool hasZOption(opt::InputArgList &args, StringRef key) {
 } // anonymous namespace
 
 bool link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
-          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput) {
+          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput,
+          llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs) {
   // This driver-specific context will be freed later by unsafeLldMain().
   auto *context = new CommonLinkerContext;
+
+  ctx.vfs = std::move(vfs);
 
   context->e.initialize(stdoutOS, stderrOS, exitEarly, disableOutput);
   context->e.cleanupCallback = []() { ctx.reset(); };
@@ -1317,6 +1322,14 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     v.push_back(arg->getValue());
   cl::ResetAllOptionOccurrences();
   cl::ParseCommandLineOptions(v.size(), v.data());
+
+  // Parse --vfs-overlay option.
+  if (auto *arg = args.getLastArg(OPT_vfs_overlay)) {
+    auto baseFS = ctx.vfs ? ctx.vfs : llvm::vfs::createPhysicalFileSystem();
+    ctx.vfs = lld::createVFSFromOverlay(
+        arg->getValue(), std::move(baseFS),
+        [](const Twine &msg) { error(msg); });
+  }
 
   readConfigs(args);
   setConfigs();

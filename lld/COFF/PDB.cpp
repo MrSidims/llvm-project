@@ -16,6 +16,7 @@
 #include "Symbols.h"
 #include "TypeMerger.h"
 #include "Writer.h"
+#include "lld/Common/Filesystem.h"
 #include "lld/Common/Timer.h"
 #include "llvm/DebugInfo/CodeView/DebugFrameDataSubsection.h"
 #include "llvm/DebugInfo/CodeView/DebugInlineeLinesSubsection.h"
@@ -1304,7 +1305,7 @@ void PDBLinker::addNatvisFiles() {
   llvm::TimeTraceScope timeScope("Natvis files");
   for (StringRef file : ctx.config.natvisFiles) {
     ErrorOr<std::unique_ptr<MemoryBuffer>> dataOrErr =
-        MemoryBuffer::getFile(file);
+        lld::readFileVFS(ctx.vfs.get(), file);
     if (!dataOrErr) {
       Warn(ctx) << "Cannot open input file: " << file;
       continue;
@@ -1326,7 +1327,7 @@ void PDBLinker::addNamedStreams() {
   for (const auto &streamFile : ctx.config.namedStreams) {
     const StringRef stream = streamFile.getKey(), file = streamFile.getValue();
     ErrorOr<std::unique_ptr<MemoryBuffer>> dataOrErr =
-        MemoryBuffer::getFile(file);
+        lld::readFileVFS(ctx.vfs.get(), file);
     if (!dataOrErr) {
       Warn(ctx) << "Cannot open input file: " << file;
       continue;

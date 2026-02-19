@@ -16,6 +16,7 @@
 #include "Driver.h"
 #include "Symbols.h"
 #include "lld/Common/ErrorHandler.h"
+#include "lld/Common/Filesystem.h"
 #include "lld/Common/Memory.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -219,7 +220,7 @@ void LinkerDriver::parseSectionLayout(StringRef path) {
   if (path.starts_with("@"))
     path = path.substr(1);
   std::unique_ptr<MemoryBuffer> layoutFile =
-      CHECK(MemoryBuffer::getFile(path), "could not open " + path);
+      CHECK(lld::readFileVFS(ctx.vfs.get(), path), "could not open " + path);
   StringRef content = layoutFile->getBuffer();
   int index = 0;
 
@@ -253,7 +254,7 @@ void LinkerDriver::parseSectionLayout(StringRef path) {
 
 void LinkerDriver::parseDosStub(StringRef path) {
   std::unique_ptr<MemoryBuffer> stub =
-      CHECK(MemoryBuffer::getFile(path), "could not open " + path);
+      CHECK(lld::readFileVFS(ctx.vfs.get(), path), "could not open " + path);
   size_t bufferSize = stub->getBufferSize();
   const char *bufferStart = stub->getBufferStart();
   // MS link.exe compatibility:

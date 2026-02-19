@@ -15,6 +15,7 @@
 #include "Config.h"
 #include "Driver.h"
 #include "lld/Common/CommonLinkerContext.h"
+#include "lld/Common/Filesystem.h"
 #include "lld/Common/Reproduce.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/CommandLine.h"
@@ -224,7 +225,7 @@ static std::optional<std::string> findFile(Ctx &ctx, StringRef path1,
   else
     path::append(s, path1, path2);
 
-  if (fs::exists(s))
+  if (lld::existsVFS(ctx.vfs.get(), s))
     return std::string(s);
   return std::nullopt;
 }
@@ -263,7 +264,7 @@ std::optional<std::string> elf::searchLibrary(Ctx &ctx, StringRef name) {
 // look for the script in the '-L' search paths. This matches the behaviour of
 // '-T', --version-script=, and linker script INPUT() command in ld.bfd.
 std::optional<std::string> elf::searchScript(Ctx &ctx, StringRef name) {
-  if (fs::exists(name))
+  if (lld::existsVFS(ctx.vfs.get(), name))
     return name.str();
   return findFromSearchPaths(ctx, name);
 }

@@ -64,6 +64,7 @@
 #include "llvm/Support/TarWriter.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TimeProfiler.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstdlib>
 #include <tuple>
@@ -116,10 +117,13 @@ llvm::raw_fd_ostream Ctx::openAuxiliaryFile(llvm::StringRef filename,
 namespace lld {
 namespace elf {
 bool link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
-          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput) {
+          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput,
+          llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs) {
   // This driver-specific context will be freed later by unsafeLldMain().
   auto *context = new Ctx;
   Ctx &ctx = *context;
+
+  ctx.vfs = std::move(vfs);
 
   context->e.initialize(stdoutOS, stderrOS, exitEarly, disableOutput);
   context->e.logName = args::getFilenameWithoutExe(args[0]);
@@ -698,6 +702,15 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     } else {
       ErrAlways(ctx) << "--reproduce: " << errOrWriter.takeError();
     }
+  }
+
+  // Parse --vfs-overlay option. Layer YAML overlay on top of any VFS provided
+  // by the library caller (or the real filesystem if none was provided).
+  if (auto *arg = args.getLastArg(OPT_vfs_overlay)) {
+    auto baseFS = ctx.vfs ? ctx.vfs : llvm::vfs::createPhysicalFileSystem();
+    ctx.vfs = lld::createVFSFromOverlay(
+        arg->getValue(), std::move(baseFS),
+        [&](const Twine &msg) { ErrAlways(ctx) << msg; });
   }
 
   readConfigs(ctx, args);

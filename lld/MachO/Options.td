@@ -108,6 +108,12 @@ def thinlto_cache_policy_eq: Joined<["--"], "thinlto-cache-policy=">,
     Group<grp_lld>;
 def O : JoinedOrSeparate<["-"], "O">,
     HelpText<"Optimize output file size">;
+def vfs_overlay: Separate<["--"], "vfs-overlay">,
+    HelpText<"Path to a YAML VFS overlay file">,
+    Group<grp_lld>;
+def vfs_overlay_eq: Joined<["--"], "vfs-overlay=">,
+    Alias<vfs_overlay>,
+    Group<grp_lld>;
 def start_lib: Flag<["--"], "start-lib">,
     HelpText<"Start a grouping of objects that should be treated as if they were together in an archive">;
 def end_lib: Flag<["--"], "end-lib">,

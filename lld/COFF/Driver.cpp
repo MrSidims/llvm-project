@@ -84,9 +84,12 @@ uint64_t coff::errCount(COFFLinkerContext &ctx) { return ctx.e.errorCount; }
 namespace lld::coff {
 
 bool link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
-          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput) {
+          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput,
+          llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs) {
   // This driver-specific context will be freed later by unsafeLldMain().
   auto *ctx = new COFFLinkerContext;
+
+  ctx->vfs = std::move(vfs);
 
   ctx->e.initialize(stdoutOS, stderrOS, exitEarly, disableOutput);
   ctx->e.logName = args::getFilenameWithoutExe(args[0]);
@@ -152,8 +155,9 @@ using MBErrPair = std::pair<std::unique_ptr<MemoryBuffer>, std::error_code>;
 
 // Create a std::future that opens and maps a file using the best strategy for
 // the host platform.
-static std::future<MBErrPair> createFutureForFile(std::string path,
-                                                  bool prefetchInputs) {
+static std::future<MBErrPair>
+createFutureForFile(std::string path, bool prefetchInputs,
+                    llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs) {
 #if _WIN64
   // On Windows, file I/O is relatively slow so it is best to do this
   // asynchronously.  But 32-bit has issues with potentially launching tons
@@ -162,9 +166,9 @@ static std::future<MBErrPair> createFutureForFile(std::string path,
 #else
   auto strategy = std::launch::deferred;
 #endif
-  return std::async(strategy, [=]() {
-    auto mbOrErr = MemoryBuffer::getFile(path, /*IsText=*/false,
-                                         /*RequiresNullTerminator=*/false);
+  return std::async(strategy, [=, vfs = std::move(vfs)]() {
+    auto mbOrErr = lld::readFileVFS(vfs.get(), path, /*isText=*/false,
+                                    /*requiresNullTerminator=*/false);
     if (!mbOrErr)
       return MBErrPair{nullptr, mbOrErr.getError()};
     // Prefetch memory pages in the background as we will need them soon enough.
@@ -365,8 +369,8 @@ void LinkerDriver::handleReproFile(StringRef path, InputOpt inputOpt) {
 }
 
 void LinkerDriver::enqueuePath(StringRef path, bool lazy, InputOpt inputOpt) {
-  auto future = std::make_shared<std::future<MBErrPair>>(
-      createFutureForFile(std::string(path), ctx.config.prefetchInputs));
+  auto future = std::make_shared<std::future<MBErrPair>>(createFutureForFile(
+      std::string(path), ctx.config.prefetchInputs, ctx.vfs));
   std::string pathStr = std::string(path);
   enqueueTask([=]() {
     llvm::TimeTraceScope timeScope("File: ", path);
@@ -380,8 +384,9 @@ void LinkerDriver::enqueuePath(StringRef path, bool lazy, InputOpt inputOpt) {
       // before something we can find with an architecture, we won't find the
       // winsysroot file.
       if (std::optional<StringRef> retryPath = findFileIfNew(pathStr)) {
-        auto retryMb = MemoryBuffer::getFile(*retryPath, /*IsText=*/false,
-                                             /*RequiresNullTerminator=*/false);
+        auto retryMb = lld::readFileVFS(ctx.vfs.get(), *retryPath,
+                                        /*isText=*/false,
+                                        /*requiresNullTerminator=*/false);
         ec = retryMb.getError();
         if (!ec) {
           mb = std::move(*retryMb);
@@ -487,7 +492,7 @@ void LinkerDriver::enqueueArchiveMember(const Archive::Child &c,
             "could not get the filename for the member defining symbol " +
                 toCOFFString(ctx, sym));
   auto future = std::make_shared<std::future<MBErrPair>>(
-      createFutureForFile(childName, ctx.config.prefetchInputs));
+      createFutureForFile(childName, ctx.config.prefetchInputs, ctx.vfs));
   enqueueTask([=]() {
     auto mbOrErr = future->get();
     if (mbOrErr.second)
@@ -632,8 +637,8 @@ void LinkerDriver::parseDirectives(InputFile *file) {
 // care of that. Note that the returned path is not guaranteed to exist.
 StringRef LinkerDriver::findFile(StringRef filename) {
   auto getFilename = [this](StringRef filename) -> StringRef {
-    if (ctx.config.vfs)
-      if (auto statOrErr = ctx.config.vfs->status(filename))
+    if (ctx.vfs)
+      if (auto statOrErr = ctx.vfs->status(filename))
         return saver().save(statOrErr->getName());
     return filename;
   };
@@ -645,12 +650,12 @@ StringRef LinkerDriver::findFile(StringRef filename) {
     SmallString<128> path = dir;
     sys::path::append(path, filename);
     path = SmallString<128>{getFilename(path.str())};
-    if (sys::fs::exists(path.str()))
+    if (lld::existsVFS(ctx.vfs.get(), path.str()))
       return saver().save(path.str());
     if (!hasExt) {
       path.append(".obj");
       path = SmallString<128>{getFilename(path.str())};
-      if (sys::fs::exists(path.str()))
+      if (lld::existsVFS(ctx.vfs.get(), path.str()))
         return saver().save(path.str());
     }
   }
@@ -1140,9 +1145,8 @@ void LinkerDriver::parseOrderFile(StringRef arg) {
   // Open a file.
   StringRef path = arg.substr(1);
   std::unique_ptr<MemoryBuffer> mb =
-      CHECK(MemoryBuffer::getFile(path, /*IsText=*/false,
-                                  /*RequiresNullTerminator=*/false,
-                                  /*IsVolatile=*/true),
+      CHECK(lld::readFileVFS(ctx.vfs.get(), path, /*isText=*/false,
+                             /*requiresNullTerminator=*/false),
             "could not open " + path);
 
   // Parse a file. An order file contains one symbol per line.
@@ -1168,9 +1172,8 @@ void LinkerDriver::parseOrderFile(StringRef arg) {
 
 void LinkerDriver::parseCallGraphFile(StringRef path) {
   std::unique_ptr<MemoryBuffer> mb =
-      CHECK(MemoryBuffer::getFile(path, /*IsText=*/false,
-                                  /*RequiresNullTerminator=*/false,
-                                  /*IsVolatile=*/true),
+      CHECK(lld::readFileVFS(ctx.vfs.get(), path, /*isText=*/false,
+                             /*requiresNullTerminator=*/false),
             "could not open " + path);
 
   // Build a map from symbol name to section.
@@ -1521,26 +1524,16 @@ std::optional<std::string> getReproduceFile(const opt::InputArgList &args) {
   return std::nullopt;
 }
 
-static std::unique_ptr<llvm::vfs::FileSystem>
-getVFS(COFFLinkerContext &ctx, const opt::InputArgList &args) {
-  using namespace llvm::vfs;
-
+static void parseVFSOverlay(COFFLinkerContext &ctx,
+                            const opt::InputArgList &args) {
   const opt::Arg *arg = args.getLastArg(OPT_vfsoverlay);
   if (!arg)
-    return nullptr;
+    return;
 
-  auto bufOrErr = llvm::MemoryBuffer::getFile(arg->getValue());
-  if (!bufOrErr) {
-    checkError(errorCodeToError(bufOrErr.getError()));
-    return nullptr;
-  }
-
-  if (auto ret = vfs::getVFSFromYAML(std::move(*bufOrErr),
-                                     /*DiagHandler*/ nullptr, arg->getValue()))
-    return ret;
-
-  Err(ctx) << "Invalid vfs overlay";
-  return nullptr;
+  auto baseFS = ctx.vfs ? ctx.vfs : llvm::vfs::createPhysicalFileSystem();
+  ctx.vfs = lld::createVFSFromOverlay(
+      arg->getValue(), std::move(baseFS),
+      [&](const Twine &msg) { Err(ctx) << msg; });
 }
 
 static StringRef DllDefaultEntryPoint(MachineTypes machine, bool mingw) {
@@ -1612,7 +1605,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     ctx.e.errorLimit = n;
   }
 
-  config->vfs = getVFS(ctx, args);
+  parseVFSOverlay(ctx, args);
 
   // Handle /help
   if (args.hasArg(OPT_help)) {

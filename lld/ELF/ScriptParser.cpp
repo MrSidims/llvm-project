@@ -21,6 +21,7 @@
 #include "SymbolTable.h"
 #include "Symbols.h"
 #include "Target.h"
+#include "lld/Common/Filesystem.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -316,7 +317,7 @@ void ScriptParser::addFile(StringRef s) {
   if (curBuf.isUnderSysroot && s.starts_with("/")) {
     SmallString<128> pathData;
     StringRef path = (ctx.arg.sysroot + s).toStringRef(pathData);
-    if (sys::fs::exists(path))
+    if (lld::existsVFS(ctx.vfs.get(), path))
       ctx.driver.addFile(ctx.saver.save(path), /*withLOption=*/false);
     else
       setError("cannot find " + s + " inside " + ctx.arg.sysroot);
@@ -343,13 +344,13 @@ void ScriptParser::addFile(StringRef s) {
     if (!directory.empty()) {
       SmallString<0> path(directory);
       sys::path::append(path, s);
-      if (sys::fs::exists(path)) {
+      if (lld::existsVFS(ctx.vfs.get(), path)) {
         ctx.driver.addFile(path, /*withLOption=*/false);
         return;
       }
     }
     // Then search in the current working directory.
-    if (sys::fs::exists(s)) {
+    if (lld::existsVFS(ctx.vfs.get(), s)) {
       ctx.driver.addFile(s, /*withLOption=*/false);
     } else {
       // Finally, search in the list of library paths.

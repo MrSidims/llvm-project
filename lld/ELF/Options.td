@@ -546,6 +546,8 @@ def power10_stubs: FF<"power10-stubs">, Alias<power10_stubs_eq>, AliasArgs<["yes
 def no_power10_stubs: FF<"no-power10-stubs">, Alias<power10_stubs_eq>, AliasArgs<["no"]>,
   HelpText<"Alias for --power10-stubs=no">;
 
+defm vfs_overlay: EEq<"vfs-overlay", "Path to a YAML VFS overlay file">;
+
 defm version_script: Eq<"version-script", "Read a version script">;
 
 defm warn_backrefs: BB<"warn-backrefs",

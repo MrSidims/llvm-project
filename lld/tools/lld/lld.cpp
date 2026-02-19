@@ -36,6 +36,7 @@
 #include "llvm/Support/LLVMDriver.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/PluginLoader.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/Process.h"
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/Triple.h"
@@ -53,7 +54,8 @@ extern bool inTestOutputDisabled;
 // LLD-as-lib scenarios.
 int unsafeLldMain(llvm::ArrayRef<const char *> args,
                   llvm::raw_ostream &stdoutOS, llvm::raw_ostream &stderrOS,
-                  llvm::ArrayRef<DriverDef> drivers, bool exitEarly);
+                  llvm::ArrayRef<DriverDef> drivers, bool exitEarly,
+                  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs = nullptr);
 } // namespace lld
 
 // When in lit tests, tells how many times the LLD tool should re-execute the

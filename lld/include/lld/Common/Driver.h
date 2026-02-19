@@ -10,6 +10,8 @@
 #define LLD_COMMON_DRIVER_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace lld {
@@ -23,7 +25,8 @@ enum Flavor {
 };
 
 using Driver = bool (*)(llvm::ArrayRef<const char *>, llvm::raw_ostream &,
-                        llvm::raw_ostream &, bool, bool);
+                        llvm::raw_ostream &, bool, bool,
+                        llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>);
 
 struct DriverDef {
   Flavor f;
@@ -42,7 +45,8 @@ struct Result {
 // properly exit your application and avoid intermittent crashes on exit caused
 // by cleanup.
 Result lldMain(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
-               llvm::raw_ostream &stderrOS, llvm::ArrayRef<DriverDef> drivers);
+               llvm::raw_ostream &stderrOS, llvm::ArrayRef<DriverDef> drivers,
+               llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs = nullptr);
 } // namespace lld
 
 // With this macro, library users must specify which drivers they use, provide
@@ -52,7 +56,8 @@ Result lldMain(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
   namespace lld {                                                              \
   namespace name {                                                             \
   bool link(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,    \
-            llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput);  \
+            llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput,   \
+            llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs = nullptr);    \
   }                                                                            \
   }
 

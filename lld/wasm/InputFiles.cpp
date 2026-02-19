@@ -13,6 +13,7 @@
 #include "OutputSegment.h"
 #include "SymbolTable.h"
 #include "lld/Common/CommonLinkerContext.h"
+#include "lld/Common/Filesystem.h"
 #include "lld/Common/Reproduce.h"
 #include "llvm/BinaryFormat/Wasm.h"
 #include "llvm/Object/Binary.h"
@@ -68,7 +69,7 @@ std::unique_ptr<llvm::TarWriter> tar;
 std::optional<MemoryBufferRef> readFile(StringRef path) {
   log("Loading: " + path);
 
-  auto mbOrErr = MemoryBuffer::getFile(path);
+  auto mbOrErr = lld::readFileVFS(ctx.vfs.get(), path);
   if (auto ec = mbOrErr.getError()) {
     error("cannot open " + path + ": " + ec.message());
     return std::nullopt;
