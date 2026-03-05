@@ -3799,9 +3799,44 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
       report_fatal_error("incompatible result and operand types in a bitcast");
     return selectOpWithSrcs(ResVReg, ResType, I, {OpReg}, SPIRV::OpBitcast);
   }
-  case Intrinsic::spv_ptrtoint:
-    return selectOpWithSrcs(ResVReg, ResType, I, {I.getOperand(2).getReg()},
+  case Intrinsic::spv_ptrtoint: {
+    // Use the same OpSpecConstantOp wrapping as selectUnOp does for
+    // G_PTRTOINT when the source is a global or constant.
+    Register SrcReg = I.getOperand(2).getReg();
+    if (STI.isPhysicalSPIRV()) {
+      bool IsGV = false;
+      for (MachineRegisterInfo::def_instr_iterator
+               DefIt = MRI->def_instr_begin(SrcReg),
+               DefEnd = MRI->def_instr_end();
+           DefIt != DefEnd; DefIt = std::next(DefIt)) {
+        unsigned DefOpCode = DefIt->getOpcode();
+        if (DefOpCode == SPIRV::ASSIGN_TYPE ||
+            DefOpCode == TargetOpcode::COPY) {
+          if (auto *VRD = getVRegDef(*MRI, DefIt->getOperand(1).getReg()))
+            DefOpCode = VRD->getOpcode();
+        }
+        if (DefOpCode == TargetOpcode::G_GLOBAL_VALUE ||
+            DefOpCode == TargetOpcode::G_CONSTANT ||
+            DefOpCode == SPIRV::OpVariable ||
+            DefOpCode == SPIRV::OpConstantI) {
+          IsGV = true;
+          break;
+        }
+      }
+      if (IsGV) {
+        BuildMI(*I.getParent(), I, I.getDebugLoc(),
+                TII.get(SPIRV::OpSpecConstantOp))
+            .addDef(ResVReg)
+            .addUse(GR.getSPIRVTypeID(ResType))
+            .addImm(static_cast<uint32_t>(SPIRV::Opcode::ConvertPtrToU))
+            .addUse(SrcReg)
+            .constrainAllUses(TII, TRI, RBI);
+        return true;
+      }
+    }
+    return selectOpWithSrcs(ResVReg, ResType, I, {SrcReg},
                             SPIRV::OpConvertPtrToU);
+  }
   case Intrinsic::spv_unref_global:
   case Intrinsic::spv_init_global: {
     MachineInstr *MI = MRI->getVRegDef(I.getOperand(1).getReg());
