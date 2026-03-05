@@ -33,6 +33,7 @@ let TargetPrefix = "spv" in {
   def int_spv_const_composite : Intrinsic<[llvm_any_ty], [llvm_vararg_ty]>;
   def int_spv_bitcast : Intrinsic<[llvm_any_ty], [llvm_any_ty]>;
   def int_spv_ptrcast : Intrinsic<[llvm_any_ty], [llvm_any_ty, llvm_metadata_ty, llvm_i32_ty], [ImmArg<ArgIndex<2>>]>;
+  def int_spv_ptrtoint : Intrinsic<[llvm_anyint_ty], [llvm_anyptr_ty]>;
   def int_spv_switch : Intrinsic<[], [llvm_any_ty, llvm_vararg_ty]>;
   def int_spv_loop_merge : Intrinsic<[], [llvm_vararg_ty]>;
   def int_spv_loop_control_intel : Intrinsic<[], [llvm_vararg_ty]>;

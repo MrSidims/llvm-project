@@ -1727,12 +1727,29 @@ Instruction *SPIRVEmitIntrinsics::visitBitCastInst(BitCastInst &I) {
 }
 
 Instruction *SPIRVEmitIntrinsics::visitPtrToAddrInst(PtrToAddrInst &I) {
-  // Replace PtrToAddr with PtrToInt.
-  auto *PtrToInt =
-      CastInst::Create(Instruction::PtrToInt, I.getOperand(0), I.getType());
-  PtrToInt->insertBefore(I.getIterator());
-  replaceAllUsesWith(&I, PtrToInt);
-  I.eraseFromParent();
+  // Replace PtrToAddr with spv_ptrtoint intrinsic which lowers to
+  // OpConvertPtrToU.
+  {
+    // This is only valid when the memory model is not Logical and pointer's
+    // address space is integral. It's not expected that the SPIR-V backend will
+    // be lowering to SPIR-V with violation of these assumptions.
+    [[maybe_unused]] const DataLayout &DL = CurrF->getDataLayout();
+    [[maybe_unused]] const unsigned AS =
+        I.getPointerOperand()->getType()->getPointerAddressSpace();
+    assert(!DL.isNonIntegralAddressSpace(AS) &&
+           "PtrToAddr on non-integral pointer cannot be lowered to PtrToInt");
+    [[maybe_unused]] const bool IsLogical =
+        TM->getSubtargetImpl()->isLogicalSPIRV();
+    assert(!IsLogical && "PtrToAddr used in module with Logical memory model");
+  }
+
+  IRBuilder<> B(I.getParent());
+  B.SetInsertPoint(&I);
+  SmallVector<Type *, 2> Types = {I.getType(),
+                                  I.getPointerOperand()->getType()};
+  auto *PtrToInt = B.CreateIntrinsic(Intrinsic::spv_ptrtoint, Types,
+                                     {I.getPointerOperand()});
+  replaceAllUsesWithAndErase(B, &I, PtrToInt);
   return PtrToInt;
 }
 
