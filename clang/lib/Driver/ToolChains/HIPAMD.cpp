@@ -162,7 +162,12 @@ void AMDGCN::Linker::constructLinkAndEmitSpirvCommand(
   const char *LinkedBCFilePath = HIP::getTempFile(C, LinkedBCFilePrefix, "bc");
   InputInfo LinkedBCFile(&JA, LinkedBCFilePath, Output.getBaseInput());
 
-  bool UseSPIRVBackend =
+  // Check if amdgcnspirv-be arch implies SPIRV backend usage
+  bool IsBackendArch = false;
+  if (auto *A = Args.getLastArg(options::OPT_mcpu_EQ))
+    IsBackendArch = (StringRef(A->getValue()) == "amdgcnspirv-be");
+
+  bool UseSPIRVBackend = IsBackendArch ||
       Args.hasFlag(options::OPT_use_spirv_backend,
                    options::OPT_no_use_spirv_backend, /*Default=*/false);
 
@@ -381,7 +386,8 @@ HIPAMDToolChain::getDeviceLibs(const llvm::opt::ArgList &DriverArgs,
   if (!DriverArgs.hasFlag(options::OPT_offloadlib, options::OPT_no_offloadlib,
                           true) ||
       TT.getEnvironment() == llvm::Triple::LLVM ||
-      getGPUArch(DriverArgs) == "amdgcnspirv")
+      getGPUArch(DriverArgs) == "amdgcnspirv" ||
+      getGPUArch(DriverArgs) == "amdgcnspirv-be")
     return {};
   ArgStringList LibraryPaths;
 
@@ -441,7 +447,8 @@ void HIPAMDToolChain::checkTargetID(
     const llvm::opt::ArgList &DriverArgs) const {
   auto PTID = getParsedTargetID(DriverArgs);
   if (PTID.OptionalTargetID && !PTID.OptionalGPUArch &&
-      PTID.OptionalTargetID != "amdgcnspirv")
+      PTID.OptionalTargetID != "amdgcnspirv" &&
+      PTID.OptionalTargetID != "amdgcnspirv-be")
     getDriver().Diag(clang::diag::err_drv_bad_target_id)
         << *PTID.OptionalTargetID;
 }

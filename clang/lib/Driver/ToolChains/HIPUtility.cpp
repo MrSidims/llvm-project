@@ -308,13 +308,17 @@ void HIP::constructHIPFatbinCommand(Compilation &C, const JobAction &JA,
     const auto *A = II.getAction();
     auto ArchStr = llvm::StringRef(A->getOffloadingArch());
     BundlerTargetArg += ',' + OffloadKind + '-';
-    if (ArchStr == "amdgcnspirv")
+    if (ArchStr == "amdgcnspirv" || ArchStr == "amdgcnspirv-be") {
       BundlerTargetArg +=
           normalizeForBundler(llvm::Triple("spirv64-amd-amdhsa"), true);
-    else
+      // Use "amdgcnspirv" for both amdgcnspirv and amdgcnspirv-be so the
+      // HIP runtime recognizes the bundle
+      BundlerTargetArg += "-amdgcnspirv";
+    } else {
       BundlerTargetArg += normalizeForBundler(TT, !ArchStr.empty());
-    if (!ArchStr.empty())
-      BundlerTargetArg += '-' + ArchStr.str();
+      if (!ArchStr.empty())
+        BundlerTargetArg += '-' + ArchStr.str();
+    }
   }
   BundlerArgs.push_back(Args.MakeArgString(BundlerTargetArg));
 

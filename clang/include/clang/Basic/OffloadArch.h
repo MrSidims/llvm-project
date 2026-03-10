@@ -111,6 +111,7 @@ enum class OffloadArch {
   GFX12_5_GENERIC,
   GFX1310,
   AMDGCNSPIRV,
+  AMDGCNSPIRV_BE,  // SPIRV using LLVM backend (no llvm-spirv translator)
   Generic, // A processor model named 'generic' if the target backend defines a
            // public one.
   // Intel CPUs

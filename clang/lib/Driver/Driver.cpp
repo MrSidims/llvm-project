@@ -993,7 +993,7 @@ inferOffloadToolchains(Compilation &C, Action::OffloadKind Kind) {
     }
 
     StringRef Triple;
-    if (ID == OffloadArch::AMDGCNSPIRV)
+    if (ID == OffloadArch::AMDGCNSPIRV || ID == OffloadArch::AMDGCNSPIRV_BE)
       Triple = "spirv64-amd-amdhsa";
     else if (IsNVIDIAOffloadArch(ID))
       Triple = C.getDefaultToolChain().getTriple().isArch64Bit()
@@ -3770,7 +3770,8 @@ class OffloadingActionBuilder final {
             Action *BackendAction = nullptr;
             if (ToolChains.front()->getTriple().isSPIRV() ||
                 (ToolChains.front()->getTriple().isAMDGCN() &&
-                 GpuArchList[I] == StringRef("amdgcnspirv"))) {
+                 (GpuArchList[I] == StringRef("amdgcnspirv") ||
+                  GpuArchList[I] == StringRef("amdgcnspirv-be")))) {
               // Emit LLVM bitcode for SPIR-V targets. SPIR-V device tool chain
               // (HIPSPVToolChain or HIPAMDToolChain) runs post-link LLVM IR
               // passes.
@@ -5011,9 +5012,13 @@ Action *Driver::BuildOffloadingActions(Compilation &C,
           OffloadTriple && OffloadTriple->isSPIRV() &&
           (OffloadTriple->getOS() == llvm::Triple::OSType::AMDHSA ||
            OffloadTriple->getOS() == llvm::Triple::OSType::ChipStar);
-      bool UseSPIRVBackend = Args.hasFlag(options::OPT_use_spirv_backend,
-                                          options::OPT_no_use_spirv_backend,
-                                          /*Default=*/false);
+      // Check for amdgcnspirv-be arch which implies SPIRV backend usage
+      const char *GpuArch = A->getOffloadingArch();
+      bool IsBackendArch = GpuArch && StringRef(GpuArch) == "amdgcnspirv-be";
+      bool UseSPIRVBackend = IsBackendArch ||
+          Args.hasFlag(options::OPT_use_spirv_backend,
+                       options::OPT_no_use_spirv_backend,
+                       /*Default=*/false);
 
       // Special handling for the HIP SPIR-V toolchains in device-only.
       // The translator path has a linking step, whereas the SPIR-V backend path

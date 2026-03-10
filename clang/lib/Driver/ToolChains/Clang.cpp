@@ -9278,10 +9278,14 @@ void OffloadPackager::ConstructJob(Compilation &C, const JobAction &JA,
 
     // TODO: We need to pass in the full target-id and handle it properly in the
     // linker wrapper.
+    // Normalize amdgcnspirv-be to amdgcnspirv for runtime compatibility
+    std::string ArchStr = Arch.empty() ? "generic" : Arch.str();
+    if (ArchStr == "amdgcnspirv-be")
+      ArchStr = "amdgcnspirv";
     SmallVector<std::string> Parts{
         "file=" + File.str(),
         "triple=" + TC->getTripleString(),
-        "arch=" + (Arch.empty() ? "generic" : Arch.str()),
+        "arch=" + ArchStr,
         "kind=" + Kind.str(),
     };
 
@@ -9382,8 +9386,11 @@ void LinkerWrapper::ConstructJob(Compilation &C, const JobAction &JA,
 
       // If the user explicitly requested it via `--offload-arch` we should
       // extract it from any static libraries if present.
-      for (StringRef Arg : ToolChainArgs.getAllArgValues(OPT_offload_arch_EQ))
-        CmdArgs.emplace_back(Args.MakeArgString("--should-extract=" + Arg));
+      for (StringRef Arg : ToolChainArgs.getAllArgValues(OPT_offload_arch_EQ)) {
+        // Normalize amdgcnspirv-be to amdgcnspirv for runtime compatibility
+        StringRef ExtractArch = Arg == "amdgcnspirv-be" ? "amdgcnspirv" : Arg;
+        CmdArgs.emplace_back(Args.MakeArgString("--should-extract=" + ExtractArch));
+      }
 
       // If this is OpenMP the device linker will need `-lompdevice`.
       if (Kind == Action::OFK_OpenMP && !Args.hasArg(OPT_no_offloadlib) &&
