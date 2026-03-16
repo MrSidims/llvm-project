@@ -1008,6 +1008,14 @@ struct GenericDeviceTy : public DeviceAllocatorTy {
     return std::move(MB);
   }
 
+  /// Compile a SPIR-V image to a native device binary. Override in plugins that
+  /// support SPIR-V compilation (e.g., AMDGPU via comgr).
+  virtual Expected<std::unique_ptr<MemoryBuffer>>
+  compileSPIRVImage(StringRef SPIRVImage) const {
+    return Plugin::error(error::ErrorCode::COMPILE_FAILURE,
+                         "SPIR-V compilation is not supported by this plugin");
+  }
+
   /// The minimum number of threads we use for a low-trip count combined loop.
   /// Instead of using more threads we increase the outer (block/team)
   /// parallelism.

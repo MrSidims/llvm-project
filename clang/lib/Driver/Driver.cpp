@@ -6849,9 +6849,14 @@ const ToolChain &Driver::getOffloadToolChain(
       if (Kind == Action::OFK_HIP)
         TC = std::make_unique<toolchains::HIPAMDToolChain>(*this, Target,
                                                            *HostTC, Args);
-      else if (Kind == Action::OFK_OpenMP)
-        TC = std::make_unique<toolchains::AMDGPUOpenMPToolChain>(*this, Target,
-                                                                 *HostTC, Args);
+      else if (Kind == Action::OFK_OpenMP) {
+        if (Target.isSPIRV())
+          TC = std::make_unique<toolchains::SPIRVOpenMPToolChain>(
+              *this, Target, *HostTC, Args);
+        else
+          TC = std::make_unique<toolchains::AMDGPUOpenMPToolChain>(
+              *this, Target, *HostTC, Args);
+      }
       break;
     default:
       break;

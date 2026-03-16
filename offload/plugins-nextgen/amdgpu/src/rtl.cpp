@@ -30,6 +30,7 @@
 #include "Shared/Utils.h"
 #include "Utils/ELF.h"
 
+#include "ComgrInterface.h"
 #include "GlobalHandler.h"
 #include "OpenMP/OMPT/Callback.h"
 #include "PluginInterface.h"
@@ -2327,6 +2328,30 @@ struct AMDGPUDeviceTy : public GenericDeviceTy, AMDGenericDeviceTy {
   /// See GenericDeviceTy::getComputeUnitKind().
   std::string getComputeUnitKind() const override { return ComputeUnitKind; }
 
+  /// Compile a SPIR-V image to native AMDGPU code object via comgr.
+  Expected<std::unique_ptr<MemoryBuffer>>
+  compileSPIRVImage(StringRef SPIRVImage) const override {
+    Comgr.init();
+    if (!Comgr.isAvailable())
+      return Plugin::error(
+          ErrorCode::COMPILE_FAILURE,
+          "SPIR-V compilation requires AMD comgr library "
+          "(libamd_comgr.so). Install ROCm to enable SPIR-V support.");
+
+    std::string ISAName = "amdgcn-amd-amdhsa--" + ComputeUnitKind;
+    INFO(OMP_INFOTYPE_PLUGIN_KERNEL, getDeviceId(),
+         "Compiling SPIR-V image to native code for ISA '%s'",
+         ISAName.c_str());
+
+    auto ResultOrErr = Comgr.compileSPIRV(SPIRVImage, ISAName);
+    if (!ResultOrErr) {
+      return Plugin::error(ErrorCode::COMPILE_FAILURE,
+                           ResultOrErr.takeError(),
+                           "SPIR-V compilation via comgr failed");
+    }
+    return std::move(*ResultOrErr);
+  }
+
   /// Returns the clock frequency for the given AMDGPU device.
   uint64_t getClockFrequency() const override { return ClockFrequency; }
 
@@ -3363,6 +3388,9 @@ private:
   /// True is the system is configured with XNACK-Enabled.
   /// False otherwise.
   bool IsXnackEnabled = false;
+
+  /// Interface for AMD comgr library, used for SPIR-V compilation.
+  mutable ComgrInterface Comgr;
 };
 
 Error AMDGPUDeviceImageTy::loadExecutable(const AMDGPUDeviceTy &Device) {

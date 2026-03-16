@@ -887,6 +887,14 @@ Expected<DeviceImageTy *> GenericDeviceTy::loadBinary(GenericPluginTy &Plugin,
                            "failure to jit IR image");
     }
     Buffer = std::move(*CompiledImageOrErr);
+  } else if (identify_magic(InputTgtImage) == file_magic::spirv_object) {
+    auto CompiledOrErr = compileSPIRVImage(InputTgtImage);
+    if (!CompiledOrErr) {
+      return Plugin::error(ErrorCode::COMPILE_FAILURE,
+                           CompiledOrErr.takeError(),
+                           "failure to compile SPIR-V image");
+    }
+    Buffer = std::move(*CompiledOrErr);
   } else {
     Buffer = MemoryBuffer::getMemBufferCopy(InputTgtImage);
   }

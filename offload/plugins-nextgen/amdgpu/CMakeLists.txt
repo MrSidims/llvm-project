@@ -6,6 +6,7 @@ add_target_library(omptarget.rtl.amdgpu AMDGPU)
 
 target_sources(omptarget.rtl.amdgpu PRIVATE src/rtl.cpp)
 target_include_directories(omptarget.rtl.amdgpu PRIVATE
+                           ${CMAKE_CURRENT_SOURCE_DIR}/src
                            ${CMAKE_CURRENT_SOURCE_DIR}/utils)
 
 if(hsa-runtime64_FOUND AND NOT "amdgpu" IN_LIST LIBOMPTARGET_DLOPEN_PLUGINS)
@@ -23,7 +24,7 @@ option(LIBOMPTARGET_FORCE_AMDGPU_TESTS "Build AMDGPU libomptarget tests" OFF)
 if (LIBOMPTARGET_FOUND_AMDGPU_GPU OR LIBOMPTARGET_FORCE_AMDGPU_TESTS)
   # Report to the parent scope that we are building a plugin for amdgpu
   set(LIBOMPTARGET_SYSTEM_TARGETS
-      "${LIBOMPTARGET_SYSTEM_TARGETS} amdgcn-amd-amdhsa" PARENT_SCOPE)
+      "${LIBOMPTARGET_SYSTEM_TARGETS} amdgcn-amd-amdhsa spirv64-amd-amdhsa" PARENT_SCOPE)
   list(APPEND LIBOMPTARGET_TESTED_PLUGINS "omptarget.rtl.amdgpu")
   set(LIBOMPTARGET_TESTED_PLUGINS "${LIBOMPTARGET_TESTED_PLUGINS}" PARENT_SCOPE)
 else()
