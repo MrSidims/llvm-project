@@ -9,6 +9,7 @@ declare i4 @llvm.convert.to.arbitrary.fp.i4.f32(float, metadata, metadata, i1)
 declare <4 x i4> @llvm.convert.to.arbitrary.fp.v4i4.v4f32(<4 x float>, metadata, metadata, i1)
 
 declare i8 @llvm.convert.to.arbitrary.fp.i8.f16(half, metadata, metadata, i1)
+declare i8 @llvm.convert.to.arbitrary.fp.i8.bf16(bfloat, metadata, metadata, i1)
 declare i8 @llvm.convert.to.arbitrary.fp.i8.f64(double, metadata, metadata, i1)
 
 ; ============================================================================
@@ -1055,6 +1056,144 @@ define i8 @to_f8e5m2_from_f16(half %x) {
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    retq
   %r = call i8 @llvm.convert.to.arbitrary.fp.i8.f16(half %x, metadata !"Float8E5M2", metadata !"round.tonearest", i1 false)
+  ret i8 %r
+}
+
+; bf16 -> i8 (Float8E5M2)
+define i8 @to_f8e5m2_from_bf16(bfloat %x) {
+; CHECK-LABEL: to_f8e5m2_from_bf16:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    pushq %rbp
+; CHECK-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-NEXT:    pushq %r15
+; CHECK-NEXT:    .cfi_def_cfa_offset 24
+; CHECK-NEXT:    pushq %r14
+; CHECK-NEXT:    .cfi_def_cfa_offset 32
+; CHECK-NEXT:    pushq %r12
+; CHECK-NEXT:    .cfi_def_cfa_offset 40
+; CHECK-NEXT:    pushq %rbx
+; CHECK-NEXT:    .cfi_def_cfa_offset 48
+; CHECK-NEXT:    .cfi_offset %rbx, -48
+; CHECK-NEXT:    .cfi_offset %r12, -40
+; CHECK-NEXT:    .cfi_offset %r14, -32
+; CHECK-NEXT:    .cfi_offset %r15, -24
+; CHECK-NEXT:    .cfi_offset %rbp, -16
+; CHECK-NEXT:    pextrw $0, %xmm0, %edx
+; CHECK-NEXT:    movl %edx, %eax
+; CHECK-NEXT:    andl $127, %eax
+; CHECK-NEXT:    shll $16, %eax
+; CHECK-NEXT:    bsrl %eax, %esi
+; CHECK-NEXT:    xorl $31, %esi
+; CHECK-NEXT:    leal -8(%rsi), %ecx
+; CHECK-NEXT:    movl %eax, %r9d
+; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    shll %cl, %r9d
+; CHECK-NEXT:    andl $8323072, %r9d # imm = 0x7F0000
+; CHECK-NEXT:    movl $9, %r11d
+; CHECK-NEXT:    subl %esi, %r11d
+; CHECK-NEXT:    testl %eax, %eax
+; CHECK-NEXT:    sete %dil
+; CHECK-NEXT:    setne %sil
+; CHECK-NEXT:    movl %edx, %ecx
+; CHECK-NEXT:    shrl $7, %ecx
+; CHECK-NEXT:    movzbl %cl, %r8d
+; CHECK-NEXT:    testl %r8d, %r8d
+; CHECK-NEXT:    sete %r10b
+; CHECK-NEXT:    testb %sil, %r10b
+; CHECK-NEXT:    cmovel %eax, %r9d
+; CHECK-NEXT:    cmovel %r8d, %r11d
+; CHECK-NEXT:    leal 8388608(%r9), %ebx
+; CHECK-NEXT:    movl $134, %ecx
+; CHECK-NEXT:    subl %r11d, %ecx
+; CHECK-NEXT:    cmpl $31, %ecx
+; CHECK-NEXT:    movl $31, %eax
+; CHECK-NEXT:    cmovbl %ecx, %eax
+; CHECK-NEXT:    movl %ebx, %ebp
+; CHECK-NEXT:    movl %eax, %ecx
+; CHECK-NEXT:    shrl %cl, %ebp
+; CHECK-NEXT:    movl %ebp, %r14d
+; CHECK-NEXT:    andl $1, %r14d
+; CHECK-NEXT:    cmpl $1, %eax
+; CHECK-NEXT:    movl %eax, %ecx
+; CHECK-NEXT:    adcl $-1, %ecx
+; CHECK-NEXT:    movl $1, %r15d
+; CHECK-NEXT:    shll %cl, %r15d
+; CHECK-NEXT:    decl %r15d
+; CHECK-NEXT:    xorl %r12d, %r12d
+; CHECK-NEXT:    testl %r15d, %ebx
+; CHECK-NEXT:    setne %r12b
+; CHECK-NEXT:    orl %r14d, %r12d
+; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    shrl %cl, %ebx
+; CHECK-NEXT:    andl %r12d, %ebx
+; CHECK-NEXT:    xorl %ecx, %ecx
+; CHECK-NEXT:    cmpl $1, %eax
+; CHECK-NEXT:    cmovbl %ecx, %ebx
+; CHECK-NEXT:    addl %ebp, %ebx
+; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    cmpl $4, %ebx
+; CHECK-NEXT:    cmovgel %ecx, %ebx
+; CHECK-NEXT:    setge %al
+; CHECK-NEXT:    shrl $8, %edx
+; CHECK-NEXT:    andl $128, %edx
+; CHECK-NEXT:    leal (%rdx,%rax,4), %eax
+; CHECK-NEXT:    orl %ebx, %eax
+; CHECK-NEXT:    movl %r9d, %ebx
+; CHECK-NEXT:    shrl $21, %ebx
+; CHECK-NEXT:    movl %ebx, %ebp
+; CHECK-NEXT:    andl $1, %ebp
+; CHECK-NEXT:    xorl %r14d, %r14d
+; CHECK-NEXT:    testl $983040, %r9d # imm = 0xF0000
+; CHECK-NEXT:    setne %r14b
+; CHECK-NEXT:    orl %ebp, %r14d
+; CHECK-NEXT:    shrl $20, %r9d
+; CHECK-NEXT:    andl %r14d, %r9d
+; CHECK-NEXT:    addl %ebx, %r9d
+; CHECK-NEXT:    xorl %ebx, %ebx
+; CHECK-NEXT:    cmpl $4, %r9d
+; CHECK-NEXT:    cmovgel %ecx, %r9d
+; CHECK-NEXT:    setge %bl
+; CHECK-NEXT:    leal -112(%r11,%rbx), %ebp
+; CHECK-NEXT:    addl %ebx, %r11d
+; CHECK-NEXT:    leal -448(,%r11,4), %r11d
+; CHECK-NEXT:    movl %edx, %ecx
+; CHECK-NEXT:    orl %r9d, %ecx
+; CHECK-NEXT:    orl %r11d, %ecx
+; CHECK-NEXT:    testl %ebp, %ebp
+; CHECK-NEXT:    cmovlel %eax, %ecx
+; CHECK-NEXT:    cmpl $4, %r9d
+; CHECK-NEXT:    setge %al
+; CHECK-NEXT:    cmpl $30, %ebp
+; CHECK-NEXT:    sete %r9b
+; CHECK-NEXT:    andb %al, %r9b
+; CHECK-NEXT:    cmpl $31, %ebp
+; CHECK-NEXT:    setge %al
+; CHECK-NEXT:    orb %r9b, %al
+; CHECK-NEXT:    leal 124(%rdx), %r9d
+; CHECK-NEXT:    testb %al, %al
+; CHECK-NEXT:    cmovnel %r9d, %ecx
+; CHECK-NEXT:    testb %dil, %r10b
+; CHECK-NEXT:    cmovnel %edx, %ecx
+; CHECK-NEXT:    cmpl $255, %r8d
+; CHECK-NEXT:    sete %al
+; CHECK-NEXT:    testb %dil, %al
+; CHECK-NEXT:    cmovnel %r9d, %ecx
+; CHECK-NEXT:    testb %sil, %al
+; CHECK-NEXT:    movl $126, %eax
+; CHECK-NEXT:    cmovel %ecx, %eax
+; CHECK-NEXT:    # kill: def $al killed $al killed $eax
+; CHECK-NEXT:    popq %rbx
+; CHECK-NEXT:    .cfi_def_cfa_offset 40
+; CHECK-NEXT:    popq %r12
+; CHECK-NEXT:    .cfi_def_cfa_offset 32
+; CHECK-NEXT:    popq %r14
+; CHECK-NEXT:    .cfi_def_cfa_offset 24
+; CHECK-NEXT:    popq %r15
+; CHECK-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-NEXT:    popq %rbp
+; CHECK-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-NEXT:    retq
+  %r = call i8 @llvm.convert.to.arbitrary.fp.i8.bf16(bfloat %x, metadata !"Float8E5M2", metadata !"round.tonearest", i1 false)
   ret i8 %r
 }
 

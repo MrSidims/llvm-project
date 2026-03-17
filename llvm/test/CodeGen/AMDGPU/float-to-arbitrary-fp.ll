@@ -9,6 +9,7 @@ declare i4 @llvm.convert.to.arbitrary.fp.i4.f32(float, metadata, metadata, i1)
 declare <4 x i4> @llvm.convert.to.arbitrary.fp.v4i4.v4f32(<4 x float>, metadata, metadata, i1)
 
 declare i8 @llvm.convert.to.arbitrary.fp.i8.f16(half, metadata, metadata, i1)
+declare i8 @llvm.convert.to.arbitrary.fp.i8.bf16(bfloat, metadata, metadata, i1)
 declare i8 @llvm.convert.to.arbitrary.fp.i8.f64(double, metadata, metadata, i1)
 
 ; Float8E5M2
@@ -640,9 +641,8 @@ define i8 @to_f8e5m2_from_f16(half %x) {
 ; CHECK-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
 ; CHECK-NEXT:    v_and_b32_e32 v1, 0x3ff, v0
 ; CHECK-NEXT:    v_lshlrev_b32_e32 v3, 16, v1
-; CHECK-NEXT:    v_lshrrev_b16_e32 v2, 10, v0
 ; CHECK-NEXT:    v_ffbh_u32_e32 v3, v3
-; CHECK-NEXT:    v_and_b32_e32 v2, 31, v2
+; CHECK-NEXT:    v_bfe_u32 v2, v0, 10, 5
 ; CHECK-NEXT:    v_add_u16_e32 v4, -5, v3
 ; CHECK-NEXT:    v_cmp_ne_u16_e32 vcc, 0, v1
 ; CHECK-NEXT:    v_cmp_eq_u16_e64 s[4:5], 0, v2
@@ -713,6 +713,90 @@ define i8 @to_f8e5m2_from_f16(half %x) {
 ; CHECK-NEXT:    v_cndmask_b32_e32 v0, v0, v1, vcc
 ; CHECK-NEXT:    s_setpc_b64 s[30:31]
   %r = call i8 @llvm.convert.to.arbitrary.fp.i8.f16(half %x, metadata !"Float8E5M2", metadata !"round.tonearest", i1 false)
+  ret i8 %r
+}
+
+; Float8E5M2 from bf16: bfloat -> i8
+define i8 @to_f8e5m2_from_bf16(bfloat %x) {
+; CHECK-LABEL: to_f8e5m2_from_bf16:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
+; CHECK-NEXT:    v_and_b32_e32 v1, 0x7f, v0
+; CHECK-NEXT:    v_lshlrev_b32_e32 v3, 16, v1
+; CHECK-NEXT:    v_ffbh_u32_e32 v3, v3
+; CHECK-NEXT:    v_bfe_u32 v2, v0, 7, 8
+; CHECK-NEXT:    v_add_u16_e32 v4, -8, v3
+; CHECK-NEXT:    v_cmp_ne_u16_e32 vcc, 0, v1
+; CHECK-NEXT:    v_cmp_eq_u16_e64 s[4:5], 0, v2
+; CHECK-NEXT:    v_lshlrev_b16_e32 v4, v4, v1
+; CHECK-NEXT:    v_and_b32_e32 v4, 0x7f, v4
+; CHECK-NEXT:    s_and_b64 s[4:5], s[4:5], vcc
+; CHECK-NEXT:    v_cndmask_b32_e64 v4, v1, v4, s[4:5]
+; CHECK-NEXT:    v_and_b32_e32 v7, 15, v4
+; CHECK-NEXT:    v_lshrrev_b16_e32 v5, 5, v4
+; CHECK-NEXT:    v_cmp_ne_u16_e64 s[6:7], 0, v7
+; CHECK-NEXT:    v_and_b32_e32 v6, 1, v5
+; CHECK-NEXT:    v_cndmask_b32_e64 v7, 0, 1, s[6:7]
+; CHECK-NEXT:    v_or_b32_e32 v6, v7, v6
+; CHECK-NEXT:    v_lshrrev_b16_e32 v7, 4, v4
+; CHECK-NEXT:    v_and_b32_e32 v6, v7, v6
+; CHECK-NEXT:    v_add_u16_e32 v5, v5, v6
+; CHECK-NEXT:    v_cmp_lt_i16_e64 s[6:7], 3, v5
+; CHECK-NEXT:    v_sub_u16_e32 v3, 9, v3
+; CHECK-NEXT:    v_cndmask_b32_e64 v6, 0, 1, s[6:7]
+; CHECK-NEXT:    v_cndmask_b32_e64 v3, v2, v3, s[4:5]
+; CHECK-NEXT:    v_add_u16_e32 v6, v3, v6
+; CHECK-NEXT:    v_sub_u16_e32 v3, 0x76, v3
+; CHECK-NEXT:    v_min_u16_e32 v3, 15, v3
+; CHECK-NEXT:    v_sub_u16_e64 v10, v3, 1 clamp
+; CHECK-NEXT:    v_lshlrev_b16_e64 v11, v10, 1
+; CHECK-NEXT:    v_or_b32_e32 v4, 0x80, v4
+; CHECK-NEXT:    v_add_u16_e32 v11, -1, v11
+; CHECK-NEXT:    s_movk_i32 s4, 0x80
+; CHECK-NEXT:    v_and_b32_e32 v11, v4, v11
+; CHECK-NEXT:    v_and_b32_sdwa v0, v0, s4 dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_1 src1_sel:DWORD
+; CHECK-NEXT:    v_lshrrev_b16_e32 v8, v3, v4
+; CHECK-NEXT:    v_cmp_ne_u16_e64 s[4:5], 0, v11
+; CHECK-NEXT:    v_and_b32_e32 v9, 1, v8
+; CHECK-NEXT:    v_cndmask_b32_e64 v11, 0, 1, s[4:5]
+; CHECK-NEXT:    v_or_b32_e32 v9, v11, v9
+; CHECK-NEXT:    v_lshrrev_b16_e32 v4, v10, v4
+; CHECK-NEXT:    v_and_b32_e32 v4, v4, v9
+; CHECK-NEXT:    v_cmp_ne_u16_e64 s[4:5], 0, v3
+; CHECK-NEXT:    v_cndmask_b32_e64 v3, 0, v4, s[4:5]
+; CHECK-NEXT:    v_add_u16_e32 v3, v8, v3
+; CHECK-NEXT:    v_add_u16_e32 v6, 0xff90, v6
+; CHECK-NEXT:    v_cmp_lt_i16_e64 s[4:5], 3, v3
+; CHECK-NEXT:    v_lshlrev_b16_e32 v7, 2, v6
+; CHECK-NEXT:    v_cndmask_b32_e64 v4, 0, 4, s[4:5]
+; CHECK-NEXT:    v_cndmask_b32_e64 v5, v5, 0, s[6:7]
+; CHECK-NEXT:    v_or_b32_e32 v7, v0, v7
+; CHECK-NEXT:    v_cndmask_b32_e64 v3, v3, 0, s[4:5]
+; CHECK-NEXT:    v_or_b32_e32 v4, v0, v4
+; CHECK-NEXT:    v_or_b32_e32 v7, v7, v5
+; CHECK-NEXT:    v_or_b32_e32 v3, v4, v3
+; CHECK-NEXT:    v_cmp_gt_i16_e64 s[4:5], 1, v6
+; CHECK-NEXT:    v_cndmask_b32_e64 v3, v7, v3, s[4:5]
+; CHECK-NEXT:    v_cmp_lt_i16_e64 s[4:5], 3, v5
+; CHECK-NEXT:    v_cmp_eq_u16_e64 s[6:7], 30, v6
+; CHECK-NEXT:    s_and_b64 s[6:7], s[6:7], s[4:5]
+; CHECK-NEXT:    v_cmp_lt_i16_e64 s[4:5], 30, v6
+; CHECK-NEXT:    v_or_b32_e32 v4, 0x7c, v0
+; CHECK-NEXT:    s_or_b64 s[4:5], s[4:5], s[6:7]
+; CHECK-NEXT:    v_or_b32_e32 v5, v2, v1
+; CHECK-NEXT:    v_cndmask_b32_e64 v3, v3, v4, s[4:5]
+; CHECK-NEXT:    v_cmp_eq_u16_e64 s[4:5], 0, v5
+; CHECK-NEXT:    s_movk_i32 s6, 0xff
+; CHECK-NEXT:    v_cndmask_b32_e64 v0, v3, v0, s[4:5]
+; CHECK-NEXT:    v_cmp_eq_u16_e64 s[4:5], 0, v1
+; CHECK-NEXT:    v_cmp_eq_u16_e64 s[6:7], s6, v2
+; CHECK-NEXT:    s_and_b64 s[4:5], s[6:7], s[4:5]
+; CHECK-NEXT:    v_cndmask_b32_e64 v0, v0, v4, s[4:5]
+; CHECK-NEXT:    v_mov_b32_e32 v1, 0x7e
+; CHECK-NEXT:    s_and_b64 vcc, s[6:7], vcc
+; CHECK-NEXT:    v_cndmask_b32_e32 v0, v0, v1, vcc
+; CHECK-NEXT:    s_setpc_b64 s[30:31]
+  %r = call i8 @llvm.convert.to.arbitrary.fp.i8.bf16(bfloat %x, metadata !"Float8E5M2", metadata !"round.tonearest", i1 false)
   ret i8 %r
 }
 

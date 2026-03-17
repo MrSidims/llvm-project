@@ -9,6 +9,7 @@ declare i4 @llvm.convert.to.arbitrary.fp.i4.f32(float, metadata, metadata, i1)
 declare <4 x i4> @llvm.convert.to.arbitrary.fp.v4i4.v4f32(<4 x float>, metadata, metadata, i1)
 
 declare i8 @llvm.convert.to.arbitrary.fp.i8.f16(half, metadata, metadata, i1)
+declare i8 @llvm.convert.to.arbitrary.fp.i8.bf16(bfloat, metadata, metadata, i1)
 declare i8 @llvm.convert.to.arbitrary.fp.i8.f64(double, metadata, metadata, i1)
 
 ; Float8E5M2
@@ -832,6 +833,103 @@ define i8 @to_f8e5m2_from_f16(half %x) {
 ; CHECK-NEXT:    st.param.b32 [func_retval0], %r7;
 ; CHECK-NEXT:    ret;
   %r = call i8 @llvm.convert.to.arbitrary.fp.i8.f16(half %x, metadata !"Float8E5M2", metadata !"round.tonearest", i1 false)
+  ret i8 %r
+}
+
+; Float8E5M2 from bf16: bfloat -> i8
+define i8 @to_f8e5m2_from_bf16(bfloat %x) {
+; CHECK-LABEL: to_f8e5m2_from_bf16(
+; CHECK:       {
+; CHECK-NEXT:    .reg .pred %p<16>;
+; CHECK-NEXT:    .reg .b16 %rs<61>;
+; CHECK-NEXT:    .reg .b32 %r<8>;
+; CHECK-EMPTY:
+; CHECK-NEXT:  // %bb.0:
+; CHECK-NEXT:    ld.param.b16 %rs1, [to_f8e5m2_from_bf16_param_0];
+; CHECK-NEXT:    and.b16 %rs2, %rs1, 127;
+; CHECK-NEXT:    setp.ne.b16 %p1, %rs2, 0;
+; CHECK-NEXT:    shr.u16 %rs3, %rs1, 7;
+; CHECK-NEXT:    and.b16 %rs4, %rs3, 255;
+; CHECK-NEXT:    setp.eq.b16 %p2, %rs4, 0;
+; CHECK-NEXT:    and.pred %p3, %p2, %p1;
+; CHECK-NEXT:    cvt.u32.u16 %r1, %rs2;
+; CHECK-NEXT:    shl.b32 %r2, %r1, 16;
+; CHECK-NEXT:    clz.b32 %r3, %r2;
+; CHECK-NEXT:    cvt.u16.u32 %rs5, %r3;
+; CHECK-NEXT:    add.s16 %rs6, %rs5, -8;
+; CHECK-NEXT:    cvt.u32.u16 %r4, %rs6;
+; CHECK-NEXT:    shl.b16 %rs7, %rs2, %r4;
+; CHECK-NEXT:    and.b16 %rs8, %rs7, 127;
+; CHECK-NEXT:    selp.b16 %rs9, %rs8, %rs2, %p3;
+; CHECK-NEXT:    shr.u16 %rs10, %rs9, 5;
+; CHECK-NEXT:    and.b16 %rs11, %rs10, 1;
+; CHECK-NEXT:    and.b16 %rs12, %rs9, 15;
+; CHECK-NEXT:    setp.ne.b16 %p4, %rs12, 0;
+; CHECK-NEXT:    selp.b16 %rs13, 1, 0, %p4;
+; CHECK-NEXT:    or.b16 %rs14, %rs13, %rs11;
+; CHECK-NEXT:    shr.u16 %rs15, %rs9, 4;
+; CHECK-NEXT:    and.b16 %rs16, %rs15, %rs14;
+; CHECK-NEXT:    add.s16 %rs17, %rs10, %rs16;
+; CHECK-NEXT:    setp.gt.s16 %p5, %rs17, 3;
+; CHECK-NEXT:    selp.b16 %rs18, 0, %rs17, %p5;
+; CHECK-NEXT:    selp.b16 %rs19, 1, 0, %p5;
+; CHECK-NEXT:    sub.s16 %rs20, 9, %rs5;
+; CHECK-NEXT:    selp.b16 %rs21, %rs20, %rs4, %p3;
+; CHECK-NEXT:    add.s16 %rs22, %rs21, %rs19;
+; CHECK-NEXT:    add.s16 %rs23, %rs22, -112;
+; CHECK-NEXT:    shl.b16 %rs24, %rs23, 2;
+; CHECK-NEXT:    shr.u16 %rs25, %rs1, 8;
+; CHECK-NEXT:    and.b16 %rs26, %rs25, 128;
+; CHECK-NEXT:    or.b16 %rs27, %rs26, %rs24;
+; CHECK-NEXT:    or.b16 %rs28, %rs27, %rs18;
+; CHECK-NEXT:    or.b16 %rs29, %rs9, 128;
+; CHECK-NEXT:    sub.s16 %rs30, 118, %rs21;
+; CHECK-NEXT:    min.u16 %rs31, %rs30, 15;
+; CHECK-NEXT:    cvt.u32.u16 %r5, %rs31;
+; CHECK-NEXT:    shr.u16 %rs32, %rs29, %r5;
+; CHECK-NEXT:    and.b16 %rs33, %rs32, 1;
+; CHECK-NEXT:    max.u16 %rs34, %rs31, 1;
+; CHECK-NEXT:    add.s16 %rs35, %rs34, -1;
+; CHECK-NEXT:    cvt.u32.u16 %r6, %rs35;
+; CHECK-NEXT:    mov.b16 %rs36, 1;
+; CHECK-NEXT:    shl.b16 %rs37, %rs36, %r6;
+; CHECK-NEXT:    add.s16 %rs38, %rs37, -1;
+; CHECK-NEXT:    and.b16 %rs39, %rs29, %rs38;
+; CHECK-NEXT:    setp.ne.b16 %p6, %rs39, 0;
+; CHECK-NEXT:    selp.b16 %rs40, 1, 0, %p6;
+; CHECK-NEXT:    or.b16 %rs41, %rs40, %rs33;
+; CHECK-NEXT:    shr.u16 %rs42, %rs29, %r6;
+; CHECK-NEXT:    and.b16 %rs43, %rs42, %rs41;
+; CHECK-NEXT:    setp.ne.b16 %p7, %rs31, 0;
+; CHECK-NEXT:    selp.b16 %rs44, %rs43, 0, %p7;
+; CHECK-NEXT:    add.s16 %rs45, %rs32, %rs44;
+; CHECK-NEXT:    setp.gt.s16 %p8, %rs45, 3;
+; CHECK-NEXT:    selp.b16 %rs46, 0, %rs45, %p8;
+; CHECK-NEXT:    selp.b16 %rs47, 4, 0, %p8;
+; CHECK-NEXT:    or.b16 %rs48, %rs26, %rs47;
+; CHECK-NEXT:    or.b16 %rs49, %rs48, %rs46;
+; CHECK-NEXT:    setp.lt.s16 %p9, %rs23, 1;
+; CHECK-NEXT:    selp.b16 %rs50, %rs49, %rs28, %p9;
+; CHECK-NEXT:    setp.gt.s16 %p10, %rs18, 3;
+; CHECK-NEXT:    or.b16 %rs51, %rs26, 124;
+; CHECK-NEXT:    selp.b16 %rs52, %rs51, %rs50, %p10;
+; CHECK-NEXT:    setp.eq.b16 %p11, %rs23, 30;
+; CHECK-NEXT:    selp.b16 %rs53, %rs52, %rs50, %p11;
+; CHECK-NEXT:    setp.gt.s16 %p12, %rs23, 30;
+; CHECK-NEXT:    selp.b16 %rs54, %rs51, %rs53, %p12;
+; CHECK-NEXT:    or.b16 %rs55, %rs4, %rs2;
+; CHECK-NEXT:    setp.eq.b16 %p13, %rs55, 0;
+; CHECK-NEXT:    selp.b16 %rs56, %rs26, %rs54, %p13;
+; CHECK-NEXT:    setp.eq.b16 %p14, %rs2, 0;
+; CHECK-NEXT:    selp.b16 %rs57, %rs51, %rs56, %p14;
+; CHECK-NEXT:    setp.eq.b16 %p15, %rs4, 255;
+; CHECK-NEXT:    selp.b16 %rs58, %rs57, %rs56, %p15;
+; CHECK-NEXT:    selp.b16 %rs59, 126, %rs58, %p1;
+; CHECK-NEXT:    selp.b16 %rs60, %rs59, %rs58, %p15;
+; CHECK-NEXT:    cvt.u32.u16 %r7, %rs60;
+; CHECK-NEXT:    st.param.b32 [func_retval0], %r7;
+; CHECK-NEXT:    ret;
+  %r = call i8 @llvm.convert.to.arbitrary.fp.i8.bf16(bfloat %x, metadata !"Float8E5M2", metadata !"round.tonearest", i1 false)
   ret i8 %r
 }
 
