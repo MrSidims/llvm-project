@@ -2788,6 +2788,62 @@ def int_matrix_column_major_store
                WriteOnly<ArgIndex<1>>, NoCapture<ArgIndex<1>>,
                ImmArg<ArgIndex<3>>, ImmArg<ArgIndex<4>>, ImmArg<ArgIndex<5>>]>;
 
+//===--- Cooperative Matrix intrinsics ------------------------------------===//
+//
+// Cooperative matrix operations for group-scoped matrix computations.
+// These intrinsics operate on target extension types representing cooperative
+// matrices (e.g., target("spirv.CooperativeMatrixKHR", ...)).
+//
+// A "group" is a set of invocations (e.g., subgroup/wave or workgroup) that
+// cooperatively own and operate on the matrix. The group scope, matrix
+// dimensions, and use are passed as i32 SSA value arguments to support both
+// compile-time constants and specialization constants.
+//
+// All cooperative matrix operations except length are convergent: all
+// invocations in the group must execute the operation.
+
+// Load cooperative matrix from memory.
+// Args: ptr, layout(imm), stride, scope, rows, cols, use
+def int_coopmatrix_load
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [llvm_anyptr_ty, llvm_i32_ty, llvm_anyint_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrArgMemOnly, IntrReadMem, IntrConvergent,
+       NoCapture<ArgIndex<0>>, ImmArg<ArgIndex<1>>]>;
+
+// Store cooperative matrix to memory.
+// Args: matrix, ptr, layout(imm), stride, scope, rows, cols, use
+def int_coopmatrix_store
+  : DefaultAttrsIntrinsic<[],
+      [llvm_any_ty, llvm_anyptr_ty, llvm_i32_ty, llvm_anyint_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrArgMemOnly, IntrWriteMem, IntrConvergent,
+       WriteOnly<ArgIndex<1>>, NoCapture<ArgIndex<1>>,
+       ImmArg<ArgIndex<2>>]>;
+
+// Fused multiply-add: A(MxK) * B(KxN) + C(MxN) -> Result(MxN).
+// Args: matA, matB, matC, operands(imm), scope, M, N, K
+def int_coopmatrix_muladd
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [llvm_any_ty, llvm_any_ty, LLVMMatchType<0>, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent, ImmArg<ArgIndex<3>>]>;
+
+// Query per-invocation component count for a cooperative matrix type.
+// Args: scope, rows, cols, use
+def int_coopmatrix_length
+  : DefaultAttrsIntrinsic<[llvm_i32_ty],
+      [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrSpeculatable]>;
+
+// Construct (splat) a cooperative matrix from a scalar value.
+// Maps to OpCompositeConstruct in SPIR-V.
+// Args: scalar_value, scope, rows, cols, use
+def int_coopmatrix_construct
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [llvm_any_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent]>;
+
 //===---------- Intrinsics to control hardware supported loops ----------===//
 
 // Specify that the value given is the number of iterations that the next loop

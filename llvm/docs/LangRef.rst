@@ -21694,6 +21694,314 @@ The :ref:`align <attr_align>` parameter attribute can be provided
 for the ``%Ptr`` arguments.
 
 
+.. _cooperative_matrix_intrinsics:
+
+Cooperative Matrix Intrinsics
+-----------------------------
+
+Cooperative matrix intrinsics provide operations for group-scoped matrix
+computations. Unlike the regular matrix intrinsics which operate on flat
+vectors, cooperative matrix intrinsics operate on
+:ref:`target extension types <t_target_type>` that represent matrices
+distributed across invocations in a group. The actual element distribution
+and matrix storage are opaque to LLVM; the target defines the concrete
+semantics.
+
+A **group** is a set of invocations that cooperatively own and operate on
+the matrix. The group is identified by a scope value:
+
+- 0: **Subgroup** (also known as wave or warp)
+- 1: **Workgroup** (also known as thread block)
+
+Cooperative matrix types are represented as target extension types. The type
+carries the element type and, when dimensions are compile-time constants,
+may also carry the shape parameters:
+
+.. code-block:: llvm
+
+      ;; Full type (known dimensions):
+      target("spirv.CooperativeMatrixKHR", <element_type>, <scope>, <rows>, <cols>, <use>)
+
+      ;; Slim type (dimensions are specialization constants):
+      target("spirv.CooperativeMatrixKHR", <element_type>)
+
+where ``<use>`` is 0 for MatrixA, 1 for MatrixB, or 2 for MatrixAccumulator.
+
+All cooperative matrix intrinsics take the matrix shape (scope, rows/dims,
+cols/dims, use) as explicit ``i32`` SSA value arguments. This allows the shape
+parameters to be either compile-time constants or specialization constants
+(values that become constant expressions at JIT/pipeline specialization time).
+The intrinsic arguments are the authoritative source for shape information;
+the type's integer parameters, when present, are informational.
+
+All cooperative matrix operations except ``llvm.coopmatrix.length`` are
+convergent: all invocations in the group must participate in the
+operation.
+
+.. _int_coopmatrix_load:
+
+'``llvm.coopmatrix.load.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.ty
+          @llvm.coopmatrix.load.<coopmatty>.<ptrty>.<stridety>(
+              ptrty %Ptr, i32 <Layout>, stridety %Stride,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+"""""""""
+
+The '``llvm.coopmatrix.load.*``' intrinsic loads a cooperative matrix from
+memory starting at ``%Ptr`` using the specified memory layout and stride.
+
+Arguments:
+""""""""""
+
+The first argument ``%Ptr`` is a pointer to the memory region to load from.
+The pointer may be in any address space.
+
+The second argument ``<Layout>`` is an immediate integer specifying the memory
+layout of the matrix data:
+
+- 0: **RowMajor** -- elements in rows are laid out in contiguous memory
+  locations.
+- 1: **ColumnMajor** -- elements in columns are laid out in contiguous memory
+  locations.
+
+The third argument ``%Stride`` is an integer specifying the stride (in
+elements) between consecutive rows (for RowMajor layout) or columns (for
+ColumnMajor layout). The stride must be greater than zero.
+
+The remaining arguments ``%Scope``, ``%Rows``, ``%Cols``, and ``%Use``
+are ``i32`` values specifying the cooperative matrix shape. These may be
+compile-time constants or specialization constants.
+
+The return type is a cooperative matrix target extension type.
+
+The :ref:`align <attr_align>` parameter attribute can be provided for the
+``%Ptr`` argument.
+
+Semantics:
+""""""""""
+
+This intrinsic is convergent: all invocations in the group must
+execute it. The ``<Layout>`` value must be uniform across all invocations
+in the group.
+
+
+.. _int_coopmatrix_store:
+
+'``llvm.coopmatrix.store.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare void
+          @llvm.coopmatrix.store.<coopmatty>.<ptrty>.<stridety>(
+              %coopmatrix.ty %Matrix, ptrty %Ptr, i32 <Layout>,
+              stridety %Stride,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+"""""""""
+
+The '``llvm.coopmatrix.store.*``' intrinsic stores a cooperative matrix to
+memory at ``%Ptr`` using the specified memory layout and stride.
+
+Arguments:
+""""""""""
+
+The first argument ``%Matrix`` is the cooperative matrix value to store.
+
+The second argument ``%Ptr`` is a pointer to the destination memory region.
+The pointer may be in any address space.
+
+The third argument ``<Layout>`` is an immediate integer specifying the memory
+layout (0 = RowMajor, 1 = ColumnMajor). See
+:ref:`llvm.coopmatrix.load <int_coopmatrix_load>` for layout definitions.
+
+The fourth argument ``%Stride`` is an integer specifying the stride (in
+elements) between consecutive rows or columns. The stride must be greater
+than zero.
+
+The remaining arguments ``%Scope``, ``%Rows``, ``%Cols``, and ``%Use``
+are ``i32`` values specifying the cooperative matrix shape. These may be
+compile-time constants or specialization constants.
+
+The :ref:`align <attr_align>` parameter attribute can be provided for the
+``%Ptr`` argument.
+
+Semantics:
+""""""""""
+
+This intrinsic is convergent: all invocations in the group must
+execute it. The ``<Layout>`` value must be uniform across all invocations
+in the group.
+
+
+.. _int_coopmatrix_muladd:
+
+'``llvm.coopmatrix.muladd.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.C.ty
+          @llvm.coopmatrix.muladd.<coopmatCty>.<coopmatAty>.<coopmatBty>(
+              %coopmatrix.A.ty %A, %coopmatrix.B.ty %B,
+              %coopmatrix.C.ty %C, i32 <MatrixOperands>,
+              i32 %Scope, i32 %M, i32 %N, i32 %K)
+
+Overview:
+"""""""""
+
+The '``llvm.coopmatrix.muladd.*``' intrinsic performs a cooperative matrix
+fused multiply-add operation, computing ``A * B + C`` where ``A``, ``B``,
+and ``C`` are cooperative matrices.
+
+Arguments:
+""""""""""
+
+The first argument ``%A`` is a cooperative matrix of dimensions M x K
+(Use = MatrixA).
+
+The second argument ``%B`` is a cooperative matrix of dimensions K x N
+(Use = MatrixB).
+
+The third argument ``%C`` is a cooperative matrix of dimensions M x N
+(Use = MatrixAccumulator). Its type must match the return type.
+
+The fourth argument ``<MatrixOperands>`` is an immediate integer bitmask
+specifying signedness and saturation behavior:
+
+- ``0x0``: None
+- ``0x1``: **MatrixASignedComponents** -- treat ``%A`` components as signed
+- ``0x2``: **MatrixBSignedComponents** -- treat ``%B`` components as signed
+- ``0x4``: **MatrixCSignedComponents** -- treat ``%C`` components as signed
+- ``0x8``: **MatrixResultSignedComponents** -- treat result components as
+  signed
+- ``0x10``: **SaturatingAccumulation** -- use saturating arithmetic for the
+  accumulation
+
+The remaining arguments ``%Scope``, ``%M``, ``%N``, and ``%K`` are ``i32``
+values specifying the group scope and matrix dimensions. The backend derives
+each operand's shape from these: ``%A`` is M x K, ``%B`` is K x N,
+``%C`` and the result are M x N. These may be compile-time constants or
+specialization constants.
+
+The return type is a cooperative matrix target extension type matching the
+type of ``%C``.
+
+Semantics:
+""""""""""
+
+The intrinsic computes the linear-algebraic matrix multiply of ``%A`` by
+``%B`` and then component-wise adds ``%C``. The order of operations is
+implementation-dependent. For integer operands, the multiplication and
+addition are performed at the precision of the result type. When the
+``SaturatingAccumulation`` flag is set, the accumulation saturates instead
+of wrapping on overflow.
+
+This intrinsic is convergent and has no memory effects: all invocations in
+the group must participate.
+
+
+.. _int_coopmatrix_length:
+
+'``llvm.coopmatrix.length``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+::
+
+      declare i32 @llvm.coopmatrix.length(i32 %Scope, i32 %Rows, i32 %Cols,
+                                          i32 %Use)
+
+Overview:
+"""""""""
+
+The '``llvm.coopmatrix.length``' intrinsic returns the number of
+components of a cooperative matrix that are accessible to the current
+invocation.
+
+Arguments:
+""""""""""
+
+The arguments ``%Scope``, ``%Rows``, ``%Cols``, and ``%Use`` are ``i32``
+values specifying the cooperative matrix type to query. These may be
+compile-time constants or specialization constants. The result is an ``i32``
+representing the number of components per invocation.
+
+Semantics:
+""""""""""
+
+The result is implementation-dependent and may vary across different
+targets or hardware, but is constant for a given cooperative matrix type
+within the same program execution.
+
+This intrinsic is speculatable and has no memory effects. It is **not**
+convergent; the result depends only on the matrix type parameters, not on
+any cooperative execution state.
+
+
+.. _int_coopmatrix_construct:
+
+'``llvm.coopmatrix.construct.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.ty
+          @llvm.coopmatrix.construct.<coopmatty>.<scalarty>(
+              scalarty %Value,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+"""""""""
+
+The '``llvm.coopmatrix.construct.*``' intrinsic constructs a cooperative
+matrix where every component accessible to each invocation is initialized
+to ``%Value`` (splat). This maps to ``OpCompositeConstruct`` in SPIR-V.
+
+Arguments:
+""""""""""
+
+The first argument ``%Value`` is a scalar value (integer or floating-point)
+that will be broadcast to all components of the cooperative matrix.
+
+The remaining arguments ``%Scope``, ``%Rows``, ``%Cols``, and ``%Use``
+are ``i32`` values specifying the cooperative matrix shape. These may be
+compile-time constants or specialization constants.
+
+The return type is a cooperative matrix target extension type.
+
+Semantics:
+""""""""""
+
+This intrinsic is convergent: all invocations in the group must
+participate. It has no memory effects.
+
+
 Saturating floating-point to integer conversions
 ------------------------------------------------
 
