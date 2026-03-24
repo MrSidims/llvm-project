@@ -22002,6 +22002,547 @@ This intrinsic is convergent: all invocations in the group must
 participate. It has no memory effects.
 
 
+Extended Cooperative Matrix Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following intrinsics provide element-wise operations, type conversions,
+reductions, and element access on cooperative matrices. They extend the
+baseline operations to cover real ML kernel needs (pre/post-processing
+around GEMM, activation functions, normalization, etc.).
+
+When targeting ``SPV_NV_cooperative_matrix2``, these map to dedicated SPIR-V
+instructions (e.g., ``OpCooperativeMatrixPerElementOpNV``,
+``OpCooperativeMatrixReduceNV``). When targeting ``SPV_KHR_cooperative_matrix``
+only, backends decompose them into per-element loops using
+``llvm.coopmatrix.length`` + ``llvm.coopmatrix.extract`` +
+scalar op + ``llvm.coopmatrix.insert``.
+
+.. _int_coopmatrix_unary:
+
+'``llvm.coopmatrix.unary.*``' Intrinsic
+"""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.ty
+          @llvm.coopmatrix.unary.<coopmatty>(
+              %coopmatrix.ty %Matrix, i32 <Op>,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+~~~~~~~~~
+
+Applies a per-element unary operation to a cooperative matrix.
+
+Arguments:
+~~~~~~~~~~
+
+``%Matrix`` is the input cooperative matrix. ``<Op>`` is an immediate integer
+selecting the operation:
+
+- 0: **Negate** -- arithmetic negation
+- 1: **Abs** -- absolute value
+- 2: **Not** -- bitwise complement (integer only)
+- 3: **Ceil** -- round toward positive infinity (float only)
+- 4: **Floor** -- round toward negative infinity (float only)
+- 5: **Round** -- round to nearest even (float only)
+- 6: **Trunc** -- round toward zero (float only)
+
+The remaining arguments specify the cooperative matrix shape.
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, no memory effects. The result has the same type as the input.
+
+
+.. _int_coopmatrix_binary:
+
+'``llvm.coopmatrix.binary.*``' Intrinsic
+""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.ty
+          @llvm.coopmatrix.binary.<coopmatty>(
+              %coopmatrix.ty %A, %coopmatrix.ty %B, i32 <Op>,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+~~~~~~~~~
+
+Applies a per-element binary operation between two cooperative matrices.
+
+Arguments:
+~~~~~~~~~~
+
+``%A`` and ``%B`` are input cooperative matrices of the same type. ``<Op>``
+is an immediate integer selecting the operation:
+
+- 0: **Add** -- element-wise addition
+- 1: **Sub** -- element-wise subtraction
+- 2: **Mul** -- element-wise multiplication
+- 3: **Div** -- element-wise division
+- 4: **FRem** -- element-wise floating-point remainder
+- 5: **And** -- bitwise AND (integer only)
+- 6: **Or** -- bitwise OR (integer only)
+- 7: **Xor** -- bitwise XOR (integer only)
+- 8: **Shl** -- shift left (integer only)
+- 9: **AShr** -- arithmetic shift right (integer only)
+- 10: **LShr** -- logical shift right (integer only)
+- 11: **Min** -- element-wise minimum
+- 12: **Max** -- element-wise maximum
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, no memory effects. Both inputs and the result have the same type.
+
+
+.. _int_coopmatrix_convert:
+
+'``llvm.coopmatrix.convert.*``' Intrinsic
+"""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.dst.ty
+          @llvm.coopmatrix.convert.<dstty>.<srcty>(
+              %coopmatrix.src.ty %Matrix,
+              i32 %Scope, i32 %Rows, i32 %Cols,
+              i32 %SrcUse, i32 %DstUse)
+
+Overview:
+~~~~~~~~~
+
+Converts a cooperative matrix from one element type to another. The source
+and destination matrices have the same shape but different element types.
+
+Arguments:
+~~~~~~~~~~
+
+``%Matrix`` is the source cooperative matrix. The return type determines
+the destination element type. ``%SrcUse`` and ``%DstUse`` specify the
+matrix use for source and destination respectively.
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, no memory effects. Conversion follows standard LLVM
+integer/float conversion semantics.
+
+
+.. _int_coopmatrix_reduce:
+
+'``llvm.coopmatrix.reduce.*``' Intrinsic
+""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare %result.ty
+          @llvm.coopmatrix.reduce.<resultty>.<srcty>(
+              %coopmatrix.ty %Matrix, i32 <Op>, i32 <Dim>,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+~~~~~~~~~
+
+Reduces a cooperative matrix along a specified dimension using the given
+reduction operation.
+
+Arguments:
+~~~~~~~~~~
+
+``%Matrix`` is the input cooperative matrix. ``<Op>`` selects the reduction:
+
+- 0: **Add**, 1: **Mul**, 2: **Min**, 3: **Max**, 4: **And**, 5: **Or**,
+  6: **Xor**
+
+``<Dim>`` selects the reduction dimension:
+
+- 0: **ReduceRow** -- reduce each row to a single value (result is a column)
+- 1: **ReduceColumn** -- reduce each column to a single value (result is a row)
+- 2: **Reduce2x2** -- reduce 2x2 blocks
+- 3: **ReduceAll** -- reduce all elements to a scalar per invocation
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, no memory effects.
+
+
+.. _int_coopmatrix_extract:
+
+'``llvm.coopmatrix.extract.*``' Intrinsic
+"""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare scalarty
+          @llvm.coopmatrix.extract.<scalarty>.<coopmatty>(
+              %coopmatrix.ty %Matrix, i32 %Index,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+~~~~~~~~~
+
+Extracts a single per-invocation element from a cooperative matrix by index.
+
+Arguments:
+~~~~~~~~~~
+
+``%Matrix`` is the cooperative matrix. ``%Index`` is the per-invocation
+element index (0 to ``llvm.coopmatrix.length`` - 1). The return type is
+the scalar element type of the matrix.
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, no memory effects. The index must be less than the value
+returned by ``llvm.coopmatrix.length`` for the same matrix type.
+
+
+.. _int_coopmatrix_insert:
+
+'``llvm.coopmatrix.insert.*``' Intrinsic
+""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.ty
+          @llvm.coopmatrix.insert.<coopmatty>.<scalarty>(
+              %coopmatrix.ty %Matrix, scalarty %Value, i32 %Index,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+~~~~~~~~~
+
+Inserts a scalar value into a cooperative matrix at the given per-invocation
+element index, returning the modified matrix.
+
+Arguments:
+~~~~~~~~~~
+
+``%Matrix`` is the cooperative matrix to modify. ``%Value`` is the scalar
+to insert. ``%Index`` is the per-invocation element index.
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, no memory effects.
+
+
+.. _int_coopmatrix_get_coord:
+
+'``llvm.coopmatrix.get.coord.*``' Intrinsic
+""""""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare <2 x i32>
+          @llvm.coopmatrix.get.coord.<coopmatty>(
+              %coopmatrix.ty %Matrix, i32 %Index,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+~~~~~~~~~
+
+Queries the (row, column) coordinate within the logical matrix for a given
+per-invocation element index. Returns a ``<2 x i32>`` where element 0 is
+the row and element 1 is the column.
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, no memory effects. Maps to
+``OpCooperativeMatrixGetElementCoordINTEL`` in SPIR-V.
+
+
+.. _int_coopmatrix_prefetch:
+
+'``llvm.coopmatrix.prefetch.*``' Intrinsic
+""""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare void
+          @llvm.coopmatrix.prefetch.<ptrty>.<stridety>(
+              ptrty %Ptr, i32 %Rows, i32 %Cols,
+              i32 <CacheLevel>, i32 <Layout>, stridety %Stride,
+              i32 %Scope)
+
+Overview:
+~~~~~~~~~
+
+Prefetches cooperative matrix data from memory into cache.
+
+Arguments:
+~~~~~~~~~~
+
+``%Ptr`` is a pointer to the matrix data. ``%Rows`` and ``%Cols`` specify
+the tile size. ``<CacheLevel>`` is an immediate integer specifying the
+target cache level (0 = L1, 1 = L2, etc.). ``<Layout>`` is an immediate
+for memory layout (0 = RowMajor, 1 = ColumnMajor). ``%Stride`` is the
+stride in elements.
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, read-only memory effect. This is a performance hint; it may
+be a no-op on targets without explicit prefetch support. Maps to
+``OpCooperativeMatrixPrefetchINTEL`` in SPIR-V.
+
+
+Performance-Oriented Cooperative Matrix MMA Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following intrinsics provide hardware-intimate matrix multiply-accumulate
+variants with support for source modifiers, structured sparsity, block
+scaling, and bounds-checked load/store. These enable maximum performance on
+GPU matrix engines (AMDGPU WMMA/MFMA, NVIDIA Tensor Cores) while remaining
+target-independent.
+
+When targeting SPIR-V, modifiers are decomposed into pre/post-MulAdd
+operations around ``OpCooperativeMatrixMulAddKHR``. Sparsity and scaling
+features that have no SPIR-V equivalent are handled with best-effort
+decomposition (with potential performance loss).
+
+.. _int_coopmatrix_muladd_ext:
+
+'``llvm.coopmatrix.muladd.ext.*``' Intrinsic
+"""""""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.C.ty
+          @llvm.coopmatrix.muladd.ext.<Cty>.<Aty>.<Bty>(
+              %coopmatrix.A.ty %A, %coopmatrix.B.ty %B,
+              %coopmatrix.C.ty %C,
+              i32 <Operands>, i32 <Modifiers>,
+              i32 %Scope, i32 %M, i32 %N, i32 %K)
+
+Overview:
+~~~~~~~~~
+
+Extended fused multiply-add with source modifiers and reuse hints.
+Computes ``D = op(A) * op(B) + op(C)`` where ``op()`` applies the
+requested modifiers.
+
+Arguments:
+~~~~~~~~~~
+
+``%A``, ``%B``, ``%C`` are cooperative matrices (same as
+``llvm.coopmatrix.muladd``).
+
+``<Operands>`` is the signedness/saturation bitmask (same as
+``llvm.coopmatrix.muladd``).
+
+``<Modifiers>`` is an immediate bitmask for hardware-specific modifiers:
+
+- bit 0: **neg_A** -- negate A before multiply
+- bit 1: **neg_B** -- negate B before multiply
+- bit 2: **neg_C** -- negate C before accumulate
+- bit 3: **abs_C** -- absolute value of C before accumulate
+- bit 4: **clamp** -- clamp result to representable range
+- bit 5: **matrix_a_reuse** -- hint: A data will be reused (performance only)
+- bit 6: **matrix_b_reuse** -- hint: B data will be reused (performance only)
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, no memory effects. On targets without modifier support, the
+backend decomposes: emit negate/abs on source matrices before MulAdd,
+apply clamp after. Reuse hints may be dropped.
+
+
+.. _int_coopmatrix_muladd_sparse:
+
+'``llvm.coopmatrix.muladd.sparse.*``' Intrinsic
+""""""""""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.C.ty
+          @llvm.coopmatrix.muladd.sparse.<Cty>.<Aty>.<Bty>.<idxty>(
+              %coopmatrix.A.ty %A, %coopmatrix.B.ty %B,
+              %coopmatrix.C.ty %C,
+              idxty %SparsityIndex,
+              i32 <Operands>, i32 <Modifiers>,
+              i32 %Scope, i32 %M, i32 %N, i32 %K)
+
+Overview:
+~~~~~~~~~
+
+Sparse (structured sparsity) fused multiply-add. Matrix A is sparse with
+a sparsity metadata operand that controls how compressed A is expanded.
+
+Arguments:
+~~~~~~~~~~
+
+``%SparsityIndex`` is target-specific sparsity metadata (type varies).
+Other arguments are the same as ``llvm.coopmatrix.muladd.ext``.
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, no memory effects. Maps to AMDGPU SWMMAC/SMFMAC intrinsics.
+On targets without sparsity support, the backend must densify (expand)
+matrix A and fall back to dense MulAdd (with significant performance loss).
+
+
+.. _int_coopmatrix_muladd_scaled:
+
+'``llvm.coopmatrix.muladd.scaled.*``' Intrinsic
+""""""""""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.C.ty
+          @llvm.coopmatrix.muladd.scaled.<Cty>.<Aty>.<Bty>.<scaleAty>.<scaleBty>(
+              %coopmatrix.A.ty %A, %coopmatrix.B.ty %B,
+              %coopmatrix.C.ty %C,
+              i32 <AFmt>, i32 <BFmt>,
+              scaleAty %AScale, i32 <AScaleFmt>,
+              scaleBty %BScale, i32 <BScaleFmt>,
+              i32 <Modifiers>,
+              i32 %Scope, i32 %M, i32 %N, i32 %K)
+
+Overview:
+~~~~~~~~~
+
+Block-scaled fused multiply-add for MX (microscaling) formats. Computes
+``D = scale_A(A) * scale_B(B) + C`` where A and B are in narrow formats
+(FP8/FP6/FP4) with per-block scaling factors.
+
+Arguments:
+~~~~~~~~~~
+
+``<AFmt>`` and ``<BFmt>`` are immediate integers specifying the data format:
+
+- 0: **FP8_E5M2**, 1: **FP8_E4M3**, 2: **BF8**, 3: **FP6_E3M2**,
+  4: **FP6_E2M3**, 5: **FP4_E2M1**, 6: **I8**
+
+``%AScale`` and ``%BScale`` are the per-block scaling factors.
+``<AScaleFmt>`` and ``<BScaleFmt>`` specify the scaling factor format.
+``<Modifiers>`` is the same modifier bitmask as ``llvm.coopmatrix.muladd.ext``.
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, no memory effects. Maps to AMDGPU ``wmma_scale_*`` /
+``mfma_scale_*`` intrinsics. On targets without block-scale support,
+the backend descales inputs, converts to full precision, and performs
+dense MulAdd (with significant performance loss).
+
+
+.. _int_coopmatrix_load_checked:
+
+'``llvm.coopmatrix.load.checked.*``' Intrinsic
+"""""""""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare %coopmatrix.ty
+          @llvm.coopmatrix.load.checked.<coopmatty>.<ptrty>.<stridety>(
+              ptrty %Ptr, i32 %XOff, i32 %YOff,
+              i32 %Height, i32 %Width, i32 <Layout>, stridety %Stride,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+~~~~~~~~~
+
+Loads a cooperative matrix from memory with bounds checking.
+Elements whose coordinates fall outside the ``[0, Height) x [0, Width)``
+region (offset by ``%XOff``, ``%YOff``) are zero-initialized.
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, read-only memory effect. Maps to
+``OpCooperativeMatrixLoadCheckedINTEL`` in SPIR-V. On targets without
+checked load support, emulated with predication.
+
+
+.. _int_coopmatrix_store_checked:
+
+'``llvm.coopmatrix.store.checked.*``' Intrinsic
+""""""""""""""""""""""""""""""""""""""""""""""""
+
+Syntax:
+~~~~~~~
+This is an overloaded intrinsic.
+
+::
+
+      declare void
+          @llvm.coopmatrix.store.checked.<coopmatty>.<ptrty>.<stridety>(
+              %coopmatrix.ty %Matrix, ptrty %Ptr,
+              i32 %XOff, i32 %YOff,
+              i32 %Height, i32 %Width, i32 <Layout>, stridety %Stride,
+              i32 %Scope, i32 %Rows, i32 %Cols, i32 %Use)
+
+Overview:
+~~~~~~~~~
+
+Stores a cooperative matrix to memory with bounds checking.
+Elements whose coordinates fall outside the valid region are not written.
+
+Semantics:
+~~~~~~~~~~
+
+Convergent, write-only memory effect. Maps to
+``OpCooperativeMatrixStoreCheckedINTEL`` in SPIR-V. On targets without
+checked store support, emulated with predication.
+
+
 Saturating floating-point to integer conversions
 ------------------------------------------------
 

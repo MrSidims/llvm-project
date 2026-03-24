@@ -2844,6 +2844,167 @@ def int_coopmatrix_construct
       [llvm_any_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
       [IntrNoMem, IntrConvergent]>;
 
+//--- Extended cooperative matrix operations (Set 2) ----------------------//
+//
+// Element-wise, conversion, reduction, element access, and utility
+// operations. Map to SPV_NV_cooperative_matrix2, SPV_INTEL_joint_matrix,
+// or decompose into KHR baseline per-element loops.
+
+// Per-element unary operation.
+// op(imm): 0=Negate, 1=Abs, 2=Not, 3=Ceil, 4=Floor, 5=Round, 6=Trunc
+// Args: matrix, op, scope, rows, cols, use
+def int_coopmatrix_unary
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [LLVMMatchType<0>, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent, ImmArg<ArgIndex<1>>]>;
+
+// Per-element binary operation between two cooperative matrices.
+// op(imm): 0=Add, 1=Sub, 2=Mul, 3=Div, 4=FRem, 5=And, 6=Or, 7=Xor,
+//          8=Shl, 9=AShr, 10=LShr, 11=Min, 12=Max
+// Args: matA, matB, op, scope, rows, cols, use
+def int_coopmatrix_binary
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [LLVMMatchType<0>, LLVMMatchType<0>, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent, ImmArg<ArgIndex<2>>]>;
+
+// Element type conversion. Same shape, different element types.
+// Args: src_matrix, scope, rows, cols, src_use, dst_use
+def int_coopmatrix_convert
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [llvm_any_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent]>;
+
+// Reduce a cooperative matrix along an axis.
+// op(imm): 0=Add, 1=Mul, 2=Min, 3=Max, 4=And, 5=Or, 6=Xor
+// dim(imm): 0=ReduceRow, 1=ReduceColumn, 2=Reduce2x2, 3=ReduceAll
+// Args: matrix, op, dim, scope, rows, cols, use
+def int_coopmatrix_reduce
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [llvm_any_ty, llvm_i32_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+
+// Extract a per-invocation element by index.
+// Args: matrix, index, scope, rows, cols, use
+def int_coopmatrix_extract
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [llvm_any_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent]>;
+
+// Insert a per-invocation element by index.
+// Args: matrix, value, index, scope, rows, cols, use
+def int_coopmatrix_insert
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [LLVMMatchType<0>, llvm_any_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent]>;
+
+// Query the (row, col) coordinate of a per-invocation element.
+// Returns {row, col} as <2 x i32>.
+// Args: matrix, index, scope, rows, cols, use
+def int_coopmatrix_get_coord
+  : DefaultAttrsIntrinsic<[llvm_v2i32_ty],
+      [llvm_any_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent]>;
+
+// Prefetch matrix data from memory into cache.
+// Args: ptr, rows, cols, cache_level(imm), layout(imm), stride, scope
+def int_coopmatrix_prefetch
+  : DefaultAttrsIntrinsic<[],
+      [llvm_anyptr_ty, llvm_i32_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_anyint_ty, llvm_i32_ty],
+      [IntrArgMemOnly, IntrReadMem, IntrConvergent,
+       NoCapture<ArgIndex<0>>, ImmArg<ArgIndex<3>>, ImmArg<ArgIndex<4>>]>;
+
+//--- Performance-oriented cooperative matrix operations (Set 3) ----------//
+//
+// Hardware-intimate MMA variants with modifiers, sparsity, and scaling.
+// Map to AMDGPU WMMA/MFMA/SWMMAC and NVIDIA MMA/sparse MMA intrinsics.
+// When targeting SPIR-V KHR, modifiers are decomposed into pre/post-MulAdd
+// operations; sparsity/scaling may require densification (with perf loss).
+
+// Extended MulAdd with source modifiers and reuse hints.
+// D = op(A) * op(B) + op(C), with optional clamp and reuse.
+//
+// operands(imm): signedness + saturation (same as coopmatrix.muladd)
+//   bit 0: MatrixASignedComponents  bit 1: MatrixBSignedComponents
+//   bit 2: MatrixCSignedComponents  bit 3: MatrixResultSignedComponents
+//   bit 4: SaturatingAccumulation
+//
+// modifiers(imm): hardware-specific modifier bitmask
+//   bit 0: neg_A   bit 1: neg_B   bit 2: neg_C   bit 3: abs_C
+//   bit 4: clamp   bit 5: matrix_a_reuse (hint)  bit 6: matrix_b_reuse (hint)
+//
+// Args: matA, matB, matC, operands, modifiers, scope, M, N, K
+def int_coopmatrix_muladd_ext
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [llvm_any_ty, llvm_any_ty, LLVMMatchType<0>, llvm_i32_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent, ImmArg<ArgIndex<3>>, ImmArg<ArgIndex<4>>]>;
+
+// Sparse (structured sparsity) MulAdd.
+// D = sparse(A) * B + C, where A is sparse with metadata.
+// Args: matA, matB, matC, sparsity_index, operands(imm), modifiers(imm),
+//       scope, M, N, K
+def int_coopmatrix_muladd_sparse
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [llvm_any_ty, llvm_any_ty, LLVMMatchType<0>,
+       llvm_any_ty, llvm_i32_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent, ImmArg<ArgIndex<4>>, ImmArg<ArgIndex<5>>]>;
+
+// Block-scaled MulAdd for MX formats (FP8/FP6/FP4 with per-block scaling).
+// D = scale_A(A) * scale_B(B) + C.
+//
+// format enum: 0=FP8_E5M2, 1=FP8_E4M3, 2=BF8, 3=FP6_E3M2, 4=FP6_E2M3,
+//              5=FP4_E2M1, 6=I8
+//
+// Args: matA, matB, matC, a_fmt(imm), b_fmt(imm),
+//       a_scale, a_scale_fmt(imm), b_scale, b_scale_fmt(imm),
+//       modifiers(imm), scope, M, N, K
+def int_coopmatrix_muladd_scaled
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [llvm_any_ty, llvm_any_ty, LLVMMatchType<0>,
+       llvm_i32_ty, llvm_i32_ty,
+       llvm_any_ty, llvm_i32_ty,
+       llvm_any_ty, llvm_i32_ty,
+       llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent,
+       ImmArg<ArgIndex<3>>, ImmArg<ArgIndex<4>>,
+       ImmArg<ArgIndex<6>>, ImmArg<ArgIndex<8>>,
+       ImmArg<ArgIndex<9>>]>;
+
+// Bounds-checked cooperative matrix load.
+// Out-of-bounds elements are zero-initialized.
+// Args: ptr, x_off, y_off, height, width, layout(imm), stride,
+//       scope, rows, cols, use
+def int_coopmatrix_load_checked
+  : DefaultAttrsIntrinsic<[llvm_any_ty],
+      [llvm_anyptr_ty, llvm_i32_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_anyint_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrArgMemOnly, IntrReadMem, IntrConvergent,
+       NoCapture<ArgIndex<0>>, ImmArg<ArgIndex<5>>]>;
+
+// Bounds-checked cooperative matrix store.
+// Out-of-bounds elements are not written.
+// Args: matrix, ptr, x_off, y_off, height, width, layout(imm), stride,
+//       scope, rows, cols, use
+def int_coopmatrix_store_checked
+  : DefaultAttrsIntrinsic<[],
+      [llvm_any_ty, llvm_anyptr_ty, llvm_i32_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_anyint_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrArgMemOnly, IntrWriteMem, IntrConvergent,
+       WriteOnly<ArgIndex<1>>, NoCapture<ArgIndex<1>>,
+       ImmArg<ArgIndex<6>>]>;
+
 //===---------- Intrinsics to control hardware supported loops ----------===//
 
 // Specify that the value given is the number of iterations that the next loop
