@@ -31,6 +31,7 @@
 #include "lld/Common/Driver.h"
 #include "lld/Common/CommonLinkerContext.h"
 #include "lld/Common/ErrorHandler.h"
+#include "lld/Common/Filesystem.h"
 #include "lld/Common/Version.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringExtras.h"
@@ -134,7 +135,7 @@ static std::optional<std::string> findFile(StringRef path1,
                                            const Twine &path2) {
   SmallString<128> s;
   sys::path::append(s, path1, path2);
-  if (sys::fs::exists(s))
+  if (lld::existsVFS(lld::commonContext().vfs.get(), s))
     return std::string(s);
   return std::nullopt;
 }
@@ -195,6 +196,7 @@ bool link(ArrayRef<const char *> argsArr, llvm::raw_ostream &stdoutOS,
           llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput,
           llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs) {
   auto *ctx = new CommonLinkerContext;
+  ctx->vfs = vfs;
   ctx->e.initialize(stdoutOS, stderrOS, exitEarly, disableOutput);
 
   MinGWOptTable parser;

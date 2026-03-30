@@ -141,7 +141,7 @@ static std::optional<StringRef> findFramework(StringRef name) {
       if (!fs::real_path(symlink, location)) {
         // only append suffix if realpath() succeeds
         Twine suffixed = location + suffix;
-        if (fs::exists(suffixed))
+        if (lld::existsVFS(lld::commonContext().vfs.get(), suffixed))
           return resolvedFrameworks[key] = saver().save(suffixed.str());
       }
       // Suffix lookup failed, fall through to the no-suffix case.
@@ -154,10 +154,11 @@ static std::optional<StringRef> findFramework(StringRef name) {
 }
 
 static bool warnIfNotDirectory(StringRef option, StringRef path) {
-  if (!fs::exists(path)) {
+  auto *vfs = lld::commonContext().vfs.get();
+  if (!lld::existsVFS(vfs, path)) {
     warn("directory not found for option -" + option + path);
     return false;
-  } else if (!fs::is_directory(path)) {
+  } else if (!lld::isDirectoryVFS(vfs, path)) {
     warn("option -" + option + path + " references a non-directory path");
     return false;
   }
@@ -168,6 +169,7 @@ static std::vector<StringRef>
 getSearchPaths(unsigned optionCode, InputArgList &args,
                const std::vector<StringRef> &roots,
                const SmallVector<StringRef, 2> &systemPaths) {
+  auto *vfs = lld::commonContext().vfs.get();
   std::vector<StringRef> paths;
   StringRef optionLetter{optionCode == OPT_F ? "F" : "L"};
   for (StringRef path : args::getStrings(args, optionCode)) {
@@ -178,7 +180,7 @@ getSearchPaths(unsigned optionCode, InputArgList &args,
         SmallString<261> buffer(root);
         path::append(buffer, path);
         // Do not warn about paths that are computed via the syslib roots
-        if (fs::is_directory(buffer)) {
+        if (lld::isDirectoryVFS(vfs, buffer)) {
           paths.push_back(saver().save(buffer.str()));
           found = true;
         }
@@ -196,7 +198,7 @@ getSearchPaths(unsigned optionCode, InputArgList &args,
     for (const StringRef &root : roots) {
       SmallString<261> buffer(root);
       path::append(buffer, path);
-      if (fs::is_directory(buffer))
+      if (lld::isDirectoryVFS(vfs, buffer))
         paths.push_back(saver().save(buffer.str()));
     }
   }
@@ -1770,12 +1772,13 @@ bool link(ArrayRef<const char *> argsArr, llvm::raw_ostream &stdoutOS,
     return true;
   }
 
-  // Parse --vfs-overlay option.
-  if (auto *arg = args.getLastArg(OPT_vfs_overlay)) {
+  // Parse --vfs-overlay options. Layer each overlay on top of the previous.
+  for (auto *arg : args.filtered(OPT_vfs_overlay)) {
     auto baseFS = ctx->vfs ? ctx->vfs : llvm::vfs::createPhysicalFileSystem();
-    ctx->vfs = lld::createVFSFromOverlay(
-        arg->getValue(), std::move(baseFS),
-        [](const Twine &msg) { error(msg); });
+    if (auto fs = lld::createVFSFromOverlay(
+            arg->getValue(), std::move(baseFS),
+            [](const Twine &msg) { error(msg); }))
+      ctx->vfs = std::move(fs);
   }
 
   config = std::make_unique<Configuration>();

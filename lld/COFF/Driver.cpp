@@ -1146,7 +1146,8 @@ void LinkerDriver::parseOrderFile(StringRef arg) {
   StringRef path = arg.substr(1);
   std::unique_ptr<MemoryBuffer> mb =
       CHECK(lld::readFileVFS(ctx.vfs.get(), path, /*isText=*/false,
-                             /*requiresNullTerminator=*/false),
+                             /*requiresNullTerminator=*/false,
+                             /*isVolatile=*/true),
             "could not open " + path);
 
   // Parse a file. An order file contains one symbol per line.
@@ -1173,7 +1174,8 @@ void LinkerDriver::parseOrderFile(StringRef arg) {
 void LinkerDriver::parseCallGraphFile(StringRef path) {
   std::unique_ptr<MemoryBuffer> mb =
       CHECK(lld::readFileVFS(ctx.vfs.get(), path, /*isText=*/false,
-                             /*requiresNullTerminator=*/false),
+                             /*requiresNullTerminator=*/false,
+                             /*isVolatile=*/true),
             "could not open " + path);
 
   // Build a map from symbol name to section.
@@ -1526,14 +1528,14 @@ std::optional<std::string> getReproduceFile(const opt::InputArgList &args) {
 
 static void parseVFSOverlay(COFFLinkerContext &ctx,
                             const opt::InputArgList &args) {
-  const opt::Arg *arg = args.getLastArg(OPT_vfsoverlay);
-  if (!arg)
-    return;
-
-  auto baseFS = ctx.vfs ? ctx.vfs : llvm::vfs::createPhysicalFileSystem();
-  ctx.vfs = lld::createVFSFromOverlay(
-      arg->getValue(), std::move(baseFS),
-      [&](const Twine &msg) { Err(ctx) << msg; });
+  // Layer each /vfsoverlay: on top of the previous.
+  for (auto *arg : args.filtered(OPT_vfsoverlay)) {
+    auto baseFS = ctx.vfs ? ctx.vfs : llvm::vfs::createPhysicalFileSystem();
+    if (auto fs = lld::createVFSFromOverlay(
+            arg->getValue(), std::move(baseFS),
+            [&](const Twine &msg) { Err(ctx) << msg; }))
+      ctx.vfs = std::move(fs);
+  }
 }
 
 static StringRef DllDefaultEntryPoint(MachineTypes machine, bool mingw) {

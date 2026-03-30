@@ -160,13 +160,14 @@ std::unique_ptr<raw_fd_ostream> lld::openLTOOutputFile(StringRef file) {
 
 ErrorOr<std::unique_ptr<MemoryBuffer>>
 lld::readFileVFS(llvm::vfs::FileSystem *vfs, const Twine &path, bool isText,
-                 bool requiresNullTerminator) {
+                 bool requiresNullTerminator, bool isVolatile) {
   if (!vfs)
-    return MemoryBuffer::getFile(path, isText, requiresNullTerminator);
+    return MemoryBuffer::getFile(path, isText, requiresNullTerminator,
+                                 isVolatile);
 
   auto bufOrErr = vfs->getBufferForFile(path, /*FileSize=*/-1,
-                                        requiresNullTerminator,
-                                        /*IsVolatile=*/false, isText);
+                                        requiresNullTerminator, isVolatile,
+                                        isText);
   if (!bufOrErr)
     return bufOrErr.getError();
   return std::move(*bufOrErr);
@@ -176,6 +177,13 @@ bool lld::existsVFS(llvm::vfs::FileSystem *vfs, const Twine &path) {
   if (!vfs)
     return sys::fs::exists(path);
   return vfs->exists(path);
+}
+
+bool lld::isDirectoryVFS(llvm::vfs::FileSystem *vfs, const Twine &path) {
+  if (!vfs)
+    return sys::fs::is_directory(path);
+  auto status = vfs->status(path);
+  return status && status->isDirectory();
 }
 
 IntrusiveRefCntPtr<llvm::vfs::FileSystem> lld::createVFSFromOverlay(
@@ -189,7 +197,7 @@ IntrusiveRefCntPtr<llvm::vfs::FileSystem> lld::createVFSFromOverlay(
   if (!bufOrErr) {
     errHandler("cannot open VFS overlay file " + overlayPath + ": " +
                bufOrErr.getError().message());
-    return baseFS;
+    return nullptr;
   }
 
   auto fs = llvm::vfs::getVFSFromYAML(std::move(*bufOrErr),
@@ -197,7 +205,7 @@ IntrusiveRefCntPtr<llvm::vfs::FileSystem> lld::createVFSFromOverlay(
                                        /*DiagContext=*/nullptr, baseFS);
   if (!fs) {
     errHandler("invalid VFS overlay file " + overlayPath);
-    return baseFS;
+    return nullptr;
   }
   return fs;
 }

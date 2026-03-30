@@ -12,6 +12,7 @@
 
 #include "lld/Common/Args.h"
 #include "lld/Common/CommonLinkerContext.h"
+#include "lld/Common/Filesystem.h"
 #include "lld/Common/Reproduce.h"
 #include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/DenseMap.h"
@@ -135,7 +136,7 @@ void MachOOptTable::printHelp(CommonLinkerContext &ctx, const char *argv0,
 }
 
 static std::string rewritePath(StringRef s) {
-  if (fs::exists(s))
+  if (lld::existsVFS(lld::commonContext().vfs.get(), s))
     return relativeToRoot(s);
   return std::string(s);
 }
@@ -143,7 +144,7 @@ static std::string rewritePath(StringRef s) {
 static std::string rewriteInputPath(StringRef s) {
   // Don't bother rewriting "absolute" paths that are actually under the
   // syslibroot; simply rewriting the syslibroot is sufficient.
-  if (rerootPath(s) == s && fs::exists(s))
+  if (rerootPath(s) == s && lld::existsVFS(lld::commonContext().vfs.get(), s))
     return relativeToRoot(s);
   return std::string(s);
 }
@@ -208,14 +209,15 @@ static void searchedDylib(const Twine &path, bool found) {
 std::optional<StringRef> macho::resolveDylibPath(StringRef dylibPath) {
   // TODO: if a tbd and dylib are both present, we should check to make sure
   // they are consistent.
+  auto *vfs = lld::commonContext().vfs.get();
   SmallString<261> tbdPath = dylibPath;
   path::replace_extension(tbdPath, ".tbd");
-  bool tbdExists = fs::exists(tbdPath);
+  bool tbdExists = lld::existsVFS(vfs, tbdPath);
   searchedDylib(tbdPath, tbdExists);
   if (tbdExists)
     return saver().save(tbdPath.str());
 
-  bool dylibExists = fs::exists(dylibPath);
+  bool dylibExists = lld::existsVFS(vfs, dylibPath);
   searchedDylib(dylibPath, dylibExists);
   if (dylibExists)
     return saver().save(dylibPath);
@@ -330,13 +332,14 @@ std::optional<StringRef>
 macho::findPathCombination(const Twine &name,
                            const std::vector<StringRef> &roots,
                            ArrayRef<StringRef> extensions) {
+  auto *vfs = lld::commonContext().vfs.get();
   SmallString<261> base;
   for (StringRef dir : roots) {
     base = dir;
     path::append(base, name);
     for (StringRef ext : extensions) {
       Twine location = base + ext;
-      bool exists = fs::exists(location);
+      bool exists = lld::existsVFS(vfs, location);
       searchedDylib(location, exists);
       if (exists)
         return saver().save(location.str());

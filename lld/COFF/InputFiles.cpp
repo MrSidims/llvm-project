@@ -15,6 +15,7 @@
 #include "SymbolTable.h"
 #include "Symbols.h"
 #include "lld/Common/DWARF.h"
+#include "lld/Common/Filesystem.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/COFF.h"
@@ -1102,12 +1103,14 @@ static std::string normalizePdbPath(StringRef path) {
 
 // If existing, return the actual PDB path on disk.
 static std::optional<std::string>
-findPdbPath(StringRef pdbPath, ObjFile *dependentFile, StringRef outputPath) {
+findPdbPath(const COFFLinkerContext &ctx, StringRef pdbPath,
+            ObjFile *dependentFile, StringRef outputPath) {
   // Ensure the file exists before anything else. In some cases, if the path
   // points to a removable device, Driver::enqueuePath() would fail with an
   // error (EAGAIN, "resource unavailable try again") which we want to skip
   // silently.
-  if (llvm::sys::fs::exists(pdbPath))
+  auto *vfs = ctx.vfs.get();
+  if (lld::existsVFS(vfs, pdbPath))
     return normalizePdbPath(pdbPath);
 
   StringRef objPath = !dependentFile->parentName.empty()
@@ -1121,13 +1124,13 @@ findPdbPath(StringRef pdbPath, ObjFile *dependentFile, StringRef outputPath) {
   // Check if the PDB is in the same folder as the OBJ.
   SmallString<128> path;
   sys::path::append(path, sys::path::parent_path(objPath), pdbName);
-  if (llvm::sys::fs::exists(path))
+  if (lld::existsVFS(vfs, path))
     return normalizePdbPath(path);
 
   // Check if the PDB is in the output folder.
   path.clear();
   sys::path::append(path, sys::path::parent_path(outputPath), pdbName);
-  if (llvm::sys::fs::exists(path))
+  if (lld::existsVFS(vfs, path))
     return normalizePdbPath(path);
 
   return std::nullopt;
@@ -1141,7 +1144,7 @@ PDBInputFile::~PDBInputFile() = default;
 PDBInputFile *PDBInputFile::findFromRecordPath(const COFFLinkerContext &ctx,
                                                StringRef path,
                                                ObjFile *fromFile) {
-  auto p = findPdbPath(path.str(), fromFile, ctx.config.outputFile);
+  auto p = findPdbPath(ctx, path.str(), fromFile, ctx.config.outputFile);
   if (!p)
     return nullptr;
   auto it = ctx.pdbInputFileInstances.find(*p);
@@ -1207,7 +1210,8 @@ std::optional<DILineInfo> ObjFile::getDILineInfo(uint32_t offset,
 }
 
 void ObjFile::enqueuePdbFile(StringRef path, ObjFile *fromFile) {
-  auto p = findPdbPath(path.str(), fromFile, symtab.ctx.config.outputFile);
+  auto p =
+      findPdbPath(symtab.ctx, path.str(), fromFile, symtab.ctx.config.outputFile);
   if (!p)
     return;
   auto it = symtab.ctx.pdbInputFileInstances.emplace(*p, nullptr);

@@ -473,7 +473,7 @@ LinkerDriver::createManifestXmlWithInternalMt(StringRef defaultXml) {
 
   for (StringRef filename : ctx.config.manifestInput) {
     std::unique_ptr<MemoryBuffer> manifest =
-        check(MemoryBuffer::getFile(filename));
+        check(lld::readFileVFS(ctx.vfs.get(), filename));
     // Call takeBuffer to include in /reproduce: output if applicable.
     if (auto e = merger.merge(takeBuffer(std::move(manifest))))
       Fatal(ctx) << "internal manifest tool failed on file " << filename << ": "
@@ -507,7 +507,7 @@ LinkerDriver::createManifestXmlWithExternalMt(StringRef defaultXml) {
 
     // Manually add the file to the /reproduce: tar if needed.
     if (tar)
-      if (auto mbOrErr = MemoryBuffer::getFile(filename))
+      if (auto mbOrErr = lld::readFileVFS(ctx.vfs.get(), filename))
         takeBuffer(std::move(*mbOrErr));
   }
   e.add("/nologo");

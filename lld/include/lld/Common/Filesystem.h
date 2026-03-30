@@ -31,14 +31,21 @@ std::unique_ptr<llvm::raw_fd_ostream> openLTOOutputFile(StringRef file);
 // MemoryBuffer::getFile() call with zero overhead.
 llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>>
 readFileVFS(llvm::vfs::FileSystem *vfs, const llvm::Twine &path,
-            bool isText = false, bool requiresNullTerminator = false);
+            bool isText = false, bool requiresNullTerminator = false,
+            bool isVolatile = false);
 
 // Check file existence through VFS if available, otherwise fall back to
 // sys::fs::exists().
 bool existsVFS(llvm::vfs::FileSystem *vfs, const llvm::Twine &path);
 
+// Check if a path is a directory through VFS if available, otherwise fall back
+// to sys::fs::is_directory().
+bool isDirectoryVFS(llvm::vfs::FileSystem *vfs, const llvm::Twine &path);
+
 // Create a VFS from a YAML overlay file, layered on top of the given base
 // filesystem. If baseFS is null, the real filesystem is used as base.
+// Returns nullptr on error (after calling errHandler). Callers should check
+// the return value before assigning to their VFS field.
 llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem>
 createVFSFromOverlay(llvm::StringRef overlayPath,
                      llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> baseFS,

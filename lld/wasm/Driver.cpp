@@ -70,7 +70,6 @@ void Ctx::reset() {
   isPic = false;
   legacyFunctionTable = false;
   emitBssSegments = false;
-  vfs = nullptr;
   sym = WasmSym{};
 }
 
@@ -133,7 +132,7 @@ bool link(ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
   // This driver-specific context will be freed later by unsafeLldMain().
   auto *context = new CommonLinkerContext;
 
-  ctx.vfs = std::move(vfs);
+  context->vfs = std::move(vfs);
 
   context->e.initialize(stdoutOS, stderrOS, exitEarly, disableOutput);
   context->e.cleanupCallback = []() { ctx.reset(); };
@@ -233,7 +232,7 @@ static std::optional<std::string> findFile(StringRef path1,
                                            const Twine &path2) {
   SmallString<128> s;
   path::append(s, path1, path2);
-  if (fs::exists(s))
+  if (lld::existsVFS(lld::commonContext().vfs.get(), s))
     return std::string(s);
   return std::nullopt;
 }
@@ -314,7 +313,7 @@ void LinkerDriver::addFile(StringRef path) {
   case file_magic::archive: {
     SmallString<128> importFile = path;
     path::replace_extension(importFile, ".imports");
-    if (fs::exists(importFile))
+    if (lld::existsVFS(lld::commonContext().vfs.get(), importFile))
       readImportFile(importFile.str());
 
     auto members = getArchiveMembers(mbref);
@@ -1323,12 +1322,14 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   cl::ResetAllOptionOccurrences();
   cl::ParseCommandLineOptions(v.size(), v.data());
 
-  // Parse --vfs-overlay option.
-  if (auto *arg = args.getLastArg(OPT_vfs_overlay)) {
-    auto baseFS = ctx.vfs ? ctx.vfs : llvm::vfs::createPhysicalFileSystem();
-    ctx.vfs = lld::createVFSFromOverlay(
-        arg->getValue(), std::move(baseFS),
-        [](const Twine &msg) { error(msg); });
+  // Parse --vfs-overlay options. Layer each overlay on top of the previous.
+  for (auto *arg : args.filtered(OPT_vfs_overlay)) {
+    auto &vfs = lld::commonContext().vfs;
+    auto baseFS = vfs ? vfs : llvm::vfs::createPhysicalFileSystem();
+    if (auto fs = lld::createVFSFromOverlay(
+            arg->getValue(), std::move(baseFS),
+            [](const Twine &msg) { error(msg); }))
+      vfs = std::move(fs);
   }
 
   readConfigs(args);

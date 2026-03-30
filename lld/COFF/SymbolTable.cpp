@@ -1302,7 +1302,8 @@ void SymbolTable::parseModuleDefs(StringRef path) {
   llvm::TimeTraceScope timeScope("Parse def file");
   std::unique_ptr<MemoryBuffer> mb =
       CHECK(lld::readFileVFS(ctx.vfs.get(), path, /*isText=*/false,
-                             /*requiresNullTerminator=*/false),
+                             /*requiresNullTerminator=*/false,
+                             /*isVolatile=*/true),
             "could not open " + path);
   COFFModuleDefinition m = check(parseCOFFModuleDefinition(
       mb->getMemBufferRef(), machine, ctx.config.mingw));

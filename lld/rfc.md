@@ -38,6 +38,7 @@ The COFF backend's partial support is asymmetric: it uses VFS for `findFile()` p
 2. **Command-line**: Provide `--vfs-overlay` across all backends for YAML-based file redirection
 3. **Backward compatibility**: Zero behavior change when VFS is not used (null VFS falls through to direct disk I/O)
 4. **Consistency**: Unified VFS infrastructure shared across all four backends
+5. **Complete coverage**: All input file reads and path resolution (library search, framework lookup, script parsing, PDB discovery, `.imports` files) go through VFS
 
 ### Non-Goals
 
@@ -96,16 +97,16 @@ lldMain(args, stdout, stderr, drivers, overlay);
 
 ### Command-Line Interface
 
-All backends gain a `--vfs-overlay` option:
+All backends support `--vfs-overlay`, and **multiple overlays** can be layered:
 
 ```
-ld.lld --vfs-overlay overlay.yaml -o output input.o
-ld64.lld --vfs-overlay overlay.yaml -o output input.o
-wasm-ld --vfs-overlay overlay.yaml -o output input.o
-lld-link /vfsoverlay:overlay.yaml  (existing, now uses shared infra)
+ld.lld --vfs-overlay a.yaml --vfs-overlay b.yaml -o output input.o
+ld64.lld --vfs-overlay a.yaml --vfs-overlay b.yaml -o output input.o
+wasm-ld --vfs-overlay a.yaml --vfs-overlay b.yaml -o output input.o
+lld-link /vfsoverlay:a.yaml /vfsoverlay:b.yaml  (existing, now uses shared infra)
 ```
 
-When both a caller-provided VFS and `--vfs-overlay` are present, the YAML overlay is layered on top of the caller's VFS. This matches Clang's behavior.
+When both a caller-provided VFS and `--vfs-overlay` are present, each YAML overlay is layered on top of the previous VFS in command-line order. This matches Clang's behavior with multiple `-ivfsoverlay` flags.
 
 ---
 
@@ -118,22 +119,24 @@ When both a caller-provided VFS and `--vfs-overlay` are present, the YAML overla
                            |
                     DriverDispatcher
                            |
-              +------------+------------+
-              |            |            |
-          elf::link   coff::link   macho::link  ...
-              |            |            |
-          ctx.vfs = vfs    |            |
-              |            |            |
-         --vfs-overlay?    |            |
-              |            |            |
-    createVFSFromOverlay   |            |
-    (layers on ctx.vfs)    |            |
-              |            |            |
-         readFileVFS()  readFileVFS()  readFileVFS()
-              |            |            |
-         vfs != null?  vfs != null?  vfs != null?
-           /    \        /    \        /    \
-         VFS   disk    VFS   disk    VFS   disk
+              +------+-----+------+------+
+              |      |     |      |      |
+          elf::link  |  coff::link | wasm::link
+              |      |     |      |      |
+         ctx.vfs = vfs     |   mingw::link
+              |            |      |
+       --vfs-overlay*?     |  ctx.vfs = vfs
+              |            |      |
+    createVFSFromOverlay   |   findFile()  -> existsVFS
+    (layers each overlay)  |      |
+              |         coff::link(vfs)
+         readFileVFS()     |
+         existsVFS()    readFileVFS()
+              |         existsVFS()
+         vfs != null?      |
+           /    \     vfs != null?
+         VFS   disk     /    \
+                      VFS   disk
 ```
 
 ### VFS Storage
@@ -151,7 +154,8 @@ public:
 - **ELF**: `Ctx` inherits `CommonLinkerContext`, so `ctx.vfs` is directly available
 - **COFF**: `COFFLinkerContext` inherits `CommonLinkerContext`, same pattern
 - **Mach-O**: Uses `CommonLinkerContext` directly (accessed via `commonContext().vfs`)
-- **WASM**: Has its own `Ctx` struct (not inheriting `CommonLinkerContext`), so `vfs` is added as a direct member with explicit reset in `Ctx::reset()`
+- **WASM**: Uses `CommonLinkerContext` directly (accessed via `commonContext().vfs`). The Wasm-specific `Ctx` struct does not duplicate the `vfs` field
+- **MinGW**: Stores VFS in its `CommonLinkerContext` for search-path resolution, then forwards to `coff::link()`
 
 `IntrusiveRefCntPtr` is used (not `unique_ptr`) because the VFS may be shared across multiple LLD invocations from a library caller. This matches the pattern used throughout LLVM's VFS infrastructure and in Clang's `FileManager`.
 
@@ -162,10 +166,12 @@ When VFS is null (the default), helper functions short-circuit directly to the u
 ```cpp
 ErrorOr<std::unique_ptr<MemoryBuffer>>
 readFileVFS(vfs::FileSystem *vfs, const Twine &path,
-            bool isText, bool requiresNullTerminator) {
+            bool isText, bool requiresNullTerminator, bool isVolatile) {
   if (!vfs)
-    return MemoryBuffer::getFile(path, isText, requiresNullTerminator);
-  return vfs->getBufferForFile(path, ...);
+    return MemoryBuffer::getFile(path, isText, requiresNullTerminator,
+                                 isVolatile);
+  return vfs->getBufferForFile(path, /*FileSize=*/-1,
+                               requiresNullTerminator, isVolatile, isText);
 }
 
 bool existsVFS(vfs::FileSystem *vfs, const Twine &path) {
@@ -173,7 +179,18 @@ bool existsVFS(vfs::FileSystem *vfs, const Twine &path) {
     return sys::fs::exists(path);
   return vfs->exists(path);
 }
+
+bool isDirectoryVFS(vfs::FileSystem *vfs, const Twine &path) {
+  if (!vfs)
+    return sys::fs::is_directory(path);
+  auto status = vfs->status(path);
+  return status && status->isDirectory();
+}
 ```
+
+The `isVolatile` parameter is preserved from the original `MemoryBuffer::getFile()` calls. When `true`, it prevents mmap and forces a full read, which is important on Windows for files that may change during linking (order files, call graph files, module def files).
+
+The `isDirectoryVFS` helper ensures that directory checks during search-path validation (e.g., Mach-O's `-L`/`-F` handling) also go through VFS, preventing virtual directories from being rejected as "non-directory".
 
 This ensures existing users see no performance regression.
 
@@ -205,7 +222,9 @@ createVFSFromOverlay(StringRef overlayPath,
 - Reads the YAML overlay file through the base VFS (not direct disk I/O)
 - Layers the overlay on top of the base filesystem
 - If base is null, uses `createPhysicalFileSystem()` as default
+- Returns `nullptr` on error (after calling `errHandler`), so callers must check before assigning. This prevents silently falling back to the base filesystem if a non-fatal error handler is used
 - Error handling is delegated to backend-specific error reporters via callback
+- Each backend iterates over all `--vfs-overlay` arguments, layering each on top of the previous
 
 ### Thread Safety (COFF)
 
@@ -219,16 +238,60 @@ return std::async(strategy, [=, vfs = std::move(vfs)]() {
 
 Using `createPhysicalFileSystem()` as the base (rather than `getRealFileSystem()`) ensures each thread has an independent CWD, avoiding races.
 
+### Complete VFS Coverage by Backend
+
+#### ELF
+All input file paths go through VFS:
+- `readFile()` — main file loading
+- `findFile()`, `searchScript()`, `searchLibrary()` — library/script search paths
+- `ScriptParser::addFile()` — linker script `INPUT()` / `GROUP()` directives
+- LTO basic-block sections file
+
+#### COFF
+All input file paths go through VFS:
+- `enqueuePath()` / `createFutureForFile()` — async file loading
+- `findFile()` — library search with VFS status check
+- `parseOrderFile()`, `parseCallGraphFile()` — with `isVolatile=true` preserved
+- `parseModuleDefs()` — module definition files, `isVolatile=true` preserved
+- `parseSectionLayout()`, `parseDosStub()` — section layout / DOS stub reads
+- `PDB.cpp` — natvis and named stream files
+- `findPdbPath()` — type-server PDB discovery (same folder, OBJ folder, output folder)
+- `createManifestXmlWithInternalMt()` — manifest input files
+
+#### Mach-O
+All input file paths go through VFS:
+- `readFile()` — main file loading
+- `resolveDylibPath()` — `.tbd` / `.dylib` resolution
+- `findPathCombination()` — library and framework search-path probing
+- `findFramework()` — framework suffix resolution
+- `warnIfNotDirectory()` — search-path existence and directory validation (via `existsVFS` + `isDirectoryVFS`)
+- `getSearchPaths()` — `-L`/`-F` search-path and syslibroot directory probing (via `isDirectoryVFS`)
+- `rewritePath()`, `rewriteInputPath()` — `--reproduce` path checks
+
+#### WASM
+All input file paths go through VFS:
+- `readFile()` — main file loading
+- `findFile()` — library search paths (`-L` / `-l`)
+- `.imports` sidecar file discovery
+
+#### MinGW
+- `findFile()` / `searchLibrary()` — library search before forwarding to COFF
+- VFS stored in `CommonLinkerContext` during MinGW's own processing phase, then forwarded to `coff::link()`
+
 ### What Is NOT Routed Through VFS
 
 Certain file operations intentionally bypass VFS:
 
 - **Output files**: `-o`, import libraries, PDB files use `FileOutputBuffer`/`raw_fd_ostream`
-- **`--reproduce` tar**: Reads files for archival — uses real filesystem to capture actual file state
-- **Temporary files**: Manifest generation, temp import libraries — locally generated artifacts
-- **`rewritePath()`**: Checks file existence for `--reproduce` metadata
+- **Temporary files**: Manifest generation temp files, temp import libraries — locally generated artifacts read back immediately
+- **`TemporaryFile::getMemoryBuffer()`** (COFF): Reads linker-created temp files with `IsVolatile=true`
+- **`createManifestXmlWithExternalMt()`** (COFF): Reads temp file output from `mt.exe`, not user input
+- **`getModTime()`** (Mach-O): Queries real filesystem metadata (modification times) via `fs::status()`
+- **`DependencyTracker` constructor** (Mach-O): Checks writability of an output path
+- **`rewritePath()`** (ELF, COFF): Checks file existence for `--reproduce` tar metadata — captures real filesystem state for reproducibility
+- **`fs::real_path()`** (Mach-O framework resolution): Symlink resolution requires real filesystem; the resolved path is then checked via VFS
 
-These are either output operations or operations where VFS indirection would be semantically incorrect.
+These are either output operations, locally-generated temp files, or operations where VFS indirection would be semantically incorrect.
 
 ---
 
@@ -240,13 +303,13 @@ These are either output operations or operations where VFS indirection would be 
 | `lld/include/lld/Common/CommonLinkerContext.h` | Added `vfs` member |
 | `lld/include/lld/Common/Driver.h` | VFS parameter in `Driver`, `lldMain()`, `LLD_HAS_DRIVER` |
 | `lld/Common/DriverDispatcher.cpp` | Forward VFS through dispatch |
-| `lld/include/lld/Common/Filesystem.h` | `readFileVFS()`, `existsVFS()`, `createVFSFromOverlay()` |
+| `lld/include/lld/Common/Filesystem.h` | `readFileVFS()`, `existsVFS()`, `isDirectoryVFS()`, `createVFSFromOverlay()` |
 | `lld/Common/Filesystem.cpp` | Implementation of VFS utilities |
 
 ### ELF Backend
 | File | Change |
 |------|--------|
-| `lld/ELF/Driver.cpp` | Accept VFS, parse `--vfs-overlay` |
+| `lld/ELF/Driver.cpp` | Accept VFS, parse `--vfs-overlay` (multiple) |
 | `lld/ELF/Options.td` | `--vfs-overlay` option |
 | `lld/ELF/InputFiles.cpp` | `readFile()` and dependent library through VFS |
 | `lld/ELF/DriverUtils.cpp` | `findFile()`, `searchScript()` through VFS |
@@ -257,41 +320,45 @@ These are either output operations or operations where VFS indirection would be 
 | File | Change |
 |------|--------|
 | `lld/COFF/Config.h` | Removed `vfs` field (moved to context) |
-| `lld/COFF/Driver.cpp` | Replaced `getVFS()`, VFS in `createFutureForFile`, `findFile` |
-| `lld/COFF/DriverUtils.cpp` | Section layout and DOS stub reads through VFS |
-| `lld/COFF/SymbolTable.cpp` | Module def file through VFS |
+| `lld/COFF/Driver.cpp` | Replaced `getVFS()`, VFS in `createFutureForFile`, `findFile`, overlay parsing with multiple support, `isVolatile=true` on order/callgraph files |
+| `lld/COFF/DriverUtils.cpp` | Section layout, DOS stub, manifest input files through VFS |
+| `lld/COFF/SymbolTable.cpp` | Module def file through VFS (`isVolatile=true`) |
 | `lld/COFF/PDB.cpp` | Natvis and named stream files through VFS |
+| `lld/COFF/InputFiles.cpp` | `findPdbPath()` through VFS |
 
 ### Mach-O Backend
 | File | Change |
 |------|--------|
-| `lld/MachO/Driver.cpp` | Accept VFS, parse `--vfs-overlay` |
+| `lld/MachO/Driver.cpp` | Accept VFS, parse `--vfs-overlay` (multiple), `findFramework()` through VFS, `warnIfNotDirectory()` and `getSearchPaths()` through VFS (via `isDirectoryVFS`) |
 | `lld/MachO/Options.td` | `--vfs-overlay` option |
 | `lld/MachO/InputFiles.cpp` | `readFile()` through VFS |
+| `lld/MachO/DriverUtils.cpp` | `resolveDylibPath()`, `findPathCombination()`, `rewritePath()`, `rewriteInputPath()` through VFS |
 
 ### WASM Backend
 | File | Change |
 |------|--------|
-| `lld/wasm/Config.h` | Added `vfs` field to `Ctx` |
-| `lld/wasm/Driver.cpp` | Accept VFS, parse `--vfs-overlay`, reset in `Ctx::reset()` |
+| `lld/wasm/Config.h` | Removed duplicate `vfs` field (uses `CommonLinkerContext::vfs`) |
+| `lld/wasm/Driver.cpp` | Accept VFS, parse `--vfs-overlay` (multiple), `findFile()` and `.imports` discovery through VFS |
 | `lld/wasm/Options.td` | `--vfs-overlay` option |
 | `lld/wasm/InputFiles.cpp` | `readFile()` through VFS |
 
 ### MinGW
 | File | Change |
 |------|--------|
-| `lld/MinGW/Driver.cpp` | Accept and forward VFS to `coff::link()` |
+| `lld/MinGW/Driver.cpp` | Store VFS in context, `findFile()` through VFS, forward VFS to `coff::link()` |
 
 ### Tests
 | File | Change |
 |------|--------|
 | `lld/test/ELF/vfs-overlay.s` | New: basic overlay, library paths, error cases |
 | `lld/test/COFF/vfsoverlay.test` | Updated error messages for shared infra |
+| `lld/test/MachO/vfs-overlay.s` | New: basic overlay, library search paths, error cases |
+| `lld/test/wasm/vfs-overlay.s` | New: basic overlay, library search paths, error cases |
 
 ---
 
 ## Future Work
 
-1. **`clang-linker-wrapper` integration** (Phase 5): Call `lldMain()` in-process with `InMemoryFileSystem` containing device `.o` files, eliminating temporary disk I/O in the GPU offloading pipeline
+1. **`clang-linker-wrapper` integration**: Call `lldMain()` in-process with `InMemoryFileSystem` containing device `.o` files, eliminating temporary disk I/O in the GPU offloading pipeline
 2. **Output VFS**: Virtualize output file writes for fully in-memory linking pipelines
-3. **Additional tests**: VFS interaction with LTO cache, thin archives, linker scripts with `INPUT()` directives
+3. **Additional tests**: VFS interaction with LTO cache, thin archives, linker scripts with `INPUT()` directives, MinGW library search through VFS

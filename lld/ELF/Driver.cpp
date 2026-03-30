@@ -704,13 +704,13 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     }
   }
 
-  // Parse --vfs-overlay option. Layer YAML overlay on top of any VFS provided
-  // by the library caller (or the real filesystem if none was provided).
-  if (auto *arg = args.getLastArg(OPT_vfs_overlay)) {
+  // Parse --vfs-overlay options. Layer each overlay on top of the previous.
+  for (auto *arg : args.filtered(OPT_vfs_overlay)) {
     auto baseFS = ctx.vfs ? ctx.vfs : llvm::vfs::createPhysicalFileSystem();
-    ctx.vfs = lld::createVFSFromOverlay(
-        arg->getValue(), std::move(baseFS),
-        [&](const Twine &msg) { ErrAlways(ctx) << msg; });
+    if (auto fs = lld::createVFSFromOverlay(
+            arg->getValue(), std::move(baseFS),
+            [&](const Twine &msg) { ErrAlways(ctx) << msg; }))
+      ctx.vfs = std::move(fs);
   }
 
   readConfigs(ctx, args);

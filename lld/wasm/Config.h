@@ -9,7 +9,6 @@
 #ifndef LLD_WASM_CONFIG_H
 #define LLD_WASM_CONFIG_H
 
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
@@ -20,9 +19,6 @@
 
 namespace llvm {
 enum class CodeGenOptLevel;
-namespace vfs {
-class FileSystem;
-} // namespace vfs
 } // namespace llvm
 
 namespace lld::wasm {
@@ -141,9 +137,6 @@ struct Config {
 // The Ctx object hold all other (non-configuration) global state.
 struct Ctx {
   Config arg;
-
-  // Virtual file system for reading input files.
-  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> vfs;
 
   llvm::SmallVector<ObjFile *, 0> objectFiles;
   llvm::SmallVector<StubFile *, 0> stubFiles;

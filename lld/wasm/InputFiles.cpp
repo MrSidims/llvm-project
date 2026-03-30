@@ -69,7 +69,7 @@ std::unique_ptr<llvm::TarWriter> tar;
 std::optional<MemoryBufferRef> readFile(StringRef path) {
   log("Loading: " + path);
 
-  auto mbOrErr = lld::readFileVFS(ctx.vfs.get(), path);
+  auto mbOrErr = lld::readFileVFS(lld::commonContext().vfs.get(), path);
   if (auto ec = mbOrErr.getError()) {
     error("cannot open " + path + ": " + ec.message());
     return std::nullopt;
