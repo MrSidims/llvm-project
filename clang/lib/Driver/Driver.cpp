@@ -4892,6 +4892,28 @@ Driver::getOffloadArchs(Compilation &C, const llvm::opt::DerivedArgList &Args,
   Args.ClaimAllArgs(options::OPT_offload_arch_EQ);
   Args.ClaimAllArgs(options::OPT_no_offload_arch_EQ);
 
+  // Process -mfallback-arch= for AMDGPU targets to add fallback architectures.
+  // This enables cross-generation GPU compatibility by compiling for both
+  // primary and fallback targets, bundling them in a fat binary.
+  if (TC.getTriple().isAMDGPU() &&
+      (Kind == Action::OFK_HIP || Kind == Action::OFK_OpenMP)) {
+    for (auto *Arg : C.getArgsForToolChain(&TC, /*BoundArch=*/"", Kind)) {
+      if (Arg->getOption().matches(options::OPT_mfallback_arch_EQ)) {
+        for (StringRef FallbackArch : Arg->getValues()) {
+          StringRef CanonicalStr =
+              getCanonicalArchString(C, Args, FallbackArch, TC.getTriple());
+          if (!CanonicalStr.empty()) {
+            Archs.insert(CanonicalStr);
+          } else {
+            TC.getDriver().Diag(diag::err_drv_invalid_arch_name)
+                << FallbackArch;
+          }
+        }
+        Arg->claim();
+      }
+    }
+  }
+
   SmallVector<StringRef> Sorted(Archs.begin(), Archs.end());
   llvm::sort(Sorted);
   return Sorted;

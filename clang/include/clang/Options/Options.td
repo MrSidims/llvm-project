@@ -5783,6 +5783,13 @@ defm amdgpu_precise_memory_op
     : SimpleMFlag<"amdgpu-precise-memory-op", "Enable", "Disable",
                   " precise memory mode (AMDGPU only)">;
 
+def mfallback_arch_EQ : CommaJoined<["-"], "mfallback-arch=">,
+  Group<m_amdgpu_Features_Group>,
+  Visibility<[ClangOption]>,
+  HelpText<"Specify fallback GPU architecture(s) for cross-generation compatibility. "
+           "Compiles kernels for both primary and fallback target(s), bundling in a fat binary. "
+           "(AMDGPU only, e.g. -mfallback-arch=gfx942)">;
+
 def munsafe_fp_atomics : Flag<["-"], "munsafe-fp-atomics">,
   Visibility<[ClangOption, CC1Option, FlangOption, FC1Option]>, Alias<fatomic_ignore_denormal_mode>;
 def mno_unsafe_fp_atomics : Flag<["-"], "mno-unsafe-fp-atomics">,
