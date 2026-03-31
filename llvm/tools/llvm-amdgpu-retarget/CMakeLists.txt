@@ -1,18 +1,34 @@
 set(LLVM_LINK_COMPONENTS
-  AllTargetsAsmParsers
-  AllTargetsDescs
-  AllTargetsDisassemblers
-  AllTargetsInfos
+  AMDGPUAsmParser
+  AMDGPUCodeGen
+  AMDGPUDesc
+  AMDGPUDisassembler
+  AMDGPUInfo
+  AMDGPUUtils
+  Analysis
+  AsmPrinter
   BinaryFormat
+  CodeGen
+  Core
+  IRReader
   MC
   MCDisassembler
+  MIRParser
   Object
+  Passes
+  SelectionDAG
   Support
+  Target
   TargetParser
+  TransformUtils
 )
 
 add_llvm_tool(llvm-amdgpu-retarget
   llvm-amdgpu-retarget.cpp
   AMDGPURetargeter.cpp
+  BackendPipeline.cpp
   ELFRetargetWriter.cpp
+  LivenessAnalyzer.cpp
+  MIRLifter.cpp
+  RetargetPipeline.cpp
 )

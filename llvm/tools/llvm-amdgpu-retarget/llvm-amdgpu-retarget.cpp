@@ -25,6 +25,7 @@
 
 #include "AMDGPURetargeter.h"
 #include "ELFRetargetWriter.h"
+#include "RetargetPipeline.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeEmitter.h"
@@ -83,6 +84,10 @@ static cl::opt<bool> Verbose("v", cl::desc("Verbose output"),
 static cl::opt<bool> DryRun("dry-run",
                             cl::desc("Analyze without producing output"),
                             cl::cat(RetargetCategory));
+
+static cl::opt<bool> UseMIRPipeline("use-mir",
+                                    cl::desc("Use MIR-based pipeline (experimental)"),
+                                    cl::cat(RetargetCategory));
 
 namespace {
 
@@ -266,13 +271,22 @@ Error AMDGPURetargetTool::transformInstructions(
     ArrayRef<MCInst> SourceInsts, ArrayRef<uint64_t> Offsets,
     SmallVectorImpl<MCInst> &TargetInsts) {
 
-  for (size_t I = 0; I < SourceInsts.size(); ++I) {
-    SmallVector<MCInst, 4> TransformedInsts;
-    if (auto Err = Retargeter->transform(SourceInsts[I], TransformedInsts))
-      return Err;
+  // Run liveness analysis for optimal register allocation
+  if (auto Err = Retargeter->analyzeForLiveness(SourceInsts, Offsets))
+    return Err;
 
-    TargetInsts.append(TransformedInsts.begin(), TransformedInsts.end());
+  if (Verbose) {
+    if (const auto *Stats = Retargeter->getLivenessStats()) {
+      outs() << "  Liveness analysis: " << Stats->NumBasicBlocks << " blocks, "
+             << Stats->NumIterations << " iterations\n"
+             << "    Max live VGPRs: " << Stats->MaxLiveVGPRs
+             << ", Min dead VGPRs: " << Stats->MinDeadVGPRs << "\n";
+    }
   }
+
+  // Transform using the new API that passes instruction index
+  if (auto Err = Retargeter->transformAll(SourceInsts, Offsets, TargetInsts))
+    return Err;
 
   return Error::success();
 }
@@ -360,10 +374,17 @@ Error AMDGPURetargetTool::processFile(StringRef InputPath,
     if (Verbose)
       outs() << "  Encoded " << NewText.size() << " bytes\n";
 
+    // Get extra VGPRs needed for emulation
+    unsigned ExtraVGPRs = Retargeter->getExtraVGPRsNeeded();
+    if (Verbose && ExtraVGPRs > 0) {
+      outs() << "  Extra VGPRs needed for emulation: " << ExtraVGPRs << "\n";
+    }
+
     // Write output ELF with new .text section and updated flags
     if (OutputPath != "-") {
       if (auto Err = amdgpu::rewriteELFWithNewText(
-              **BufferOrErr, NewText, SourceCPU, TargetCPU, OutputPath, Verbose))
+              **BufferOrErr, NewText, SourceCPU, TargetCPU, OutputPath, Verbose,
+              ExtraVGPRs))
         return Err;
 
       if (Verbose)
@@ -381,6 +402,39 @@ Error AMDGPURetargetTool::processFile(StringRef InputPath,
 
 } // namespace
 
+static Error runMIRPipeline(StringRef InputPath, StringRef OutputPath,
+                            StringRef SourceCPU, StringRef TargetCPU) {
+  // Read input file
+  ErrorOr<std::unique_ptr<MemoryBuffer>> BufferOrErr =
+      MemoryBuffer::getFile(InputPath);
+  if (!BufferOrErr)
+    return createStringError(BufferOrErr.getError(),
+                             "Failed to open input file: " + InputPath);
+
+  // Create and initialize the MIR-based pipeline
+  RetargetPipeline Pipeline(SourceCPU, TargetCPU, Verbose);
+
+  if (auto Err = Pipeline.initialize())
+    return Err;
+
+  if (auto Err = Pipeline.run(**BufferOrErr, OutputPath))
+    return Err;
+
+  // Print statistics
+  const auto &Stats = Pipeline.getStats();
+  if (Verbose) {
+    outs() << "MIR Pipeline Statistics:\n"
+           << "  Instructions: " << Stats.NumInstructions << "\n"
+           << "  Basic Blocks: " << Stats.NumBasicBlocks << "\n"
+           << "  Transformed: " << Stats.NumTransformed << "\n"
+           << "  Expanded: " << Stats.NumExpanded << "\n"
+           << "  Input bytes: " << Stats.InputBytes << "\n"
+           << "  Output bytes: " << Stats.OutputBytes << "\n";
+  }
+
+  return Error::success();
+}
+
 int main(int argc, char **argv) {
   InitLLVM X(argc, argv);
   cl::HideUnrelatedOptions(RetargetCategory);
@@ -389,6 +443,18 @@ int main(int argc, char **argv) {
                               "Retargets AMDGPU code objects from one GPU "
                               "architecture to another.\n");
 
+  if (UseMIRPipeline) {
+    // Use the experimental MIR-based pipeline
+    if (auto Err = runMIRPipeline(InputFilename, OutputFilename,
+                                  SourceArch, TargetArch)) {
+      WithColor::error(errs(), "llvm-amdgpu-retarget")
+          << toString(std::move(Err)) << "\n";
+      return 1;
+    }
+    return 0;
+  }
+
+  // Use the standard MCInst-based pipeline
   AMDGPURetargetTool Tool(SourceArch, TargetArch);
 
   if (auto Err = Tool.initialize()) {

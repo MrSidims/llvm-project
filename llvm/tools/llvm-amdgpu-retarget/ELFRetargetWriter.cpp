@@ -81,7 +81,8 @@ public:
       : InputData(Input.getBufferStart()), InputSize(Input.getBufferSize()),
         SourceCPU(SourceCPU), TargetCPU(TargetCPU), Verbose(Verbose) {}
 
-  Error rewrite(ArrayRef<char> NewTextSection, StringRef OutputPath);
+  Error rewrite(ArrayRef<char> NewTextSection, StringRef OutputPath,
+                unsigned ExtraVGPRs = 0);
 
 private:
   Error parseELFHeader();
@@ -243,15 +244,20 @@ Error ELFRewriter::updateNoteSections() {
   // Find and update .note sections containing AMDGPU metadata.
   // The metadata is in MsgPack format and contains "amdhsa.target" field.
 
+  // Use section headers from the output buffer (they may have shifted offsets)
+  Elf64_Ehdr *OutHeader = reinterpret_cast<Elf64_Ehdr *>(OutputBuffer.data());
+  Elf64_Shdr *OutSectionHeaders =
+      reinterpret_cast<Elf64_Shdr *>(OutputBuffer.data() + OutHeader->e_shoff);
+
   for (uint16_t I = 0; I < NumSections; ++I) {
-    const Elf64_Shdr &Sec = SectionHeaders[I];
+    const Elf64_Shdr &Sec = OutSectionHeaders[I];
 
     // Only process SHT_NOTE sections
     if (Sec.sh_type != ELF::SHT_NOTE)
       continue;
 
     // Verify section bounds
-    if (Sec.sh_offset + Sec.sh_size > InputSize)
+    if (Sec.sh_offset + Sec.sh_size > OutputBuffer.size())
       continue;
 
     // Parse notes in this section
@@ -596,7 +602,8 @@ Error ELFRewriter::writeOutput(StringRef OutputPath) {
   return Error::success();
 }
 
-Error ELFRewriter::rewrite(ArrayRef<char> NewTextSection, StringRef OutputPath) {
+Error ELFRewriter::rewrite(ArrayRef<char> NewTextSection, StringRef OutputPath,
+                           unsigned ExtraVGPRs) {
   if (auto Err = parseELFHeader())
     return Err;
 
@@ -606,6 +613,15 @@ Error ELFRewriter::rewrite(ArrayRef<char> NewTextSection, StringRef OutputPath) 
   if (auto Err = buildOutput(NewTextSection))
     return Err;
 
+  // Update kernel descriptor VGPR counts if emulation requires additional VGPRs
+  if (ExtraVGPRs > 0) {
+    // Find the new .text section offset and size in the output buffer
+    // The offset is the same, size may have changed
+    uint64_t NewTextSize = NewTextSection.size();
+    llvm::amdgpu::updateKernelDescriptorVGPRs(OutputBuffer, TextSectionOffset,
+                                              NewTextSize, ExtraVGPRs, Verbose);
+  }
+
   if (auto Err = writeOutput(OutputPath))
     return Err;
 
@@ -614,12 +630,79 @@ Error ELFRewriter::rewrite(ArrayRef<char> NewTextSection, StringRef OutputPath) 
 
 } // anonymous namespace
 
+void llvm::amdgpu::updateKernelDescriptorVGPRs(std::vector<uint8_t> &ELFData,
+                                               uint64_t TextOffset,
+                                               uint64_t TextSize,
+                                               unsigned ExtraVGPRs,
+                                               bool Verbose) {
+  if (ExtraVGPRs == 0)
+    return;
+
+  // Kernel descriptor structure (64 bytes, at kernel code entry - 256 bytes):
+  // Offset 48: RSRC1 (4 bytes)
+  //   - Bits [5:0]: VGPR_COUNT field (encoded as (NumVGPRs / 4) - 1)
+  //   - For GFX9, max 256 VGPRs -> field range [0, 63]
+  //
+  // Kernel descriptors are aligned to 256 bytes in .text.
+  // The entry point is at KD + 256 (offset 16-23 in KD contains entry offset).
+
+  const uint8_t *Text = ELFData.data() + TextOffset;
+
+  // Scan for kernel descriptors (every 256 bytes)
+  for (uint64_t Off = 0; Off + 256 <= TextSize; Off += 256) {
+    // Check if this looks like a kernel descriptor
+    // Entry offset field (offset 16-23) should be 256 for embedded descriptors
+    uint64_t EntryOffset;
+    std::memcpy(&EntryOffset, Text + Off + 16, 8);
+
+    if (EntryOffset != 256)
+      continue; // Not a kernel descriptor
+
+    // Read current RSRC1
+    uint32_t RSRC1;
+    std::memcpy(&RSRC1, Text + Off + 48, 4);
+
+    // Extract current VGPR field (bits [5:0])
+    uint32_t VGPRField = RSRC1 & 0x3Fu;
+    uint32_t CurrentVGPRs = (VGPRField + 1) * 4;
+
+    // Add extra VGPRs
+    uint32_t NewVGPRs = CurrentVGPRs + ExtraVGPRs;
+    if (NewVGPRs > 256)
+      NewVGPRs = 256; // Cap at max
+
+    uint32_t NewVGPRField = (NewVGPRs / 4) - 1;
+    if (NewVGPRField > 63)
+      NewVGPRField = 63; // Max field value
+
+    // Update RSRC1
+    uint32_t NewRSRC1 = (RSRC1 & ~0x3Fu) | NewVGPRField;
+    std::memcpy(ELFData.data() + TextOffset + Off + 48, &NewRSRC1, 4);
+
+    // Also update RSRC3 (offset 44) which has granulated_workitem_vgpr_count
+    // for some GFX generations
+    uint32_t RSRC3;
+    std::memcpy(&RSRC3, Text + Off + 44, 4);
+    // RSRC3 bits [5:0] also contain VGPR count
+    uint32_t NewRSRC3 = (RSRC3 & ~0x3Fu) | NewVGPRField;
+    std::memcpy(ELFData.data() + TextOffset + Off + 44, &NewRSRC3, 4);
+
+    if (Verbose) {
+      errs() << "  Updated kernel descriptor at offset " << Off
+             << ": VGPRs " << CurrentVGPRs << " -> " << NewVGPRs << "\n";
+    }
+  }
+}
+
 Error llvm::amdgpu::rewriteELFWithNewText(const MemoryBuffer &InputBuffer,
                                           ArrayRef<char> NewTextSection,
                                           StringRef SourceCPU,
                                           StringRef TargetCPU,
                                           StringRef OutputPath,
-                                          bool Verbose) {
+                                          bool Verbose,
+                                          unsigned ExtraVGPRs) {
   ELFRewriter Rewriter(InputBuffer, SourceCPU, TargetCPU, Verbose);
-  return Rewriter.rewrite(NewTextSection, OutputPath);
+  if (auto Err = Rewriter.rewrite(NewTextSection, OutputPath, ExtraVGPRs))
+    return Err;
+  return Error::success();
 }

@@ -14,12 +14,14 @@
 #ifndef LLVM_TOOLS_LLVM_AMDGPU_RETARGET_AMDGPURETARGETER_H
 #define LLVM_TOOLS_LLVM_AMDGPU_RETARGET_AMDGPURETARGETER_H
 
+#include "LivenessAnalyzer.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Support/Error.h"
+#include <memory>
 
 namespace llvm {
 
@@ -36,9 +38,20 @@ public:
                    const MCRegisterInfo &SourceMRI,
                    const MCRegisterInfo &TargetMRI);
 
+  /// Analyze the entire instruction stream for liveness information.
+  /// This must be called before transformAll() if register allocation is needed.
+  Error analyzeForLiveness(ArrayRef<MCInst> Instructions,
+                           ArrayRef<uint64_t> Offsets);
+
+  /// Transform all instructions in the stream.
+  /// Uses liveness information (if available) for optimal register allocation.
+  Error transformAll(ArrayRef<MCInst> SourceInsts, ArrayRef<uint64_t> Offsets,
+                     SmallVectorImpl<MCInst> &TargetInsts);
+
   /// Transform a single source instruction into one or more target instructions.
+  /// Uses the current instruction index for liveness-based register allocation.
   /// Returns an error if the instruction cannot be retargeted.
-  Error transform(const MCInst &SourceInst,
+  Error transform(const MCInst &SourceInst, size_t InstIndex,
                   SmallVectorImpl<MCInst> &TargetInsts);
 
   /// Check if a source instruction requires emulation on the target.
@@ -50,8 +63,19 @@ public:
     unsigned DirectMapped = 0;
     unsigned Emulated = 0;
     unsigned Unsupported = 0;
+    unsigned ScratchRegsUsed = 0;      // Number of scratch registers allocated
+    unsigned MaxExtraVGPRs = 0;        // Max extra VGPRs needed above kernel's declared count
   };
   const Stats &getStats() const { return Statistics; }
+
+  /// Get liveness analysis statistics (if analyze() was called).
+  const LivenessAnalyzer::Stats *getLivenessStats() const {
+    return Liveness ? &Liveness->getStats() : nullptr;
+  }
+
+  /// Get the maximum number of extra VGPRs needed by this transformation.
+  /// This should be added to the kernel's VGPR count in the kernel descriptor.
+  unsigned getExtraVGPRsNeeded() const { return Statistics.MaxExtraVGPRs; }
 
 private:
   /// Initialize opcode mapping tables for the source/target pair.
@@ -85,8 +109,22 @@ private:
   /// Emit v_lshl_add_u64 emulation for gfx942 -> gfx90a
   /// Semantics: D.u64 = (S0.u64 << S1.u[2:0]) + S2.u64
   /// Emulation: v_lshlrev_b64 tmp, src1, src0 + v_add_u64 dst, tmp, src2
-  Error emitLshlAddU64Emulation(const MCInst &SourceInst,
+  Error emitLshlAddU64Emulation(const MCInst &SourceInst, size_t InstIndex,
                                 SmallVectorImpl<MCInst> &TargetInsts);
+
+  /// Allocate a scratch VGPR using liveness info, or fall back to v255.
+  /// Returns the VGPR number (0-255).
+  int allocateScratchVGPR(size_t InstIndex);
+
+  /// Allocate a 64-bit scratch VGPR pair using liveness info.
+  /// Returns the low register number, or -1 if not available.
+  int allocateScratchVGPR64(size_t InstIndex);
+
+  /// Get the MCRegister for a VGPR number.
+  unsigned getVGPRRegister(unsigned VGPRNum) const;
+
+  /// Get the MCRegister for a 64-bit VGPR pair.
+  unsigned getVGPR64Register(unsigned LowVGPRNum) const;
 
   std::string SourceCPU;
   std::string TargetCPU;
@@ -100,6 +138,15 @@ private:
 
   /// Set of opcodes that require emulation.
   DenseMap<unsigned, bool> EmulationRequired;
+
+  /// Liveness analyzer (created by analyzeForLiveness).
+  std::unique_ptr<LivenessAnalyzer> Liveness;
+
+  /// Current instruction index (for liveness-aware allocation).
+  size_t CurrentInstIndex = 0;
+
+  /// Track the kernel's declared VGPR count (from kernel descriptor).
+  unsigned KernelVGPRCount = 0;
 
   Stats Statistics;
 };

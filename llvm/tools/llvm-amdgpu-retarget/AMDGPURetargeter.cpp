@@ -161,8 +161,42 @@ bool AMDGPURetargeter::requiresEmulation(unsigned SourceOpcode) const {
   return EmulationRequired.count(SourceOpcode) > 0;
 }
 
-Error AMDGPURetargeter::transform(const MCInst &SourceInst,
+Error AMDGPURetargeter::analyzeForLiveness(ArrayRef<MCInst> Instructions,
+                                           ArrayRef<uint64_t> Offsets) {
+  Liveness = std::make_unique<LivenessAnalyzer>(SourceMCII, SourceMRI);
+
+  if (!Liveness->analyze(Instructions, Offsets)) {
+    return createStringError(inconvertibleErrorCode(),
+                             "Liveness analysis failed");
+  }
+
+  LLVM_DEBUG({
+    const auto &Stats = Liveness->getStats();
+    dbgs() << "Liveness analysis: " << Stats.NumInstructions << " instructions, "
+           << Stats.NumBasicBlocks << " blocks, " << Stats.NumIterations
+           << " iterations\n"
+           << "  Max live VGPRs: " << Stats.MaxLiveVGPRs
+           << ", Min dead VGPRs: " << Stats.MinDeadVGPRs << "\n";
+  });
+
+  return Error::success();
+}
+
+Error AMDGPURetargeter::transformAll(ArrayRef<MCInst> SourceInsts,
+                                     ArrayRef<uint64_t> Offsets,
+                                     SmallVectorImpl<MCInst> &TargetInsts) {
+  for (size_t I = 0; I < SourceInsts.size(); ++I) {
+    SmallVector<MCInst, 4> TransformedInsts;
+    if (auto Err = transform(SourceInsts[I], I, TransformedInsts))
+      return Err;
+    TargetInsts.append(TransformedInsts.begin(), TransformedInsts.end());
+  }
+  return Error::success();
+}
+
+Error AMDGPURetargeter::transform(const MCInst &SourceInst, size_t InstIndex,
                                   SmallVectorImpl<MCInst> &TargetInsts) {
+  CurrentInstIndex = InstIndex;
   unsigned SourceOpcode = SourceInst.getOpcode();
 
   // Check if this is a same-family retarget where most opcodes pass through
@@ -199,6 +233,79 @@ Error AMDGPURetargeter::transform(const MCInst &SourceInst,
                                " -> " + TargetCPU);
 }
 
+int AMDGPURetargeter::allocateScratchVGPR(size_t InstIndex) {
+  if (Liveness) {
+    // Use liveness analysis to find a dead register
+    int Reg = Liveness->allocateScratchVGPR(InstIndex, KernelVGPRCount);
+    if (Reg >= 0) {
+      ++Statistics.ScratchRegsUsed;
+      if (static_cast<unsigned>(Reg) >= KernelVGPRCount) {
+        unsigned ExtraNeeded = Reg - KernelVGPRCount + 1;
+        Statistics.MaxExtraVGPRs = std::max(Statistics.MaxExtraVGPRs, ExtraNeeded);
+      }
+      LLVM_DEBUG(dbgs() << "Allocated scratch VGPR v" << Reg
+                        << " at instruction " << InstIndex << "\n");
+      return Reg;
+    }
+  }
+
+  // Fall back to v255 (last VGPR)
+  LLVM_DEBUG(dbgs() << "Falling back to v255 for scratch at instruction "
+                    << InstIndex << "\n");
+  ++Statistics.ScratchRegsUsed;
+  return 255;
+}
+
+int AMDGPURetargeter::allocateScratchVGPR64(size_t InstIndex) {
+  if (Liveness) {
+    // Use liveness analysis to find a dead 64-bit pair
+    int Reg = Liveness->allocateScratchVGPR64(InstIndex, KernelVGPRCount);
+    if (Reg >= 0) {
+      ++Statistics.ScratchRegsUsed;
+      if (static_cast<unsigned>(Reg + 1) >= KernelVGPRCount) {
+        unsigned ExtraNeeded = (Reg + 1) - KernelVGPRCount + 1;
+        Statistics.MaxExtraVGPRs = std::max(Statistics.MaxExtraVGPRs, ExtraNeeded);
+      }
+      LLVM_DEBUG(dbgs() << "Allocated scratch VGPR64 v[" << Reg << ":"
+                        << (Reg + 1) << "] at instruction " << InstIndex << "\n");
+      return Reg;
+    }
+  }
+
+  // Fall back to v254:v255 (last 64-bit pair)
+  LLVM_DEBUG(dbgs() << "Falling back to v[254:255] for scratch64 at instruction "
+                    << InstIndex << "\n");
+  ++Statistics.ScratchRegsUsed;
+  return 254;
+}
+
+unsigned AMDGPURetargeter::getVGPRRegister(unsigned VGPRNum) const {
+  // Look up VGPR<N> by name
+  std::string RegName = "VGPR" + std::to_string(VGPRNum);
+  for (unsigned I = 0, E = TargetMRI.getNumRegs(); I < E; ++I) {
+    if (TargetMRI.getName(I) == RegName)
+      return I;
+  }
+  return 0; // Invalid
+}
+
+unsigned AMDGPURetargeter::getVGPR64Register(unsigned LowVGPRNum) const {
+  // Look up VGPR<N>_VGPR<N+1> by name
+  std::string RegName = "VGPR" + std::to_string(LowVGPRNum) + "_VGPR" +
+                        std::to_string(LowVGPRNum + 1);
+  for (unsigned I = 0, E = TargetMRI.getNumRegs(); I < E; ++I) {
+    StringRef Name = TargetMRI.getName(I);
+    if (Name == RegName)
+      return I;
+    // Also try alternative naming convention
+    if (Name.contains(std::to_string(LowVGPRNum)) &&
+        Name.contains(std::to_string(LowVGPRNum + 1)) &&
+        Name.starts_with("VGPR"))
+      return I;
+  }
+  return 0; // Invalid
+}
+
 Error AMDGPURetargeter::emitEmulationSequence(
     const MCInst &SourceInst, SmallVectorImpl<MCInst> &TargetInsts) {
   unsigned SourceOpcode = SourceInst.getOpcode();
@@ -216,7 +323,7 @@ Error AMDGPURetargeter::emitEmulationSequence(
 
   // Check for V_LSHL_ADD_U64 (gfx942 -> gfx90a)
   if (OpName.contains("V_LSHL_ADD_U64")) {
-    return emitLshlAddU64Emulation(SourceInst, TargetInsts);
+    return emitLshlAddU64Emulation(SourceInst, CurrentInstIndex, TargetInsts);
   }
 
   return createStringError(inconvertibleErrorCode(),
@@ -267,7 +374,8 @@ Error AMDGPURetargeter::emitFP4QuantEmulation(
 }
 
 Error AMDGPURetargeter::emitLshlAddU64Emulation(
-    const MCInst &SourceInst, SmallVectorImpl<MCInst> &TargetInsts) {
+    const MCInst &SourceInst, size_t InstIndex,
+    SmallVectorImpl<MCInst> &TargetInsts) {
   // Emulate V_LSHL_ADD_U64 vDst, vSrc0, vSrc1, vSrc2 on gfx90a
   // Semantics: D.u64 = (S0.u64 << S1.u[2:0]) + S2.u64
   //
@@ -276,11 +384,10 @@ Error AMDGPURetargeter::emitLshlAddU64Emulation(
   //   v_add_co_u32  vDst_lo, vcc, vTmp_lo, vSrc2_lo  ; dst_lo = tmp_lo + src2_lo
   //   v_addc_u32    vDst_hi, vcc, vTmp_hi, vSrc2_hi, vcc ; dst_hi = tmp_hi + src2_hi + carry
   //
-  // Register allocation strategy:
-  // - Use v255 as scratch for the intermediate shift result (vTmp)
-  // - For 64-bit: v254:v255 forms the temporary pair
-  // - Safe because kernels rarely use all 256 VGPRs
-  // - Alternative: If dst != src0 && dst != src2, use dst as intermediate
+  // Register allocation strategy (in priority order):
+  // 1. Use liveness analysis to find a dead 64-bit VGPR pair
+  // 2. If dst != src0 && dst != src2, use dst as intermediate
+  // 3. Fall back to v254:v255 (last 64-bit pair)
 
   // Look up target instructions - use the GFX9-specific variants for encoding
   unsigned LshlrevB64 = lookupOpcodeByName(TargetMCII, V_LSHLREV_B64_vi);
@@ -314,11 +421,6 @@ Error AMDGPURetargeter::emitLshlAddU64Emulation(
   MCOperand Src1 = SourceInst.getOperand(2);
   MCOperand Src2 = SourceInst.getOperand(3);
 
-  // Get scratch register (v254:v255 as a 64-bit pair)
-  // For AMDGPU, we need to look up the register encoding from MCRegisterInfo
-  // The register class for VGPR 64-bit is VReg_64, which pairs consecutive VGPRs
-  // v254:v255 would be the last 64-bit VGPR pair
-
   // Check if we can use the destination as intermediate
   // (safe if dst != src0 and dst != src2, since we write to dst last)
   bool CanUseDstAsIntermediate = true;
@@ -328,35 +430,43 @@ Error AMDGPURetargeter::emitLshlAddU64Emulation(
   if (Dst.isReg() && Src2.isReg() && Dst.getReg() == Src2.getReg())
     CanUseDstAsIntermediate = false;
 
-  // Find the scratch register
-  // For AMDGPU, VGPR_32 registers are enumerated starting from VGPR0
-  // We need to find VGPR254 and VGPR255 for our scratch 64-bit register
-  unsigned ScratchReg64 = 0;
+  // Allocate scratch register using liveness analysis
+  MCOperand TmpReg;
 
-  // Look up VGPR254_VGPR255 (the naming convention varies)
-  // Try common naming patterns for 64-bit VGPR pairs
-  for (unsigned I = 0, E = TargetMRI.getNumRegs(); I < E; ++I) {
-    StringRef RegName = TargetMRI.getName(I);
-    // Look for v[254:255] or VGPR254_VGPR255 patterns
-    if (RegName.contains("254") && RegName.contains("255")) {
-      ScratchReg64 = I;
-      break;
+  // First, try liveness-based allocation for a 64-bit pair
+  int ScratchVGPR = allocateScratchVGPR64(InstIndex);
+  if (ScratchVGPR >= 0) {
+    unsigned ScratchReg64 = getVGPR64Register(ScratchVGPR);
+    if (ScratchReg64) {
+      TmpReg = MCOperand::createReg(ScratchReg64);
+      LLVM_DEBUG(dbgs() << "Using liveness-allocated scratch v[" << ScratchVGPR
+                        << ":" << (ScratchVGPR + 1) << "] for V_LSHL_ADD_U64\n");
     }
   }
 
-  MCOperand TmpReg;
-  if (CanUseDstAsIntermediate) {
-    // Use destination as intermediate
-    TmpReg = Dst;
-  } else if (ScratchReg64) {
-    // Use v254:v255 as scratch
-    TmpReg = MCOperand::createReg(ScratchReg64);
-  } else {
-    // Fall back to using destination (may clobber src0/src2 if they overlap)
-    // This is a correctness issue we need to warn about
-    LLVM_DEBUG(dbgs() << "Warning: Using dst as intermediate in V_LSHL_ADD_U64 "
-                         "emulation - may cause issues if dst overlaps src0/src2\n");
-    TmpReg = Dst;
+  // Fall back to dst-as-intermediate or hardcoded v254:v255
+  if (!TmpReg.isValid()) {
+    if (CanUseDstAsIntermediate) {
+      TmpReg = Dst;
+      LLVM_DEBUG(dbgs() << "Using dst as intermediate for V_LSHL_ADD_U64\n");
+    } else {
+      // Find v254:v255 as fallback
+      unsigned ScratchReg64 = 0;
+      for (unsigned I = 0, E = TargetMRI.getNumRegs(); I < E; ++I) {
+        StringRef RegName = TargetMRI.getName(I);
+        if (RegName.contains("254") && RegName.contains("255")) {
+          ScratchReg64 = I;
+          break;
+        }
+      }
+      if (ScratchReg64) {
+        TmpReg = MCOperand::createReg(ScratchReg64);
+      } else {
+        LLVM_DEBUG(dbgs() << "Warning: Using dst as intermediate in V_LSHL_ADD_U64 "
+                             "emulation - may cause issues if dst overlaps src0/src2\n");
+        TmpReg = Dst;
+      }
+    }
   }
 
   // Emit: v_lshlrev_b64 tmp, src1, src0
