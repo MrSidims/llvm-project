@@ -3431,10 +3431,14 @@ static SPIRVTypeInst getPipeType(const TargetExtType *ExtensionType,
 static SPIRVTypeInst getCoopMatrType(const TargetExtType *ExtensionType,
                                      MachineIRBuilder &MIRBuilder,
                                      SPIRVGlobalRegistry *GR) {
-  assert(ExtensionType->getNumIntParameters() == 4 &&
-         "Invalid number of parameters for SPIR-V coop matrices builtin!");
   assert(ExtensionType->getNumTypeParameters() == 1 &&
          "SPIR-V coop matrices builtin type must have a type parameter!");
+  // Slim type: only element type is known (dimensions from spec constants).
+  // Return nullptr to defer type creation to the instruction selector.
+  if (ExtensionType->getNumIntParameters() == 0)
+    return nullptr;
+  assert(ExtensionType->getNumIntParameters() == 4 &&
+         "Invalid number of parameters for SPIR-V coop matrices builtin!");
   SPIRVTypeInst ElemType =
       GR->getOrCreateSPIRVType(ExtensionType->getTypeParameter(0), MIRBuilder,
                                SPIRV::AccessQualifier::ReadWrite, true);
@@ -3657,6 +3661,11 @@ lowerBuiltinType(const Type *OpaqueType,
       break;
     }
   }
+
+  // Slim cooperative matrix types return nullptr — type creation is deferred
+  // to the instruction selector which has access to the shape SSA arguments.
+  if (!TargetType)
+    return nullptr;
 
   // Emit OpName instruction if a new OpType<...> instruction was added
   // (equivalent type was not found in GlobalRegistry).

@@ -1754,6 +1754,24 @@ SPIRVTypeInst SPIRVGlobalRegistry::getOrCreateOpTypeCoopMatr(
   return NewMI;
 }
 
+SPIRVTypeInst SPIRVGlobalRegistry::getOrCreateOpTypeCoopMatrFromRegs(
+    MachineIRBuilder &MIRBuilder, SPIRVTypeInst ElemType, Register ScopeReg,
+    Register RowsReg, Register ColsReg, Register UseReg) {
+  // No dedup for the register-based path — each unique register combination
+  // creates a new type. SPIRVModuleAnalysis handles module-level dedup.
+  const MachineInstr *NewMI = createConstOrTypeAtFunctionEntry(
+      MIRBuilder, [&](MachineIRBuilder &MIRBuilder) {
+        return MIRBuilder.buildInstr(SPIRV::OpTypeCooperativeMatrixKHR)
+            .addDef(createTypeVReg(MIRBuilder))
+            .addUse(getSPIRVTypeID(ElemType))
+            .addUse(ScopeReg)
+            .addUse(RowsReg)
+            .addUse(ColsReg)
+            .addUse(UseReg);
+      });
+  return NewMI;
+}
+
 SPIRVTypeInst SPIRVGlobalRegistry::getOrCreateOpTypeByOpcode(
     const Type *Ty, MachineIRBuilder &MIRBuilder, unsigned Opcode) {
   if (const MachineInstr *MI = findMI(Ty, false, &MIRBuilder.getMF()))

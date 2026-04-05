@@ -41,6 +41,11 @@ class SPIRVGlobalRegistry : public SPIRVIRMapping {
 
   DenseMap<SPIRVTypeInst, const Type *> SPIRVToLLVMType;
 
+  // VRegs whose SPIR-V type creation was deferred (e.g., slim cooperative
+  // matrix types with spec-constant dimensions). Maps VReg to the original
+  // LLVM Type so the instruction selector can complete type creation.
+  DenseMap<Register, const Type *> DeferredTypes;
+
   // map a Function to its definition (as a machine instruction operand)
   DenseMap<const Function *, const MachineOperand *> FunctionToInstr;
   DenseMap<const MachineInstr *, const Function *> FunctionToInstrRev;
@@ -180,6 +185,16 @@ public:
     Ty = It->second.first;
     Name = It->second.second;
     return true;
+  }
+
+  // Deferred type info: record/retrieve LLVM types for VRegs whose SPIR-V
+  // type creation was deferred (e.g., slim cooperative matrix types).
+  void addDeferredType(Register Reg, const Type *Ty) {
+    DeferredTypes[Reg] = Ty;
+  }
+  const Type *findDeferredType(Register Reg) const {
+    auto It = DeferredTypes.find(Reg);
+    return It == DeferredTypes.end() ? nullptr : It->second;
   }
 
   // Deduced element types of untyped pointers and composites:
@@ -682,6 +697,12 @@ public:
                                           uint32_t Scope, uint32_t Rows,
                                           uint32_t Columns, uint32_t Use,
                                           bool EmitIR);
+
+  // Create OpTypeCooperativeMatrixKHR using Register operands (for slim types
+  // where dimensions may be spec constants).
+  SPIRVTypeInst getOrCreateOpTypeCoopMatrFromRegs(
+      MachineIRBuilder &MIRBuilder, SPIRVTypeInst ElemType, Register ScopeReg,
+      Register RowsReg, Register ColsReg, Register UseReg);
   SPIRVTypeInst
   getOrCreateOpTypePipe(MachineIRBuilder &MIRBuilder,
                         SPIRV::AccessQualifier::AccessQualifier AccQual);

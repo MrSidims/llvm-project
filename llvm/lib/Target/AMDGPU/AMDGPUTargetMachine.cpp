@@ -657,6 +657,7 @@ extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeAMDGPUTarget() {
   initializeAMDGPURemoveIncompatibleFunctionsLegacyPass(*PR);
   initializeAMDGPULowerModuleLDSLegacyPass(*PR);
   initializeAMDGPULowerBufferFatPointersPass(*PR);
+  initializeAMDGPULowerCooperativeMatrixPass(*PR);
   initializeAMDGPULowerIntrinsicsLegacyPass(*PR);
   initializeAMDGPUReserveWWMRegsLegacyPass(*PR);
   initializeAMDGPURewriteAGPRCopyMFMALegacyPass(*PR);
@@ -1502,6 +1503,11 @@ void AMDGPUPassConfig::addCodeGenPrepare() {
     addPass(createLoadStoreVectorizerPass());
 
   if (TM->getTargetTriple().isAMDGCN()) {
+    // Lower cooperative matrix intrinsics before fat pointer lowering.
+    // TargetExtType has no MVT/LLT representation and must be rewritten
+    // to concrete vector types before entering instruction selection.
+    addPass(createAMDGPULowerCooperativeMatrixPass());
+
     // This lowering has been placed after codegenprepare to take advantage of
     // address mode matching (which is why it isn't put with the LDS lowerings).
     // It could be placed anywhere before uniformity annotations (an analysis
@@ -2282,6 +2288,10 @@ void AMDGPUCodeGenPassBuilder::addCodeGenPrepare(
 
   if (isPassEnabled(EnableLoadStoreVectorizer))
     addFunctionPass(LoadStoreVectorizerPass(), PMW);
+
+  // Lower cooperative matrix intrinsics before fat pointer lowering.
+  flushFPMsToMPM(PMW);
+  addModulePass(AMDGPULowerCooperativeMatrixPass(TM), PMW);
 
   // This lowering has been placed after codegenprepare to take advantage of
   // address mode matching (which is why it isn't put with the LDS lowerings).

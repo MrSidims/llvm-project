@@ -439,6 +439,14 @@ void updateRegType(Register Reg, Type *Ty, SPIRVTypeInst SpvType,
   if (!SpvType)
     SpvType = GR->getOrCreateSPIRVType(Ty, MIB,
                                        SPIRV::AccessQualifier::ReadWrite, true);
+  // Slim cooperative matrix types (spec-constant dimensions) return nullptr.
+  // Type creation is deferred to the instruction selector. Store the LLVM
+  // type so the selector can retrieve the element type later.
+  if (!SpvType) {
+    if (Ty)
+      GR->addDeferredType(Reg, Ty);
+    return;
+  }
   if (!MRI.getRegClassOrNull(Reg))
     MRI.setRegClass(Reg, GR->getRegClass(SpvType));
   if (!MRI.getType(Reg).isValid())

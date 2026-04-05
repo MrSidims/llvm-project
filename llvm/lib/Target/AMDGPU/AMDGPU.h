@@ -64,6 +64,7 @@ FunctionPass *createAMDGPURewriteOutArgumentsPass();
 ModulePass *
 createAMDGPULowerModuleLDSLegacyPass(const AMDGPUTargetMachine *TM = nullptr);
 ModulePass *createAMDGPULowerBufferFatPointersPass();
+ModulePass *createAMDGPULowerCooperativeMatrixPass();
 ModulePass *createAMDGPULowerIntrinsicsLegacyPass();
 FunctionPass *createSIModeRegisterPass();
 FunctionPass *createGCNPreRAOptimizationsLegacyPass();
@@ -150,6 +151,18 @@ extern char &AMDGPULowerBufferFatPointersID;
 struct AMDGPULowerBufferFatPointersPass
     : PassInfoMixin<AMDGPULowerBufferFatPointersPass> {
   AMDGPULowerBufferFatPointersPass(const TargetMachine &TM) : TM(TM) {}
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+
+private:
+  const TargetMachine &TM;
+};
+
+void initializeAMDGPULowerCooperativeMatrixPass(PassRegistry &);
+extern char &AMDGPULowerCooperativeMatrixID;
+
+struct AMDGPULowerCooperativeMatrixPass
+    : PassInfoMixin<AMDGPULowerCooperativeMatrixPass> {
+  AMDGPULowerCooperativeMatrixPass(const TargetMachine &TM) : TM(TM) {}
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
 private:

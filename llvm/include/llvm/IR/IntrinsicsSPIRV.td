@@ -70,6 +70,15 @@ let TargetPrefix = "spv" in {
   def int_spv_alloca_array : Intrinsic<[llvm_any_ty], [llvm_anyint_ty, llvm_i32_ty], [ImmArg<ArgIndex<1>>]>;
   def int_spv_undef : Intrinsic<[llvm_i32_ty], []>;
   def int_spv_inline_asm : Intrinsic<[], [llvm_metadata_ty, llvm_metadata_ty, llvm_vararg_ty]>;
+  def int_spv_named_boolean_spec_constant
+      : Intrinsic<[llvm_i1_ty], [llvm_i32_ty, llvm_i1_ty, llvm_metadata_ty],
+                  [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>]>;
+  // General-purpose typed specialization constant.
+  // Args: spec_id(imm), default_value
+  // Returns: spec constant of the overloaded type.
+  def int_spv_spec_constant
+      : Intrinsic<[llvm_any_ty], [llvm_i32_ty, LLVMMatchType<0>],
+                  [ImmArg<ArgIndex<0>>]>;
 
   // Masked Gather/Scatter (SPV_INTEL_masked_gather_scatter)
   def int_spv_masked_gather : Intrinsic<[llvm_any_ty],
