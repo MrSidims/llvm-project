@@ -55,6 +55,7 @@
 ; GCN-O0-NEXT:      Expand reduction intrinsics
 ; GCN-O0-NEXT:      Dominator Tree Construction
 ; GCN-O0-NEXT:      AMDGPU Lower Kernel Arguments
+; GCN-O0-NEXT:    Lower cooperative matrix operations to AMDGPU intrinsics
 ; GCN-O0-NEXT:    Lower buffer fat pointer operations to buffer resources
 ; GCN-O0-NEXT:    AMDGPU lower intrinsics
 ; GCN-O0-NEXT:    FunctionPass Manager
@@ -250,6 +251,7 @@
 ; GCN-O1-NEXT:      Branch Probability Analysis
 ; GCN-O1-NEXT:      Block Frequency Analysis
 ; GCN-O1-NEXT:      CodeGen Prepare
+; GCN-O1-NEXT:    Lower cooperative matrix operations to AMDGPU intrinsics
 ; GCN-O1-NEXT:    Lower buffer fat pointer operations to buffer resources
 ; GCN-O1-NEXT:    AMDGPU lower intrinsics
 ; GCN-O1-NEXT:    FunctionPass Manager
@@ -565,6 +567,7 @@
 ; GCN-O1-OPTS-NEXT:      Natural Loop Information
 ; GCN-O1-OPTS-NEXT:      Scalar Evolution Analysis
 ; GCN-O1-OPTS-NEXT:      GPU Load and Store Vectorizer
+; GCN-O1-OPTS-NEXT:    Lower cooperative matrix operations to AMDGPU intrinsics
 ; GCN-O1-OPTS-NEXT:    Lower buffer fat pointer operations to buffer resources
 ; GCN-O1-OPTS-NEXT:    AMDGPU lower intrinsics
 ; GCN-O1-OPTS-NEXT:    FunctionPass Manager
@@ -890,6 +893,7 @@
 ; GCN-O2-NEXT:      Natural Loop Information
 ; GCN-O2-NEXT:      Scalar Evolution Analysis
 ; GCN-O2-NEXT:      GPU Load and Store Vectorizer
+; GCN-O2-NEXT:    Lower cooperative matrix operations to AMDGPU intrinsics
 ; GCN-O2-NEXT:    Lower buffer fat pointer operations to buffer resources
 ; GCN-O2-NEXT:    AMDGPU lower intrinsics
 ; GCN-O2-NEXT:    FunctionPass Manager
@@ -1230,6 +1234,7 @@
 ; GCN-O3-NEXT:      Natural Loop Information
 ; GCN-O3-NEXT:      Scalar Evolution Analysis
 ; GCN-O3-NEXT:      GPU Load and Store Vectorizer
+; GCN-O3-NEXT:    Lower cooperative matrix operations to AMDGPU intrinsics
 ; GCN-O3-NEXT:    Lower buffer fat pointer operations to buffer resources
 ; GCN-O3-NEXT:    AMDGPU lower intrinsics
 ; GCN-O3-NEXT:    FunctionPass Manager

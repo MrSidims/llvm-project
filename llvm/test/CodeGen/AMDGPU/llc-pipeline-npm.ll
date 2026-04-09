@@ -32,6 +32,7 @@
 ; GCN-O0-NEXT: scalarize-masked-mem-intrin
 ; GCN-O0-NEXT: expand-reductions
 ; GCN-O0-NEXT: amdgpu-lower-kernel-arguments)
+; GCN-O0-NEXT: amdgpu-lower-cooperative-matrix
 ; GCN-O0-NEXT: amdgpu-lower-buffer-fat-pointers
 ; GCN-O0-NEXT: amdgpu-lower-intrinsics
 ; GCN-O0-NEXT: cgscc(function(lower-switch
@@ -140,6 +141,7 @@
 ; GCN-O2-NEXT: function(amdgpu-lower-kernel-arguments
 ; GCN-O2-NEXT: codegenprepare
 ; GCN-O2-NEXT: load-store-vectorizer)
+; GCN-O2-NEXT: amdgpu-lower-cooperative-matrix
 ; GCN-O2-NEXT: amdgpu-lower-buffer-fat-pointers
 ; GCN-O2-NEXT: amdgpu-lower-intrinsics
 ; GCN-O2-NEXT: cgscc(function(lower-switch
@@ -311,6 +313,7 @@
 ; GCN-O3-NEXT: function(amdgpu-lower-kernel-arguments
 ; GCN-O3-NEXT: codegenprepare
 ; GCN-O3-NEXT: load-store-vectorizer)
+; GCN-O3-NEXT: amdgpu-lower-cooperative-matrix
 ; GCN-O3-NEXT: amdgpu-lower-buffer-fat-pointers
 ; GCN-O3-NEXT: amdgpu-lower-intrinsics
 ; GCN-O3-NEXT: cgscc(function(lower-switch
