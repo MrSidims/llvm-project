@@ -2028,6 +2028,103 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     }
     return nullptr;
   }
+  case Intrinsic::convert_from_arbitrary_fp: {
+    // Constant fold convert_from_arbitrary_fp(constInt, "Format") to
+    // ConstantFP. Only scalar inputs are handled here; vector inputs are
+    // left for the legalizer / backend.
+    auto *CI0 = dyn_cast<ConstantInt>(II->getArgOperand(0));
+    if (!CI0)
+      break;
+    auto *FmtMAV = dyn_cast<MetadataAsValue>(II->getArgOperand(1));
+    if (!FmtMAV)
+      break;
+    auto *FmtStr = dyn_cast<MDString>(FmtMAV->getMetadata());
+    if (!FmtStr)
+      break;
+    const fltSemantics *SrcSem =
+        APFloatBase::getArbitraryFPSemantics(FmtStr->getString());
+    if (!SrcSem)
+      break;
+    // Extract the low FmtBits of the integer operand (any high bits are
+    // ignored since the format's storage width is fixed).
+    unsigned FmtBits = APFloat::semanticsSizeInBits(*SrcSem);
+    APInt SrcBits = CI0->getValue().zextOrTrunc(FmtBits);
+    APFloat SrcFP(*SrcSem, SrcBits);
+    Type *DstTy = II->getType();
+    if (!DstTy->isFloatingPointTy())
+      break;
+    const fltSemantics &DstSem = DstTy->getFltSemantics();
+    bool LosesInfo = false;
+    APFloat DstFP = SrcFP;
+    // Widening to a native type is lossless, so the rounding mode is a
+    // no-op here. Use RNE for any degenerate cases.
+    APFloat::opStatus Status = DstFP.convert(
+        DstSem, APFloat::rmNearestTiesToEven, &LosesInfo);
+    if (Status & APFloat::opInvalidOp)
+      break;
+    return replaceInstUsesWith(*II, ConstantFP::get(DstTy, DstFP));
+  }
+  case Intrinsic::convert_to_arbitrary_fp: {
+    // Constant fold convert_to_arbitrary_fp(constFP, "Format", "Round",
+    // saturate) to ConstantInt.
+    auto *CFP = dyn_cast<ConstantFP>(II->getArgOperand(0));
+    if (!CFP)
+      break;
+    auto *FmtMAV = dyn_cast<MetadataAsValue>(II->getArgOperand(1));
+    if (!FmtMAV)
+      break;
+    auto *FmtStr = dyn_cast<MDString>(FmtMAV->getMetadata());
+    if (!FmtStr)
+      break;
+    auto *RndMAV = dyn_cast<MetadataAsValue>(II->getArgOperand(2));
+    if (!RndMAV)
+      break;
+    auto *RndStr = dyn_cast<MDString>(RndMAV->getMetadata());
+    if (!RndStr)
+      break;
+    std::optional<RoundingMode> RM =
+        convertStrToRoundingMode(RndStr->getString());
+    if (!RM || *RM == RoundingMode::Dynamic)
+      break;
+    auto *SatC = dyn_cast<ConstantInt>(II->getArgOperand(3));
+    if (!SatC)
+      break;
+    bool Saturate = SatC->isOne();
+    const fltSemantics *DstSem =
+        APFloatBase::getArbitraryFPSemantics(FmtStr->getString());
+    if (!DstSem)
+      break;
+    Type *DstTy = II->getType();
+    if (!DstTy->isIntegerTy())
+      break;
+    unsigned DstBits = cast<IntegerType>(DstTy)->getBitWidth();
+    unsigned FmtBits = APFloat::semanticsSizeInBits(*DstSem);
+    if (DstBits < FmtBits)
+      break;
+
+    APFloat Src = CFP->getValueAPF();
+    APFloat Dst = Src;
+    bool LosesInfo = false;
+    APFloat::opStatus Status = Dst.convert(*DstSem, *RM, &LosesInfo);
+    // If APFloat reported an invalid-op (e.g., NaN payload clash) treat it
+    // as non-foldable rather than silently producing a wrong value.
+    if (Status & APFloat::opInvalidOp)
+      break;
+    // Saturation: on overflow, clamp to the destination's largest finite
+    // magnitude preserving the sign. APFloat's convert returns +Inf (for
+    // IEEE NonfiniteBehavior) or NaN (for FiniteOnly) on overflow; we
+    // override that to the saturated largest-magnitude value when the
+    // caller asked for saturation.
+    if (Saturate && (Status & APFloat::opOverflow)) {
+      bool Negative = Src.isNegative();
+      APFloat Largest = APFloat::getLargest(*DstSem, Negative);
+      Dst = Largest;
+    }
+    APInt Bits = Dst.bitcastToAPInt();
+    APInt ResultBits = Bits.zextOrTrunc(DstBits);
+    return replaceInstUsesWith(*II,
+                               ConstantInt::get(DstTy, ResultBits));
+  }
   case Intrinsic::abs: {
     Value *IIOperand = II->getArgOperand(0);
     bool IntMinIsPoison = cast<Constant>(II->getArgOperand(1))->isOneValue();

@@ -16,8 +16,12 @@
 #include "SPIRVSubtarget.h"
 #include "SPIRVTargetMachine.h"
 #include "SPIRVUtils.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringSet.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/FPEnv.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
@@ -359,6 +363,13 @@ public:
   Instruction *visitAtomicCmpXchgInst(AtomicCmpXchgInst &I);
   Instruction *visitUnreachableInst(UnreachableInst &I);
   Instruction *visitCallInst(CallInst &I);
+
+  // Rewrite generic llvm.convert.{from,to}.arbitrary.fp[.sr] calls to the
+  // corresponding SPIR-V-specific spv_convert_*_arbitrary_fp[_sr] intrinsics.
+  // This must run before IRTranslator, which rejects raw MDString metadata
+  // operands (IRTranslator.cpp:2864). The rewrite replaces the format
+  // metadata with an ImmArg i32 APFloatBase::Semantics enum.
+  void rewriteConvertArbitraryFPCalls(Function &F, IRBuilder<> &B);
 
   StringRef getPassName() const override { return "SPIRV emit intrinsics"; }
 
@@ -3053,6 +3064,179 @@ void SPIRVEmitIntrinsics::emitUnstructuredLoopControls(Function &F,
   }
 }
 
+// Map an APFloat::Semantics enum value to the corresponding SPIR-V FP
+// encoding if the format has a SPIR-V representation we support. Returns
+// std::nullopt for unsupported formats (FP6, FNUZ, E8M0, etc.).
+static std::optional<unsigned>
+mapArbFPSemanticsToSpirvEncoding(APFloatBase::Semantics Sem) {
+  switch (Sem) {
+  case APFloatBase::S_Float8E4M3FN:
+    return SPIRV::FPEncoding::Float8E4M3EXT;
+  case APFloatBase::S_Float8E5M2:
+    return SPIRV::FPEncoding::Float8E5M2EXT;
+  case APFloatBase::S_Float4E2M1FN:
+    return SPIRV::FPEncoding::Float4E2M1INTEL;
+  default:
+    return std::nullopt;
+  }
+}
+
+void SPIRVEmitIntrinsics::rewriteConvertArbitraryFPCalls(Function &F,
+                                                          IRBuilder<> &B) {
+  const SPIRVSubtarget &ST = TM.getSubtarget<SPIRVSubtarget>(F);
+
+  // Collect candidate calls first to avoid iterator invalidation.
+  SmallVector<IntrinsicInst *, 4> Candidates;
+  for (Instruction &I : instructions(F)) {
+    auto *II = dyn_cast<IntrinsicInst>(&I);
+    if (!II)
+      continue;
+    switch (II->getIntrinsicID()) {
+    case Intrinsic::convert_from_arbitrary_fp:
+    case Intrinsic::convert_to_arbitrary_fp:
+    case Intrinsic::convert_to_arbitrary_fp_sr:
+      Candidates.push_back(II);
+      break;
+    default:
+      break;
+    }
+  }
+
+  for (IntrinsicInst *II : Candidates) {
+    bool IsFrom = II->getIntrinsicID() == Intrinsic::convert_from_arbitrary_fp;
+    bool IsSR =
+        II->getIntrinsicID() == Intrinsic::convert_to_arbitrary_fp_sr;
+
+    // Extract and validate the format metadata string (arg index 1 for all
+    // three intrinsic shapes).
+    auto *FmtMAV = cast<MetadataAsValue>(II->getArgOperand(1));
+    auto *FmtStr = dyn_cast<MDString>(FmtMAV->getMetadata());
+    if (!FmtStr)
+      report_fatal_error(
+          "SPIR-V lowering of llvm.convert.*.arbitrary.fp requires a "
+          "string format metadata argument",
+          false);
+    StringRef FormatStr = FmtStr->getString();
+    const fltSemantics *FltSem =
+        APFloatBase::getArbitraryFPSemantics(FormatStr);
+    if (!FltSem)
+      report_fatal_error(Twine("SPIR-V has no encoding for arbitrary-fp "
+                               "format '") +
+                             FormatStr + "'",
+                         false);
+    APFloatBase::Semantics SemEnum = APFloatBase::SemanticsToEnum(*FltSem);
+    auto SpvEncOpt = mapArbFPSemanticsToSpirvEncoding(SemEnum);
+    if (!SpvEncOpt)
+      report_fatal_error(
+          Twine("SPIR-V has no encoding for arbitrary-fp format '") +
+              FormatStr +
+              "'; only Float8E4M3FN, Float8E5M2, and Float4E2M1FN are "
+              "supported",
+          false);
+
+    // Check subtarget extension availability.
+    bool IsFP8 = (SemEnum == APFloatBase::S_Float8E4M3FN ||
+                  SemEnum == APFloatBase::S_Float8E5M2);
+    bool IsFP4 = SemEnum == APFloatBase::S_Float4E2M1FN;
+    if (IsFP8 && !ST.canUseExtension(SPIRV::Extension::SPV_EXT_float8))
+      report_fatal_error(
+          Twine("SPIR-V lowering of arbitrary-fp format '") + FormatStr +
+              "' requires the following SPIR-V extension: SPV_EXT_float8",
+          false);
+    if (IsFP4) {
+      if (!ST.canUseExtension(SPIRV::Extension::SPV_INTEL_float4))
+        report_fatal_error(
+            "SPIR-V lowering of Float4E2M1FN requires the following "
+            "SPIR-V extension: SPV_INTEL_float4",
+            false);
+      // The i4 carrier would otherwise be widened to i8 by SPIRVPreLegalizer
+      // unless SPV_INTEL_int4 enables the extended-integer type path.
+      if (!ST.canUseExtension(SPIRV::Extension::SPV_INTEL_int4))
+        report_fatal_error(
+            "SPIR-V lowering of Float4E2M1FN also requires the following "
+            "SPIR-V extension to carry the i4 source: SPV_INTEL_int4",
+            false);
+    }
+    if (IsSR &&
+        !ST.canUseExtension(SPIRV::Extension::SPV_INTEL_fp_conversions))
+      report_fatal_error(
+          "SPIR-V lowering of the stochastic-rounding arbitrary-fp "
+          "conversion requires the following SPIR-V extension: "
+          "SPV_INTEL_fp_conversions",
+          false);
+
+    // For the non-SR TO direction, validate and translate the rounding
+    // mode metadata (arg index 2). The SPIR-V backend maps each supported
+    // LLVM rounding mode onto the matching SPV FPRoundingMode enum (used
+    // later as an FPRoundingMode decoration on the OpFConvert result).
+    unsigned SpvRoundingMode = SPIRV::FPRoundingMode::RTE;
+    if (!IsFrom && !IsSR) {
+      auto *RndMAV = cast<MetadataAsValue>(II->getArgOperand(2));
+      auto *RndStr = dyn_cast<MDString>(RndMAV->getMetadata());
+      if (!RndStr)
+        report_fatal_error("missing rounding mode metadata on "
+                           "llvm.convert.to.arbitrary.fp",
+                           false);
+      std::optional<RoundingMode> RM =
+          convertStrToRoundingMode(RndStr->getString());
+      if (!RM)
+        report_fatal_error(Twine("unrecognized rounding mode '") +
+                               RndStr->getString() + "'",
+                           false);
+      switch (*RM) {
+      case RoundingMode::NearestTiesToEven:
+        SpvRoundingMode = SPIRV::FPRoundingMode::RTE;
+        break;
+      case RoundingMode::TowardZero:
+        SpvRoundingMode = SPIRV::FPRoundingMode::RTZ;
+        break;
+      case RoundingMode::TowardPositive:
+        SpvRoundingMode = SPIRV::FPRoundingMode::RTP;
+        break;
+      case RoundingMode::TowardNegative:
+        SpvRoundingMode = SPIRV::FPRoundingMode::RTN;
+        break;
+      default:
+        // round.dynamic (and the NearestTiesToAway IEEE 754 RNA mode)
+        // have no SPIR-V representation as an OpFConvert decoration.
+        report_fatal_error(
+            Twine("SPIR-V OpFConvert does not support rounding mode '") +
+                RndStr->getString() + "'; only round.tonearest, "
+                                      "round.towardzero, round.upward, "
+                                      "round.downward are supported",
+            false);
+      }
+    }
+
+    // Build the replacement spv_* intrinsic call.
+    B.SetInsertPoint(II);
+    Value *SemConst = B.getInt32(static_cast<unsigned>(SemEnum));
+    CallInst *NewCall = nullptr;
+    Type *ResTy = II->getType();
+    if (IsFrom) {
+      Type *SrcTy = II->getArgOperand(0)->getType();
+      NewCall = B.CreateIntrinsic(Intrinsic::spv_convert_from_arbitrary_fp,
+                                   {ResTy, SrcTy},
+                                   {II->getArgOperand(0), SemConst});
+    } else if (IsSR) {
+      Type *SrcTy = II->getArgOperand(0)->getType();
+      NewCall = B.CreateIntrinsic(
+          Intrinsic::spv_convert_to_arbitrary_fp_sr, {ResTy, SrcTy},
+          {II->getArgOperand(0), SemConst, II->getArgOperand(2),
+           II->getArgOperand(3)});
+    } else {
+      Type *SrcTy = II->getArgOperand(0)->getType();
+      Value *RoundConst = B.getInt32(SpvRoundingMode);
+      NewCall = B.CreateIntrinsic(
+          Intrinsic::spv_convert_to_arbitrary_fp, {ResTy, SrcTy},
+          {II->getArgOperand(0), SemConst, RoundConst, II->getArgOperand(3)});
+    }
+    NewCall->takeName(II);
+    II->replaceAllUsesWith(NewCall);
+    II->eraseFromParent();
+  }
+}
+
 bool SPIRVEmitIntrinsics::runOnFunction(Function &Func) {
   if (Func.isDeclaration())
     return false;
@@ -3069,6 +3253,13 @@ bool SPIRVEmitIntrinsics::runOnFunction(Function &Func) {
   AggrConsts.clear();
   AggrConstTypes.clear();
   AggrStores.clear();
+
+  // Rewrite generic llvm.convert.{from,to}.arbitrary.fp[.sr] calls into the
+  // spv_*arbitrary_fp* SPIR-V-internal intrinsics before the rest of this
+  // pass processes the function. IRTranslator rejects raw MDString metadata
+  // operands, so we must eliminate them here (replacing with an ImmArg i32
+  // enum encoding the APFloatBase::Semantics value).
+  rewriteConvertArbitraryFPCalls(Func, B);
 
   // Fix GEP result types ahead of inference, and simplify if possible.
   // Data structure for dead instructions that were simplified and replaced.

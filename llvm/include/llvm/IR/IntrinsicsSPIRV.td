@@ -32,6 +32,33 @@ let TargetPrefix = "spv" in {
   def int_spv_insertelt : Intrinsic<[llvm_any_ty], [llvm_any_ty, llvm_any_ty, llvm_anyint_ty]>;
   def int_spv_const_composite : Intrinsic<[llvm_any_ty], [llvm_vararg_ty]>;
   def int_spv_bitcast : Intrinsic<[llvm_any_ty], [llvm_any_ty]>;
+
+  // SPIR-V internal versions of the generic
+  // llvm.convert.{from,to}.arbitrary.fp[.sr] intrinsics with the format
+  // metadata string replaced by an ImmArg i32 matching
+  // `APFloatBase::Semantics`. Produced by SPIRVEmitIntrinsics from the
+  // generic intrinsics; consumed by SPIRVInstructionSelector. Using i32
+  // ImmArg rather than metadata sidesteps IRTranslator's MDString
+  // rejection at IRTranslator.cpp:2864.
+  def int_spv_convert_from_arbitrary_fp
+      : Intrinsic<[llvm_anyfloat_ty],
+                  [llvm_anyint_ty, llvm_i32_ty],
+                  [IntrNoMem, IntrSpeculatable, ImmArg<ArgIndex<1>>]>;
+  // Operand 2 carries the SPIR-V FPRoundingMode enum value (0=RTE, 1=RTZ,
+  // 2=RTP, 3=RTN). The selector attaches an FPRoundingMode decoration when
+  // the value is anything other than RTE. round.dynamic is rejected at IR
+  // rewrite time.
+  def int_spv_convert_to_arbitrary_fp
+      : Intrinsic<[llvm_anyint_ty],
+                  [llvm_anyfloat_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty],
+                  [IntrNoMem, IntrSpeculatable,
+                   ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>,
+                   ImmArg<ArgIndex<3>>]>;
+  def int_spv_convert_to_arbitrary_fp_sr
+      : Intrinsic<[llvm_anyint_ty],
+                  [llvm_anyfloat_ty, llvm_i32_ty, llvm_i32_ty, llvm_i1_ty],
+                  [IntrNoMem, IntrSpeculatable,
+                   ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<3>>]>;
   def int_spv_ptrcast : Intrinsic<[llvm_any_ty], [llvm_any_ty, llvm_metadata_ty, llvm_i32_ty], [ImmArg<ArgIndex<2>>]>;
   def int_spv_switch : Intrinsic<[], [llvm_any_ty, llvm_vararg_ty]>;
   def int_spv_loop_merge : Intrinsic<[], [llvm_vararg_ty]>;

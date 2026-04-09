@@ -522,6 +522,30 @@ private:
                          SPIRV::AccessQualifier::AccessQualifier AccQual);
 
 public:
+  // Public wrapper that creates (or de-duplicates) an OpTypeFloat with an
+  // explicit FP encoding operand. Intended for callers that need a
+  // "phantom" FP8/FP4 type that has no LLVM IR counterpart (for instance
+  // the arbitrary-fp conversion lowering in the SPIR-V instruction
+  // selector).
+  SPIRVTypeInst
+  getOrCreateSPIRVFloatTypeWithEncoding(uint32_t Width,
+                                        SPIRV::FPEncoding::FPEncoding FPEnc,
+                                        MachineIRBuilder &MIRBuilder) {
+    return getOpTypeFloat(Width, MIRBuilder, FPEnc);
+  }
+
+  // Public wrapper that creates (or de-duplicates) an OpTypeVector whose
+  // element type does not have an LLVM Type* counterpart (e.g. the
+  // phantom OpTypeFloat produced by getOrCreateSPIRVFloatTypeWithEncoding).
+  // The standard getOrCreateSPIRVVectorType() asserts that
+  // SPIRVToLLVMType contains the element type, which fails for phantom
+  // element types.
+  SPIRVTypeInst getOrCreateSPIRVVectorTypeFromSPV(SPIRVTypeInst ElemType,
+                                                    uint32_t NumElems,
+                                                    MachineIRBuilder &Builder) {
+    return getOpTypeVector(NumElems, ElemType, Builder);
+  }
+
   Register buildConstantInt(uint64_t Val, MachineIRBuilder &MIRBuilder,
                             SPIRVTypeInst SpvType, bool EmitIR,
                             bool ZeroAsNull = true);

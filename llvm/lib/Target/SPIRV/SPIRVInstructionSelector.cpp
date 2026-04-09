@@ -153,6 +153,13 @@ private:
   bool selectBitcast(Register ResVReg, SPIRVTypeInst ResType,
                      MachineInstr &I) const;
 
+  bool selectConvertArbitraryFPFrom(Register ResVReg, SPIRVTypeInst ResType,
+                                     MachineInstr &I) const;
+  bool selectConvertArbitraryFPTo(Register ResVReg, SPIRVTypeInst ResType,
+                                   MachineInstr &I) const;
+  bool selectConvertArbitraryFPToSR(Register ResVReg, SPIRVTypeInst ResType,
+                                     MachineInstr &I) const;
+
   bool selectLoad(Register ResVReg, SPIRVTypeInst ResType,
                   MachineInstr &I) const;
   bool selectStore(MachineInstr &I) const;
@@ -4041,6 +4048,192 @@ bool SPIRVInstructionSelector::selectDerivativeInst(
   return true;
 }
 
+// Decode the i32 format enum (ImmArg on the spv_convert_*_arbitrary_fp*
+// intrinsics) into the matching SPIR-V FP encoding and bit width. Returns
+// false if the format doesn't have a SPIR-V representation.
+static bool decodeArbFPFormatEnum(unsigned SemEnum,
+                                   SPIRV::FPEncoding::FPEncoding &Encoding,
+                                   unsigned &BitWidth) {
+  switch (static_cast<APFloatBase::Semantics>(SemEnum)) {
+  case APFloatBase::S_Float8E4M3FN:
+    Encoding = SPIRV::FPEncoding::Float8E4M3EXT;
+    BitWidth = 8;
+    return true;
+  case APFloatBase::S_Float8E5M2:
+    Encoding = SPIRV::FPEncoding::Float8E5M2EXT;
+    BitWidth = 8;
+    return true;
+  case APFloatBase::S_Float4E2M1FN:
+    Encoding = SPIRV::FPEncoding::Float4E2M1INTEL;
+    BitWidth = 4;
+    return true;
+  default:
+    return false;
+  }
+}
+
+// Build the phantom OpTypeFloat for an arbitrary-fp conversion. Handles
+// both scalar and same-element-count vector shapes by reading the
+// component count from the "shape template" SPIRVType.
+static SPIRVTypeInst buildArbFPPhantomType(SPIRVGlobalRegistry &GR,
+                                            unsigned BitWidth,
+                                            SPIRV::FPEncoding::FPEncoding Enc,
+                                            SPIRVTypeInst ShapeTy,
+                                            MachineIRBuilder &MIRBuilder) {
+  SPIRVTypeInst Elt =
+      GR.getOrCreateSPIRVFloatTypeWithEncoding(BitWidth, Enc, MIRBuilder);
+  unsigned NumComponents = GR.getScalarOrVectorComponentCount(ShapeTy);
+  if (NumComponents == 1)
+    return Elt;
+  // Build the vector via the SPV-only path — the phantom element type has
+  // no LLVM Type* counterpart, so we cannot use the standard
+  // getOrCreateSPIRVVectorType (which rounds through SPIRVToLLVMType).
+  return GR.getOrCreateSPIRVVectorTypeFromSPV(Elt, NumComponents, MIRBuilder);
+}
+
+bool SPIRVInstructionSelector::selectConvertArbitraryFPFrom(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // Operands: def, intrinsic_id, int_src, format_enum(imm i32).
+  Register SrcReg = I.getOperand(2).getReg();
+  unsigned SemEnum = I.getOperand(3).getImm();
+
+  SPIRV::FPEncoding::FPEncoding Enc;
+  unsigned FpWidth = 0;
+  if (!decodeArbFPFormatEnum(SemEnum, Enc, FpWidth))
+    report_fatal_error(
+        "spv_convert_from_arbitrary_fp: unsupported format enum", false);
+
+  // Shape template comes from the result type: it already has the right
+  // vector component count (FROM returns a native-FP destination).
+  MachineIRBuilder MIRBuilder(I);
+  SPIRVTypeInst PhantomTy =
+      buildArbFPPhantomType(GR, FpWidth, Enc, ResType, MIRBuilder);
+
+  // Phantom bitcast of the i8/i4 source into the phantom FP type.
+  Register TmpVReg =
+      MRI->createVirtualRegister(GR.getRegClass(PhantomTy));
+  GR.assignSPIRVTypeToVReg(PhantomTy, TmpVReg, *I.getMF());
+
+  BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(SPIRV::OpBitcast))
+      .addDef(TmpVReg)
+      .addUse(GR.getSPIRVTypeID(PhantomTy))
+      .addUse(SrcReg)
+      .constrainAllUses(TII, TRI, RBI);
+
+  // OpFConvert: phantom FP → native FP.
+  BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(SPIRV::OpFConvert))
+      .addDef(ResVReg)
+      .addUse(GR.getSPIRVTypeID(ResType))
+      .addUse(TmpVReg)
+      .constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectConvertArbitraryFPTo(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // Operands: def, intrinsic_id, fp_src, format_enum(imm i32),
+  //           rounding_mode(imm i32), sat(imm i1).
+  Register SrcReg = I.getOperand(2).getReg();
+  unsigned SemEnum = I.getOperand(3).getImm();
+  unsigned RoundingMode = I.getOperand(4).getImm();
+  bool Saturate = I.getOperand(5).getImm() != 0;
+
+  SPIRV::FPEncoding::FPEncoding Enc;
+  unsigned FpWidth = 0;
+  if (!decodeArbFPFormatEnum(SemEnum, Enc, FpWidth))
+    report_fatal_error(
+        "spv_convert_to_arbitrary_fp: unsupported format enum", false);
+
+  // Shape template comes from the fp source, because the result integer
+  // type shares the component count but its element bit width is the
+  // generic i8/i4 carrier, not the FP8/FP4 bit width we actually want.
+  SPIRVTypeInst SrcType = GR.getSPIRVTypeForVReg(SrcReg);
+  MachineIRBuilder MIRBuilder(I);
+  SPIRVTypeInst PhantomTy =
+      buildArbFPPhantomType(GR, FpWidth, Enc, SrcType, MIRBuilder);
+
+  Register TmpVReg =
+      MRI->createVirtualRegister(GR.getRegClass(PhantomTy));
+  GR.assignSPIRVTypeToVReg(PhantomTy, TmpVReg, *I.getMF());
+
+  // OpFConvert: native FP → phantom FP.
+  auto MIB =
+      BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(SPIRV::OpFConvert))
+          .addDef(TmpVReg)
+          .addUse(GR.getSPIRVTypeID(PhantomTy))
+          .addUse(SrcReg);
+  MIB.constrainAllUses(TII, TRI, RBI);
+
+  // Saturated conversion for FP8 is expressed as a decoration on the
+  // OpFConvert result register. FP4 always saturates per the spec, so the
+  // flag is a no-op for that format.
+  bool IsFP8 = (Enc == SPIRV::FPEncoding::Float8E4M3EXT ||
+                Enc == SPIRV::FPEncoding::Float8E5M2EXT);
+  if (Saturate && IsFP8) {
+    buildOpDecorate(
+        TmpVReg, I, TII,
+        SPIRV::Decoration::SaturatedToLargestFloat8NormalConversionEXT, {});
+  }
+
+  // Non-RTE rounding modes are expressed as an FPRoundingMode decoration on
+  // the OpFConvert result. RTE is the default and does not require a
+  // decoration.
+  if (RoundingMode != SPIRV::FPRoundingMode::RTE) {
+    buildOpDecorate(TmpVReg, I, TII, SPIRV::Decoration::FPRoundingMode,
+                    {RoundingMode});
+  }
+
+  // OpBitcast: phantom FP → result integer.
+  BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(SPIRV::OpBitcast))
+      .addDef(ResVReg)
+      .addUse(GR.getSPIRVTypeID(ResType))
+      .addUse(TmpVReg)
+      .constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectConvertArbitraryFPToSR(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // Operands: def, intrinsic_id, fp_src, format_enum(imm i32),
+  //           seed(i32 reg), sat(imm i1).
+  Register SrcReg = I.getOperand(2).getReg();
+  unsigned SemEnum = I.getOperand(3).getImm();
+  Register SeedReg = I.getOperand(4).getReg();
+  bool Saturate = I.getOperand(5).getImm() != 0;
+
+  SPIRV::FPEncoding::FPEncoding Enc;
+  unsigned FpWidth = 0;
+  if (!decodeArbFPFormatEnum(SemEnum, Enc, FpWidth))
+    report_fatal_error(
+        "spv_convert_to_arbitrary_fp_sr: unsupported format enum", false);
+
+  SPIRVTypeInst SrcType = GR.getSPIRVTypeForVReg(SrcReg);
+  MachineIRBuilder MIRBuilder(I);
+  SPIRVTypeInst PhantomTy =
+      buildArbFPPhantomType(GR, FpWidth, Enc, SrcType, MIRBuilder);
+
+  Register TmpVReg =
+      MRI->createVirtualRegister(GR.getRegClass(PhantomTy));
+  GR.assignSPIRVTypeToVReg(PhantomTy, TmpVReg, *I.getMF());
+
+  unsigned Opcode = Saturate ? SPIRV::OpClampStochasticRoundFToFINTEL
+                              : SPIRV::OpStochasticRoundFToFINTEL;
+  BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(Opcode))
+      .addDef(TmpVReg)
+      .addUse(GR.getSPIRVTypeID(PhantomTy))
+      .addUse(SrcReg)
+      .addUse(SeedReg)
+      .constrainAllUses(TII, TRI, RBI);
+
+  // OpBitcast: phantom FP → result integer.
+  BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(SPIRV::OpBitcast))
+      .addDef(ResVReg)
+      .addUse(GR.getSPIRVTypeID(ResType))
+      .addUse(TmpVReg)
+      .constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
 bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
                                                SPIRVTypeInst ResType,
                                                MachineInstr &I) const {
@@ -4069,6 +4262,12 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
       report_fatal_error("incompatible result and operand types in a bitcast");
     return selectOpWithSrcs(ResVReg, ResType, I, {OpReg}, SPIRV::OpBitcast);
   }
+  case Intrinsic::spv_convert_from_arbitrary_fp:
+    return selectConvertArbitraryFPFrom(ResVReg, ResType, I);
+  case Intrinsic::spv_convert_to_arbitrary_fp:
+    return selectConvertArbitraryFPTo(ResVReg, ResType, I);
+  case Intrinsic::spv_convert_to_arbitrary_fp_sr:
+    return selectConvertArbitraryFPToSR(ResVReg, ResType, I);
   case Intrinsic::spv_unref_global:
   case Intrinsic::spv_init_global: {
     MachineInstr *MI = MRI->getVRegDef(I.getOperand(1).getReg());

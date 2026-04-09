@@ -1154,6 +1154,18 @@ let IntrProperties = [IntrNoMem, IntrSpeculatable, IntrNoCreateUndefOrPoison] in
             [ llvm_anyint_ty, llvm_metadata_ty ],
             [ IntrNoMem, IntrSpeculatable ]>;
 
+  // Stochastic-rounding variant of convert_to_arbitrary_fp. The rounding
+  // mode is implicit ("stochastic") so no rounding-mode metadata is taken.
+  // A mandatory i32 seed replaces the rounding mode slot; the result is
+  // deterministic given (value, seed, format, saturate), so two calls with
+  // the same inputs must produce bit-identical outputs. The caller owns
+  // the entropy source.
+  def int_convert_to_arbitrary_fp_sr
+      : DefaultAttrsIntrinsic<
+            [ llvm_anyint_ty ],
+            [ llvm_anyfloat_ty, llvm_metadata_ty, llvm_i32_ty, llvm_i1_ty ],
+            [ IntrNoMem, IntrSpeculatable, ImmArg<ArgIndex<3>> ]>;
+
   def int_canonicalize : DefaultAttrsIntrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>],
                                    [IntrNoMem]>;
   // Arithmetic fence intrinsic.

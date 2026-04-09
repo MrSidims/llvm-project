@@ -1025,6 +1025,13 @@ enum NodeType {
   /// Operands: [float_val, sem_const(i32), rounding_const(i32), sat_const(i32)]
   CONVERT_TO_ARBITRARY_FP,
 
+  /// CONVERT_TO_ARBITRARY_FP_SR - Stochastic-rounding variant of
+  /// CONVERT_TO_ARBITRARY_FP. The rounding mode is implicit and the
+  /// rounding-mode operand slot is replaced by a mandatory i32 seed.
+  /// Operands: [float_val, sem_const(i32), seed(i32), sat_const(i32)]
+  /// The result is deterministic given (float_val, seed, sem, sat).
+  CONVERT_TO_ARBITRARY_FP_SR,
+
   /// Perform various unary floating-point operations inspired by libm. For
   /// FPOWI, the result is undefined if the integer operand doesn't fit into
   /// sizeof(int).

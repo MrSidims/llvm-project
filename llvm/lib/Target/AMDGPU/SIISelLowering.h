@@ -103,6 +103,22 @@ private:
   SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerINTRINSIC_VOID(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerCONVERT_FROM_ARBITRARY_FP(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerCONVERT_TO_ARBITRARY_FP(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerCONVERT_TO_ARBITRARY_FP_SR(SDValue Op, SelectionDAG &DAG) const;
+
+  /// Try to fuse fmul(amdgcn_cvt_*_fp8/bf8(...), scale) into the
+  /// scalef32 equivalent intrinsic.  Returns the replacement node or
+  /// SDValue() if the pattern doesn't match.
+  SDValue matchFMulArbitraryFPScaleFrom(SDNode *FMul,
+                                        DAGCombinerInfo &DCI) const;
+
+  /// Pre-legalize DAG combine that fuses
+  /// convert_to_arbitrary_fp(fmul/fdiv(val, scale), fp8) into the
+  /// scaled HW instruction when the scale is provably exact (E8M0-derived
+  /// or arcp fast-math).
+  SDValue performConvertToArbitraryFPCombine(SDNode *N,
+                                             DAGCombinerInfo &DCI) const;
 
   // The raw.tbuffer and struct.tbuffer intrinsics have two offset args: offset
   // (the offset that is included in bounds checking and swizzling, to be split

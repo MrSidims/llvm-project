@@ -1072,6 +1072,27 @@ static bool isBFloat16Type(SPIRVTypeInst TypeDef) {
          TypeDef->getOperand(2).getImm() == SPIRV::FPEncoding::BFloat16KHR;
 }
 
+static bool isFloat8E4M3Type(SPIRVTypeInst TypeDef) {
+  return TypeDef && TypeDef->getNumOperands() == 3 &&
+         TypeDef->getOpcode() == SPIRV::OpTypeFloat &&
+         TypeDef->getOperand(1).getImm() == 8 &&
+         TypeDef->getOperand(2).getImm() == SPIRV::FPEncoding::Float8E4M3EXT;
+}
+
+static bool isFloat8E5M2Type(SPIRVTypeInst TypeDef) {
+  return TypeDef && TypeDef->getNumOperands() == 3 &&
+         TypeDef->getOpcode() == SPIRV::OpTypeFloat &&
+         TypeDef->getOperand(1).getImm() == 8 &&
+         TypeDef->getOperand(2).getImm() == SPIRV::FPEncoding::Float8E5M2EXT;
+}
+
+static bool isFloat4E2M1Type(SPIRVTypeInst TypeDef) {
+  return TypeDef && TypeDef->getNumOperands() == 3 &&
+         TypeDef->getOpcode() == SPIRV::OpTypeFloat &&
+         TypeDef->getOperand(1).getImm() == 4 &&
+         TypeDef->getOperand(2).getImm() == SPIRV::FPEncoding::Float4E2M1INTEL;
+}
+
 // Add requirements for handling atomic float instructions
 #define ATOM_FLT_REQ_EXT_MSG(ExtName)                                          \
   "The atomic float instruction requires the following SPIR-V "                \
@@ -1489,6 +1510,34 @@ void addInstrRequirements(const MachineInstr &MI,
       } else {
         Reqs.addCapability(SPIRV::Capability::Float16);
       }
+    } else if (BitWidth == 8) {
+      if (isFloat8E4M3Type(&MI) || isFloat8E5M2Type(&MI)) {
+        if (!ST.canUseExtension(SPIRV::Extension::SPV_EXT_float8))
+          report_fatal_error(
+              "OpTypeFloat 8 with FP8 encoding requires the following "
+              "SPIR-V extension: SPV_EXT_float8",
+              false);
+        Reqs.addExtension(SPIRV::Extension::SPV_EXT_float8);
+        Reqs.addCapability(SPIRV::Capability::Float8EXT);
+      } else {
+        report_fatal_error("OpTypeFloat 8 requires an FP8 encoding operand "
+                           "(Float8E4M3EXT or Float8E5M2EXT)",
+                           false);
+      }
+    } else if (BitWidth == 4) {
+      if (isFloat4E2M1Type(&MI)) {
+        if (!ST.canUseExtension(SPIRV::Extension::SPV_INTEL_float4))
+          report_fatal_error(
+              "OpTypeFloat 4 with Float4E2M1INTEL encoding requires the "
+              "following SPIR-V extension: SPV_INTEL_float4",
+              false);
+        Reqs.addExtension(SPIRV::Extension::SPV_INTEL_float4);
+        Reqs.addCapability(SPIRV::Capability::Float4E2M1TypeINTEL);
+      } else {
+        report_fatal_error(
+            "OpTypeFloat 4 requires the Float4E2M1INTEL encoding operand",
+            false);
+      }
     }
     break;
   }
@@ -1886,6 +1935,16 @@ void addInstrRequirements(const MachineInstr &MI,
       Reqs.addExtension(SPIRV::Extension::SPV_INTEL_tensor_float32_conversion);
       Reqs.addCapability(SPIRV::Capability::TensorFloat32RoundingINTEL);
     }
+    break;
+  case SPIRV::OpStochasticRoundFToFINTEL:
+  case SPIRV::OpClampStochasticRoundFToFINTEL:
+    if (!ST.canUseExtension(SPIRV::Extension::SPV_INTEL_fp_conversions))
+      report_fatal_error(
+          "Stochastic-rounding conversion requires the following SPIR-V "
+          "extension: SPV_INTEL_fp_conversions",
+          false);
+    Reqs.addExtension(SPIRV::Extension::SPV_INTEL_fp_conversions);
+    Reqs.addCapability(SPIRV::Capability::FloatConversionsINTEL);
     break;
   case SPIRV::OpVariableLengthArrayINTEL:
   case SPIRV::OpSaveMemoryINTEL:

@@ -176,7 +176,11 @@ static const StringMap<SPIRV::Extension::Extension> SPIRVExtensionMap = {
     {"SPV_EXT_image_raw10_raw12",
      SPIRV::Extension::Extension::SPV_EXT_image_raw10_raw12},
     {"SPV_INTEL_unstructured_loop_controls",
-     SPIRV::Extension::Extension::SPV_INTEL_unstructured_loop_controls}};
+     SPIRV::Extension::Extension::SPV_INTEL_unstructured_loop_controls},
+    {"SPV_EXT_float8", SPIRV::Extension::Extension::SPV_EXT_float8},
+    {"SPV_INTEL_float4", SPIRV::Extension::Extension::SPV_INTEL_float4},
+    {"SPV_INTEL_fp_conversions",
+     SPIRV::Extension::Extension::SPV_INTEL_fp_conversions}};
 
 bool SPIRVExtensionsParser::parse(cl::Option &O, StringRef ArgName,
                                   StringRef ArgValue, ExtensionSet &Vals) {

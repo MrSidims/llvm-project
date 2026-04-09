@@ -448,6 +448,18 @@ def OpConvertBF16ToFINTEL : UnOp<"OpConvertBF16ToFINTEL", 6117>;
 // SPV_INTEL_tensor_float32_conversion
 def OpRoundFToTF32INTEL : UnOp<"OpRoundFToTF32INTEL", 6426>;
 
+// SPV_INTEL_fp_conversions
+// Signature: (outs ID:$res), (ins TYPE:$ty, ID:$val, ID:$seed, variable_ops)
+// - $val is a scalar/vector of a wider float type
+// - $seed is an i32 providing the pseudo-random starting point
+// - variable_ops covers the optional Next Seed pointer (we don't emit it)
+def OpStochasticRoundFToFINTEL : Op<6217, (outs ID:$res),
+                    (ins TYPE:$ty, ID:$val, ID:$seed, variable_ops),
+                    "$res = OpStochasticRoundFToFINTEL $ty $val $seed">;
+def OpClampStochasticRoundFToFINTEL : Op<6218, (outs ID:$res),
+                    (ins TYPE:$ty, ID:$val, ID:$seed, variable_ops),
+                    "$res = OpClampStochasticRoundFToFINTEL $ty $val $seed">;
+
 // 3.42.12 Composite Instructions
 
 def OpVectorExtractDynamic: Op<77, (outs ID:$res), (ins TYPE:$type, vID:$vec, ID:$idx),

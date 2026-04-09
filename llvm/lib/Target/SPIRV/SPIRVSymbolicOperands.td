@@ -398,6 +398,9 @@ defm SPV_EXT_image_raw10_raw12 :ExtensionOperand<133, [EnvOpenCL, EnvVulkan]>;
 defm SPV_ALTERA_arbitrary_precision_floating_point: ExtensionOperand<134, [EnvOpenCL]>;
 defm SPV_KHR_fma : ExtensionOperand<135, [EnvVulkan, EnvOpenCL]>;
 defm SPV_INTEL_masked_gather_scatter : ExtensionOperand<136, [EnvOpenCL]>;
+defm SPV_EXT_float8 : ExtensionOperand<137, [EnvVulkan, EnvOpenCL]>;
+defm SPV_INTEL_float4 : ExtensionOperand<138, [EnvOpenCL]>;
+defm SPV_INTEL_fp_conversions : ExtensionOperand<139, [EnvOpenCL]>;
 
 //===----------------------------------------------------------------------===//
 // Multiclass used to define Capabilities enum values and at the same time
@@ -629,6 +632,11 @@ defm BlockingPipesALTERA : CapabilityOperand<5945, 0, 0, [SPV_ALTERA_blocking_pi
 defm ArbitraryPrecisionFixedPointALTERA : CapabilityOperand<5922, 0, 0, [SPV_ALTERA_arbitrary_precision_fixed_point], []>;
 defm ArbitraryPrecisionFloatingPointALTERA : CapabilityOperand<5845, 0, 0,[SPV_ALTERA_arbitrary_precision_floating_point], []>;
 defm UnstructuredLoopControlsINTEL : CapabilityOperand<5886, 0, 0, [SPV_INTEL_unstructured_loop_controls], []>;
+defm Float8EXT : CapabilityOperand<4212, 0, 0, [SPV_EXT_float8], []>;
+// Naming follows the Int4TypeINTEL / BFloat16TypeKHR precedent where the
+// capability is distinct from the FP-encoding symbolic name.
+defm Float4E2M1TypeINTEL : CapabilityOperand<6212, 0, 0, [SPV_INTEL_float4], []>;
+defm FloatConversionsINTEL : CapabilityOperand<6215, 0, 0, [SPV_INTEL_fp_conversions], []>;
 
 //===----------------------------------------------------------------------===//
 // Multiclass used to define SourceLanguage enum values and at the same time
@@ -1387,6 +1395,7 @@ defm Alignment : DecorationOperand<44, 0, 0, [], [Kernel]>;
 defm MaxByteOffset : DecorationOperand<45, 0, 0, [], [Addresses]>;
 defm AlignmentId : DecorationOperand<46, 0, 0, [], [Kernel]>;
 defm MaxByteOffsetId : DecorationOperand<47, 0, 0, [], [Addresses]>;
+defm SaturatedToLargestFloat8NormalConversionEXT : DecorationOperand<4216, 0, 0, [SPV_EXT_float8], [Float8EXT]>;
 defm NoSignedWrap : DecorationOperand<4469, 0x10400, 0, [SPV_KHR_no_integer_wrap_decoration], []>;
 defm NoUnsignedWrap : DecorationOperand<4470, 0x10400, 0, [SPV_KHR_no_integer_wrap_decoration], []>;
 defm ExplicitInterpAMD : DecorationOperand<4999, 0, 0, [], []>;
@@ -2072,6 +2081,9 @@ multiclass FPEncodingOperand<bits<32> value, list<Extension> reqExtensions>{
 }
 
 defm BFloat16KHR : FPEncodingOperand<0, [SPV_KHR_bfloat16]>;
+defm Float8E4M3EXT : FPEncodingOperand<4214, [SPV_EXT_float8]>;
+defm Float8E5M2EXT : FPEncodingOperand<4215, [SPV_EXT_float8]>;
+defm Float4E2M1INTEL : FPEncodingOperand<6214, [SPV_INTEL_float4]>;
 
 def PackedVectorFormats : GenericEnum, Operand<i32> {
   let FilterClass = "PackedVectorFormats";

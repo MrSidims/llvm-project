@@ -7232,6 +7232,36 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
                              FloatVal, SemConst, RoundConst, SatConst));
     return;
   }
+  case Intrinsic::convert_to_arbitrary_fp_sr: {
+    // Stochastic-rounding variant. Operands:
+    //   (float_val, format_metadata, i32 seed, i1 saturate)
+    EVT DstVT = TLI.getValueType(DAG.getDataLayout(), I.getType());
+    Metadata *MD = cast<MetadataAsValue>(I.getArgOperand(1))->getMetadata();
+    StringRef FormatStr = cast<MDString>(MD)->getString();
+    const fltSemantics *DstSem =
+        APFloatBase::getArbitraryFPSemantics(FormatStr);
+    if (!DstSem) {
+      DAG.getContext()->emitError(
+          "convert_to_arbitrary_fp_sr: not implemented format '" + FormatStr +
+          "'");
+      setValue(&I, DAG.getPOISON(DstVT));
+      return;
+    }
+    APFloatBase::Semantics SemEnum = APFloatBase::SemanticsToEnum(*DstSem);
+
+    uint64_t Saturate =
+        cast<ConstantInt>(I.getArgOperand(3))->getZExtValue() ? 1 : 0;
+
+    SDValue FloatVal = getValue(I.getArgOperand(0));
+    SDValue SeedVal = getValue(I.getArgOperand(2));
+
+    SDValue SemConst =
+        DAG.getTargetConstant(static_cast<int>(SemEnum), sdl, MVT::i32);
+    SDValue SatConst = DAG.getTargetConstant(Saturate, sdl, MVT::i32);
+    setValue(&I, DAG.getNode(ISD::CONVERT_TO_ARBITRARY_FP_SR, sdl, DstVT,
+                             FloatVal, SemConst, SeedVal, SatConst));
+    return;
+  }
   case Intrinsic::set_rounding:
     Res = DAG.getNode(ISD::SET_ROUNDING, sdl, MVT::Other,
                       {getRoot(), getValue(I.getArgOperand(0))});

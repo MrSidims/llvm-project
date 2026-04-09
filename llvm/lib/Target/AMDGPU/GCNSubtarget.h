@@ -152,6 +152,21 @@ public:
   bool GETTER() const override { return ATTRIBUTE; }
 #include "AMDGPUGenSubtargetInfo.inc"
 
+  /// Returns true if the FP8/BF8 conversion instructions on this subtarget
+  /// interpret their input/output bits as OCP (Float8E4M3FN / Float8E5M2)
+  /// rather than FNUZ (Float8E4M3FNUZ / Float8E5M2FNUZ).
+  ///
+  /// The same instruction names (v_cvt_f32_fp8, v_cvt_pk_fp8_f32, etc.) are
+  /// reused across generations but have diverged semantics:
+  ///   - gfx942 (CDNA3): FNUZ
+  ///   - gfx950+ (CDNA4), gfx11+, gfx12+: OCP
+  ///
+  /// Mirrors MLIR's `mlir::amdgpu::Chipset::hasOcpFp8` predicate.
+  /// Precondition: the caller has verified `hasFP8ConversionInsts()`.
+  bool hasOCPFP8Semantics() const {
+    return hasFP8ConversionScaleInsts() || getGeneration() >= GFX11;
+  }
+
   unsigned getMaxWaveScratchSize() const {
     // See COMPUTE_TMPRING_SIZE.WAVESIZE.
     if (getGeneration() >= GFX12) {

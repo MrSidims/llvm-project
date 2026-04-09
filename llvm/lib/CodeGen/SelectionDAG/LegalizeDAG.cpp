@@ -3534,10 +3534,9 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     // Expand conversion from arbitrary FP format stored in an integer to a
     // native IEEE float type using integer bit manipulation.
     //
-    // TODO: currently only conversions from FP4, FP6 and FP8 formats from OCP
-    // specification are expanded. Remaining arbitrary FP types: Float8E4M3,
-    // Float8E3M4, Float8E5M2FNUZ, Float8E4M3FNUZ, Float8E4M3B11FNUZ,
-    // Float8E8M0FNU.
+    // TODO: currently only conversions from FP4, FP6, FP8 OCP formats, the
+    // E8M0FNU scale type, and the FNUZ FP8 family are expanded. Remaining
+    // arbitrary FP types: Float8E4M3, Float8E3M4.
     EVT DstVT = Node->getValueType(0);
 
     SDValue IntVal = Node->getOperand(0);
@@ -3548,6 +3547,10 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     switch (Sem) {
     case APFloatBase::S_Float8E5M2:
     case APFloatBase::S_Float8E4M3FN:
+    case APFloatBase::S_Float8E5M2FNUZ:
+    case APFloatBase::S_Float8E4M3FNUZ:
+    case APFloatBase::S_Float8E4M3B11FNUZ:
+    case APFloatBase::S_Float8E8M0FNU:
     case APFloatBase::S_Float6E3M2FN:
     case APFloatBase::S_Float6E2M3FN:
     case APFloatBase::S_Float4E2M1FN:
@@ -3561,6 +3564,81 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     }
     if (!Results.empty())
       break;
+
+    // Float8E8M0FNU is exponent-only: 8-bit unsigned exponent, no sign, no
+    // mantissa, no Inf, no denormals. Values 0..254 represent 2^(value - 127);
+    // value 255 represents NaN. Handled specially because the general path
+    // assumes a non-zero mantissa width.
+    if (Sem == APFloatBase::S_Float8E8M0FNU) {
+      const fltSemantics &DstSem = DstVT.getFltSemantics();
+      const unsigned DstBits = APFloat::getSizeInBits(DstSem);
+      const unsigned DstMant = APFloat::semanticsPrecision(DstSem) - 1;
+      const unsigned DstExpBits = DstBits - DstMant - 1;
+      const int DstBias = 1 - APFloat::semanticsMinExponent(DstSem);
+      const uint64_t DstExpAllOnes = (1ULL << DstExpBits) - 1;
+
+      EVT IntVT = EVT::getIntegerVT(*DAG.getContext(), DstBits);
+      EVT SetCCVT = getSetCCResultType(IntVT);
+
+      SDValue Src = DAG.getZExtOrTrunc(IntVal, dl, IntVT);
+
+      // NaN check (input == 255).
+      SDValue IsNaN = DAG.getSetCC(dl, SetCCVT, Src,
+                                   DAG.getConstant(255, dl, IntVT), ISD::SETEQ);
+
+      // Compute destination biased exponent: E = input - 127 + DstBias.
+      const int BiasOffset = (int)DstBias - 127;
+      SDValue BiasedExp = DAG.getNode(
+          ISD::ADD, dl, IntVT, Src,
+          DAG.getSignedConstant(BiasOffset, dl, IntVT));
+
+      // Normal-range result: BiasedExp << DstMant. Sign bit is always 0.
+      SDValue NormalRes = DAG.getNode(
+          ISD::SHL, dl, IntVT, BiasedExp,
+          DAG.getShiftAmountConstant(DstMant, IntVT, dl));
+
+      // Denormal result for BiasedExp <= 0:
+      //   denormal = (1 << DstMant) >> (1 - BiasedExp)
+      // For shifts >= DstMant + 1, this naturally produces zero (underflow).
+      SDValue DenormShift = DAG.getNode(
+          ISD::SUB, dl, IntVT, DAG.getConstant(1, dl, IntVT), BiasedExp);
+      // Clamp the shift to keep it strictly less than the bit width to avoid
+      // undefined behavior on the SRL.
+      SDValue ClampedShift = DAG.getNode(
+          ISD::UMIN, dl, IntVT, DenormShift,
+          DAG.getConstant(DstBits - 1, dl, IntVT));
+      SDValue DenormBase = DAG.getConstant(1ULL << DstMant, dl, IntVT);
+      SDValue DenormRes =
+          DAG.getNode(ISD::SRL, dl, IntVT, DenormBase, ClampedShift);
+
+      // Overflow if biased exponent reaches the all-ones encoding (Inf in
+      // IEEE-style destinations). Underflow into denormal range when biased
+      // exponent < 1. Compared signed to handle BiasedExp going negative for
+      // small E8M0 inputs converted to narrow destinations.
+      SDValue IsOverflow = DAG.getSetCC(
+          dl, SetCCVT, BiasedExp,
+          DAG.getConstant(DstExpAllOnes, dl, IntVT), ISD::SETGE);
+      SDValue IsDenorm = DAG.getSetCC(
+          dl, SetCCVT, BiasedExp,
+          DAG.getConstant(1, dl, IntVT), ISD::SETLT);
+
+      // Inf and qNaN encodings (sign 0).
+      SDValue InfRes =
+          DAG.getConstant(DstExpAllOnes << DstMant, dl, IntVT);
+      const uint64_t QNaNBit = (DstMant > 0) ? (1ULL << (DstMant - 1)) : 0;
+      SDValue NaNRes = DAG.getConstant(
+          (DstExpAllOnes << DstMant) | QNaNBit, dl, IntVT);
+
+      // Selection: NaN > Overflow > Denorm > Normal.
+      SDValue Result =
+          DAG.getSelect(dl, IntVT, IsDenorm, DenormRes, NormalRes);
+      Result = DAG.getSelect(dl, IntVT, IsOverflow, InfRes, Result);
+      Result = DAG.getSelect(dl, IntVT, IsNaN, NaNRes, Result);
+
+      Result = DAG.getNode(ISD::BITCAST, dl, DstVT, Result);
+      Results.push_back(Result);
+      break;
+    }
 
     const fltSemantics &SrcSem = APFloatBase::EnumToSemantics(Sem);
 
@@ -3631,13 +3709,21 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     } else if (NFBehavior == fltNonfiniteBehavior::IEEE754) {
       // E5M2 produces NaN when exp == all-ones AND mantissa != 0.
       IsNaN = DAG.getNode(ISD::AND, dl, SetCCVT, IsExpAllOnes, IsMantNonZero);
-    } else {
+    } else if (SrcSem.nanEncoding == fltNanEncoding::AllOnes) {
       // NanOnly + AllOnes (E4M3FN): NaN when all exp and mantissa bits are 1.
-      assert(SrcSem.nanEncoding == fltNanEncoding::AllOnes);
       SDValue MantAllOnes = DAG.getConstant(MantMask, dl, IntVT);
       SDValue IsMantAllOnes =
           DAG.getSetCC(dl, SetCCVT, MantField, MantAllOnes, ISD::SETEQ);
       IsNaN = DAG.getNode(ISD::AND, dl, SetCCVT, IsExpAllOnes, IsMantAllOnes);
+    } else {
+      // NanOnly + NegativeZero (FNUZ family): NaN is the encoding sign=1,
+      // exp=0, mant=0. In this case ExpAllOnes is unrelated to NaN.
+      assert(SrcSem.nanEncoding == fltNanEncoding::NegativeZero);
+      SDValue IsSignSet =
+          DAG.getSetCC(dl, SetCCVT, SignBit, Zero, ISD::SETNE);
+      SDValue IsExpAndMantZero =
+          DAG.getNode(ISD::AND, dl, SetCCVT, IsExpZero, IsMantZero);
+      IsNaN = DAG.getNode(ISD::AND, dl, SetCCVT, IsExpAndMantZero, IsSignSet);
     }
 
     // Inf detection.
@@ -3766,14 +3852,27 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     Results.push_back(Result);
     break;
   }
+  case ISD::CONVERT_TO_ARBITRARY_FP_SR: {
+    // Stochastic-rounding variant. Generic (target-independent) expansion
+    // is not yet implemented; targets that handle MX quantize workflows
+    // should mark this Custom and route to HW SR instructions. Any target
+    // reaching the generic legalizer for SR gets an explicit error so the
+    // failure mode is obvious at compile time rather than silently
+    // degrading to nearest-ties-to-even.
+    EVT ResVT = Node->getValueType(0);
+    DAG.getContext()->emitError(
+        "CONVERT_TO_ARBITRARY_FP_SR: generic stochastic-rounding expansion "
+        "is not implemented; target must custom-lower this node");
+    Results.push_back(DAG.getPOISON(ResVT));
+    break;
+  }
   case ISD::CONVERT_TO_ARBITRARY_FP: {
     // Expand conversion from a native IEEE float type to an arbitrary FP
     // format, returning the result as an integer using bit manipulation.
     //
-    // TODO: currently only conversions to FP4, FP6 and FP8 formats from OCP
-    // specification are expanded. Remaining arbitrary FP types: Float8E4M3,
-    // Float8E3M4, Float8E5M2FNUZ, Float8E4M3FNUZ, Float8E4M3B11FNUZ,
-    // Float8E8M0FNU.
+    // TODO: currently only conversions to FP4, FP6, FP8 OCP formats, the
+    // E8M0FNU scale type, and the FNUZ FP8 family are expanded. Remaining
+    // arbitrary FP types: Float8E4M3, Float8E3M4.
     EVT ResVT = Node->getValueType(0);
 
     SDValue FloatVal = Node->getOperand(0);
@@ -3787,6 +3886,10 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     switch (Sem) {
     case APFloatBase::S_Float8E5M2:
     case APFloatBase::S_Float8E4M3FN:
+    case APFloatBase::S_Float8E5M2FNUZ:
+    case APFloatBase::S_Float8E4M3FNUZ:
+    case APFloatBase::S_Float8E4M3B11FNUZ:
+    case APFloatBase::S_Float8E8M0FNU:
     case APFloatBase::S_Float6E3M2FN:
     case APFloatBase::S_Float6E2M3FN:
     case APFloatBase::S_Float4E2M1FN:
@@ -3800,6 +3903,145 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     }
     if (!Results.empty())
       break;
+
+    // Float8E8M0FNU is exponent-only: no sign, no mantissa, no Inf, no
+    // denormals. Encoding 0..254 represents 2^(value - 127); 255 is NaN.
+    // Conversion is essentially "extract exponent + saturate".
+    if (Sem == APFloatBase::S_Float8E8M0FNU) {
+      // Source (native IEEE) format parameters.
+      EVT SrcVT = FloatVal.getValueType();
+      const fltSemantics &SrcSem = SrcVT.getFltSemantics();
+      const unsigned SrcBits = APFloat::getSizeInBits(SrcSem);
+      const unsigned SrcPrecision = APFloat::semanticsPrecision(SrcSem);
+      const unsigned SrcMant = SrcPrecision - 1;
+      const unsigned SrcExpBits = SrcBits - SrcMant - 1;
+      const int SrcBias = 1 - APFloat::semanticsMinExponent(SrcSem);
+      const uint64_t SrcMantMask = (1ULL << SrcMant) - 1;
+      const uint64_t SrcExpMask = (1ULL << SrcExpBits) - 1;
+
+      EVT IntVT = EVT::getIntegerVT(*DAG.getContext(), SrcBits);
+      EVT SetCCVT = getSetCCResultType(IntVT);
+
+      SDValue SrcInt = DAG.getNode(ISD::BITCAST, dl, IntVT, FloatVal);
+
+      SDValue MantField = DAG.getNode(
+          ISD::AND, dl, IntVT, SrcInt,
+          DAG.getConstant(SrcMantMask, dl, IntVT));
+      SDValue ExpField = DAG.getNode(
+          ISD::AND, dl, IntVT,
+          DAG.getNode(ISD::SRL, dl, IntVT, SrcInt,
+                      DAG.getShiftAmountConstant(SrcMant, IntVT, dl)),
+          DAG.getConstant(SrcExpMask, dl, IntVT));
+      SDValue SignBit = DAG.getNode(
+          ISD::SRL, dl, IntVT, SrcInt,
+          DAG.getShiftAmountConstant(SrcBits - 1, IntVT, dl));
+
+      // Classify the source value.
+      SDValue ZeroI = DAG.getConstant(0, dl, IntVT);
+      SDValue IsExpAllOnes = DAG.getSetCC(
+          dl, SetCCVT, ExpField,
+          DAG.getConstant(SrcExpMask, dl, IntVT), ISD::SETEQ);
+      SDValue IsMantNonZero =
+          DAG.getSetCC(dl, SetCCVT, MantField, ZeroI, ISD::SETNE);
+      SDValue IsNaN =
+          DAG.getNode(ISD::AND, dl, SetCCVT, IsExpAllOnes, IsMantNonZero);
+      SDValue IsNeg = DAG.getSetCC(dl, SetCCVT, SignBit, ZeroI, ISD::SETNE);
+      SDValue IsExpZero =
+          DAG.getSetCC(dl, SetCCVT, ExpField, ZeroI, ISD::SETEQ);
+
+      // E8M0 unbiased exponent = SrcUnbiased + (127 - SrcBias).
+      // Round mantissa to nearest power of 2: round bit at SrcMant-1.
+      // For RTNE: incr = (mant_msb && (mant_low_bits || (exp_lsb))).
+      // We approximate with simpler rules; precise rounding is left to a
+      // future improvement.
+      // Simpler approach: take the source unbiased exponent, then optionally
+      // bump it by 1 if the source mantissa is >= half of the implicit 1.
+      // For RNE/RTNA: round to nearest power of two using the top bit of the
+      // mantissa as the round indicator.
+      // For RTZ: never bump.
+      SDValue Unbiased;
+      // Unbiased = (int)ExpField - SrcBias
+      Unbiased = DAG.getNode(
+          ISD::SUB, dl, IntVT, ExpField,
+          DAG.getConstant(SrcBias, dl, IntVT));
+
+      // Apply rounding bump.
+      if (RoundMode == RoundingMode::NearestTiesToEven ||
+          RoundMode == RoundingMode::NearestTiesToAway ||
+          RoundMode == RoundingMode::TowardPositive) {
+        // Bump if any mantissa bit is set (or, for RTNE, mant >= half).
+        // For E8M0 we are rounding to a power of two, so the round bit is
+        // the MSB of the mantissa, and any lower bit is sticky.
+        // RTNE: bump if mant_msb && (sticky || lsb_of_truncated). Truncated
+        // value is 1 (the implicit 1), so lsb is 1, and the rule simplifies
+        // to "bump if mant_msb".
+        // RTNA: same as RTNE for this case.
+        // RU (TowardPositive): bump if any mantissa bit is set AND positive.
+        SDValue Bump;
+        if (RoundMode == RoundingMode::TowardPositive) {
+          SDValue HasFrac =
+              DAG.getSetCC(dl, SetCCVT, MantField, ZeroI, ISD::SETNE);
+          // Only bump on positive sign.
+          SDValue IsPos = DAG.getSetCC(dl, SetCCVT, SignBit, ZeroI, ISD::SETEQ);
+          SDValue DoBump =
+              DAG.getNode(ISD::AND, dl, SetCCVT, HasFrac, IsPos);
+          Bump = DAG.getNode(ISD::ZERO_EXTEND, dl, IntVT, DoBump);
+        } else {
+          // RTNE / RTNA: bump if MSB of mantissa is set.
+          if (SrcMant > 0) {
+            SDValue MantMSB = DAG.getNode(
+                ISD::SRL, dl, IntVT, MantField,
+                DAG.getShiftAmountConstant(SrcMant - 1, IntVT, dl));
+            Bump = DAG.getNode(ISD::AND, dl, IntVT, MantMSB,
+                               DAG.getConstant(1, dl, IntVT));
+          } else {
+            Bump = ZeroI;
+          }
+        }
+        Unbiased = DAG.getNode(ISD::ADD, dl, IntVT, Unbiased, Bump);
+      } else if (RoundMode == RoundingMode::TowardNegative) {
+        // RD: bump only if any mantissa bit set AND negative sign (further
+        // away from zero).
+        SDValue HasFrac =
+            DAG.getSetCC(dl, SetCCVT, MantField, ZeroI, ISD::SETNE);
+        SDValue DoBump = DAG.getNode(ISD::AND, dl, SetCCVT, HasFrac, IsNeg);
+        SDValue Bump = DAG.getNode(ISD::ZERO_EXTEND, dl, IntVT, DoBump);
+        Unbiased = DAG.getNode(ISD::ADD, dl, IntVT, Unbiased, Bump);
+      }
+      // RoundingMode::TowardZero: no bump.
+
+      // For source denormals (ExpField == 0, mant != 0), the actual exponent
+      // is 1 - SrcBias (smallest normal). For zero, the value is 0. We treat
+      // both as flushing to the smallest E8M0 value (0) below.
+
+      // E8M0 biased = Unbiased + 127.
+      SDValue E8M0Biased = DAG.getNode(
+          ISD::ADD, dl, IntVT, Unbiased,
+          DAG.getConstant(127, dl, IntVT));
+
+      // Clamp into [0, 254] using signed compares.
+      SDValue Zero8 = DAG.getConstant(0, dl, IntVT);
+      SDValue Max8 = DAG.getConstant(254, dl, IntVT);
+      SDValue Below =
+          DAG.getSetCC(dl, SetCCVT, E8M0Biased, Zero8, ISD::SETLT);
+      SDValue Above =
+          DAG.getSetCC(dl, SetCCVT, E8M0Biased, Max8, ISD::SETGT);
+      SDValue Clamped = DAG.getSelect(dl, IntVT, Below, Zero8, E8M0Biased);
+      Clamped = DAG.getSelect(dl, IntVT, Above, Max8, Clamped);
+
+      // Negative inputs and zero/denormal inputs flush to 0.
+      SDValue NegOrZero = DAG.getNode(ISD::OR, dl, SetCCVT, IsNeg, IsExpZero);
+      SDValue NotNeg = DAG.getSelect(dl, IntVT, NegOrZero, Zero8, Clamped);
+
+      // NaN -> 255.
+      SDValue NaN8 = DAG.getConstant(255, dl, IntVT);
+      SDValue Result = DAG.getSelect(dl, IntVT, IsNaN, NaN8, NotNeg);
+
+      // Truncate to destination integer type.
+      Result = DAG.getZExtOrTrunc(Result, dl, ResVT);
+      Results.push_back(Result);
+      break;
+    }
 
     // Destination (arbitrary) format parameters.
     const fltSemantics &DstSem = APFloatBase::EnumToSemantics(Sem);
@@ -4208,6 +4450,10 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
       NaNResult =
           DAG.getConstant(((uint64_t)DstExpMax << DstMant) | DstMantMask, dl,
                           IntVT);
+    } else if (DstNFBehavior == fltNonfiniteBehavior::NanOnly &&
+               DstNanEnc == fltNanEncoding::NegativeZero) {
+      // FNUZ-style: NaN is sign=1, exp=0, mant=0 (the "negative zero" slot).
+      NaNResult = DAG.getConstant(1ULL << (DstBits - 1), dl, IntVT);
     } else {
       // FiniteOnly format: NaN -> poison.
       NaNResult = DAG.getPOISON(IntVT);
@@ -4231,8 +4477,15 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
       InfResult = DAG.getPOISON(IntVT);
     }
 
-    // Zero result: signed zero.
-    SDValue ZeroResult = SignShifted;
+    // Zero result. For most formats this preserves source sign. For FNUZ
+    // formats there is no negative zero (the sign=1, exp=0, mant=0 encoding
+    // is reserved for NaN), so force +0.
+    SDValue ZeroResult;
+    if (DstNFBehavior == fltNonfiniteBehavior::NanOnly &&
+        DstNanEnc == fltNanEncoding::NegativeZero)
+      ZeroResult = Zero;
+    else
+      ZeroResult = SignShifted;
 
     // Final selection: NaN takes priority, then Inf, then Zero.
     SDValue FiniteResult = DAG.getSelect(dl, IntVT, ExpIsNeg, DenormResult,
@@ -4244,6 +4497,22 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     Result = DAG.getSelect(dl, IntVT, IsZero, ZeroResult, Result);
     Result = DAG.getSelect(dl, IntVT, IsInf, InfResult, Result);
     Result = DAG.getSelect(dl, IntVT, IsNaN, NaNResult, Result);
+
+    // FNUZ formats reserve sign=1, exp=0, mant=0 for NaN. A negative input
+    // that underflows to zero (or rounds away the magnitude) would otherwise
+    // collide with the NaN encoding. Patch any such non-NaN result to +0.
+    if (DstNFBehavior == fltNonfiniteBehavior::NanOnly &&
+        DstNanEnc == fltNanEncoding::NegativeZero) {
+      SDValue NaNEnc = DAG.getConstant(1ULL << (DstBits - 1), dl, IntVT);
+      SDValue IsNaNEnc =
+          DAG.getSetCC(dl, SetCCVT, Result, NaNEnc, ISD::SETEQ);
+      SDValue True = DAG.getBoolConstant(true, dl, SetCCVT, IntVT);
+      SDValue NotIsNaN =
+          DAG.getNode(ISD::XOR, dl, SetCCVT, IsNaN, True);
+      SDValue NeedsPatch =
+          DAG.getNode(ISD::AND, dl, SetCCVT, IsNaNEnc, NotIsNaN);
+      Result = DAG.getSelect(dl, IntVT, NeedsPatch, Zero, Result);
+    }
 
     // Truncate to destination integer type.
     Result = DAG.getZExtOrTrunc(Result, dl, ResVT);

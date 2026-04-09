@@ -197,6 +197,7 @@ void DAGTypeLegalizer::PromoteIntegerResult(SDNode *N, unsigned ResNo) {
     Res = PromoteIntRes_FP_TO_FP16_BF16(N);
     break;
   case ISD::CONVERT_TO_ARBITRARY_FP:
+  case ISD::CONVERT_TO_ARBITRARY_FP_SR:
     Res = PromoteIntRes_CONVERT_TO_ARBITRARY_FP(N);
     break;
   case ISD::STRICT_FP_TO_BF16:
@@ -950,7 +951,7 @@ SDValue DAGTypeLegalizer::PromoteIntRes_CONVERT_TO_ARBITRARY_FP(SDNode *N) {
   EVT NVT = TLI.getTypeToTransformTo(*DAG.getContext(), N->getValueType(0));
   SDLoc dl(N);
 
-  return DAG.getNode(ISD::CONVERT_TO_ARBITRARY_FP, dl, NVT, N->getOperand(0),
+  return DAG.getNode(N->getOpcode(), dl, NVT, N->getOperand(0),
                      N->getOperand(1), N->getOperand(2), N->getOperand(3));
 }
 

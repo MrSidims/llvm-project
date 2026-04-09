@@ -21,6 +21,7 @@
 #include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "SIMachineFunctionInfo.h"
 #include "SIRegisterInfo.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/ADT/Statistic.h"
@@ -980,6 +981,40 @@ SITargetLowering::SITargetLowering(const TargetMachine &TM,
         MVT::v2bf16, Legal);
   }
 
+  if (Subtarget->hasFP8ConversionInsts()) {
+    setOperationAction(ISD::CONVERT_FROM_ARBITRARY_FP, MVT::f32, Custom);
+    // i8 result is promoted to i16 (has16BitInsts) or i32 on these targets.
+    setOperationAction(ISD::CONVERT_TO_ARBITRARY_FP, {MVT::i16, MVT::i32},
+                       Custom);
+    // Stochastic-rounding variant is also available whenever the native FP8
+    // conversion instructions are; the gated SR scalar intrinsics
+    // (`amdgcn_cvt_sr_{fp8,bf8}_f32`) ship together with the non-SR ones.
+    setOperationAction(ISD::CONVERT_TO_ARBITRARY_FP_SR, {MVT::i16, MVT::i32},
+                       Custom);
+  }
+
+  if (Subtarget->hasGFX1250Insts())
+    setOperationAction(ISD::CONVERT_FROM_ARBITRARY_FP, MVT::f16, Custom);
+
+  // gfx950+/gfx11+ expose the pk bf16<->fp8 and pk f16<->fp8 scaled
+  // intrinsics, so the scalar bf16 (and f16) destinations of
+  // convert.from.arbitrary.fp can use them with scale=1.0 instead of
+  // falling back to generic bit-manipulation expansion.
+  if (Subtarget->hasFP8ConversionScaleInsts())
+    setOperationAction(ISD::CONVERT_FROM_ARBITRARY_FP,
+                       {MVT::f16, MVT::bf16}, Custom);
+
+  if (Subtarget->hasFP6BF6ConversionScaleInsts()) {
+    // FP6/BF6 vector paths: v6i32 <-> v32{f32,f16,bf16} via the gfx950 pk32
+    // conversion instructions. These are the natural shape for MX-block
+    // quantize/dequantize at block size 32.
+    setOperationAction(ISD::CONVERT_FROM_ARBITRARY_FP,
+                       {MVT::v32f32, MVT::v32f16, MVT::v32bf16}, Custom);
+    setOperationAction(ISD::CONVERT_TO_ARBITRARY_FP, MVT::v6i32, Custom);
+    // SR variant dispatches to the parallel pk32 SR intrinsics.
+    setOperationAction(ISD::CONVERT_TO_ARBITRARY_FP_SR, MVT::v6i32, Custom);
+  }
+
   if (Subtarget->hasBF16TransInsts()) {
     setOperationAction({ISD::FEXP2, ISD::FLOG2, ISD::FSQRT}, MVT::bf16, Legal);
   }
@@ -1035,7 +1070,9 @@ SITargetLowering::SITargetLowering(const TargetMachine &TM,
                        ISD::ANY_EXTEND,
                        ISD::EXTRACT_VECTOR_ELT,
                        ISD::INSERT_VECTOR_ELT,
-                       ISD::FCOPYSIGN});
+                       ISD::FCOPYSIGN,
+                       ISD::CONVERT_TO_ARBITRARY_FP,
+                       ISD::CONVERT_TO_ARBITRARY_FP_SR});
 
   if (Subtarget->has16BitInsts() && !Subtarget->hasMed3_16())
     setTargetDAGCombine(ISD::FP_ROUND);
@@ -7071,6 +7108,12 @@ SDValue SITargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
     return LowerExternalSymbol(Op, DAG);
   case ISD::INTRINSIC_WO_CHAIN:
     return LowerINTRINSIC_WO_CHAIN(Op, DAG);
+  case ISD::CONVERT_FROM_ARBITRARY_FP:
+    return LowerCONVERT_FROM_ARBITRARY_FP(Op, DAG);
+  case ISD::CONVERT_TO_ARBITRARY_FP:
+    return LowerCONVERT_TO_ARBITRARY_FP(Op, DAG);
+  case ISD::CONVERT_TO_ARBITRARY_FP_SR:
+    return LowerCONVERT_TO_ARBITRARY_FP_SR(Op, DAG);
   case ISD::INTRINSIC_W_CHAIN:
     return LowerINTRINSIC_W_CHAIN(Op, DAG);
   case ISD::INTRINSIC_VOID:
@@ -10128,6 +10171,696 @@ SDValue SITargetLowering::lowerWorkitemID(SelectionDAG &DAG, SDValue Op,
   EVT SmallVT = EVT::getIntegerVT(*DAG.getContext(), llvm::bit_width(MaxID));
   return DAG.getNode(ISD::AssertZext, SL, MVT::i32, Val,
                      DAG.getValueType(SmallVT));
+}
+
+SDValue
+SITargetLowering::LowerCONVERT_FROM_ARBITRARY_FP(SDValue Op,
+                                                  SelectionDAG &DAG) const {
+  SDLoc SL(Op);
+  SDValue Src = Op.getOperand(0);
+  EVT DstVT = Op.getValueType();
+  EVT SrcVT = Src.getValueType();
+
+  unsigned SemEnum = Op.getConstantOperandVal(1);
+  auto Sem = static_cast<APFloatBase::Semantics>(SemEnum);
+
+  // Vector FP6/BF6 block-of-32 path. gfx950+ has native instructions that
+  // unpack 32 FP6 (or BF6) values, stored in the low 6 bits of a v6i32
+  // (192 bits = 32 * 6), to a v32f32 / v32f16 / v32bf16 in a single HW call.
+  // This is the natural shape for MX-block dequantize at block size 32.
+  if ((Sem == APFloatBase::S_Float6E2M3FN ||
+       Sem == APFloatBase::S_Float6E3M2FN) &&
+      Subtarget->hasFP6BF6ConversionScaleInsts() && SrcVT == MVT::v6i32) {
+    bool IsFP6 = Sem == APFloatBase::S_Float6E2M3FN;
+    unsigned VecIntrID;
+    if (DstVT == MVT::v32f32)
+      VecIntrID = IsFP6 ? Intrinsic::amdgcn_cvt_scalef32_pk32_f32_fp6
+                        : Intrinsic::amdgcn_cvt_scalef32_pk32_f32_bf6;
+    else if (DstVT == MVT::v32f16)
+      VecIntrID = IsFP6 ? Intrinsic::amdgcn_cvt_scalef32_pk32_f16_fp6
+                        : Intrinsic::amdgcn_cvt_scalef32_pk32_f16_bf6;
+    else if (DstVT == MVT::v32bf16)
+      VecIntrID = IsFP6 ? Intrinsic::amdgcn_cvt_scalef32_pk32_bf16_fp6
+                        : Intrinsic::amdgcn_cvt_scalef32_pk32_bf16_bf6;
+    else
+      return SDValue();
+    // Unscaled path: pass scale=1.0 (an exact power of two so the HW
+    // multiply is a no-op on finite values).
+    return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, DstVT,
+                       DAG.getTargetConstant(VecIntrID, SL, MVT::i32), Src,
+                       DAG.getConstantFP(1.0, SL, MVT::f32));
+  }
+
+  // Scalar f16 / bf16 destinations for OCP FP8: on gfx950+/gfx11+ (any
+  // target with the scalef32 pk intrinsics), we can route through
+  // amdgcn_cvt_scalef32_pk_{f16,bf16}_{fp8,bf8} with scale=1.0 and then
+  // extract element 0. This avoids the generic expansion for the natural
+  // "dequantize one byte to bf16" path in MX pipelines and also fills the
+  // pre-existing f16 gap on gfx950 (where we previously fell back unless
+  // hasGFX1250Insts()).
+  if ((Sem == APFloatBase::S_Float8E4M3FN ||
+       Sem == APFloatBase::S_Float8E5M2) &&
+      (DstVT == MVT::bf16 || DstVT == MVT::f16) &&
+      Subtarget->hasFP8ConversionScaleInsts() &&
+      Subtarget->hasOCPFP8Semantics()) {
+    bool IsFP8 = Sem == APFloatBase::S_Float8E4M3FN;
+    unsigned PkIntrID;
+    MVT PkVT;
+    if (DstVT == MVT::bf16) {
+      PkVT = MVT::v2bf16;
+      PkIntrID = IsFP8 ? Intrinsic::amdgcn_cvt_scalef32_pk_bf16_fp8
+                       : Intrinsic::amdgcn_cvt_scalef32_pk_bf16_bf8;
+    } else {
+      PkVT = MVT::v2f16;
+      PkIntrID = IsFP8 ? Intrinsic::amdgcn_cvt_scalef32_pk_f16_fp8
+                       : Intrinsic::amdgcn_cvt_scalef32_pk_f16_bf8;
+    }
+    SDValue I32Src = DAG.getAnyExtOrTrunc(Src, SL, MVT::i32);
+    // Signature: (i32 src, f32 scale, i1 src_lo_hi_sel) -> v2{bf16|f16}
+    SDValue PkResult = DAG.getNode(
+        ISD::INTRINSIC_WO_CHAIN, SL, PkVT,
+        DAG.getTargetConstant(PkIntrID, SL, MVT::i32), I32Src,
+        DAG.getConstantFP(1.0, SL, MVT::f32),
+        DAG.getTargetConstant(0, SL, MVT::i1) /* src_lo_hi_sel=low */);
+    return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, SL, DstVT, PkResult,
+                       DAG.getVectorIdxConstant(0, SL));
+  }
+
+  unsigned IntrID;
+  switch (Sem) {
+  case APFloatBase::S_Float8E4M3FN:
+    // The v_cvt_f32_fp8 / v_cvt_f16_fp8 instructions only implement OCP
+    // semantics on gfx950+/gfx11+. On gfx942 they implement FNUZ.
+    if (!Subtarget->hasFP8ConversionInsts() ||
+        !Subtarget->hasOCPFP8Semantics())
+      return SDValue();
+    if (DstVT == MVT::f32)
+      IntrID = Intrinsic::amdgcn_cvt_f32_fp8;
+    else if (DstVT == MVT::f16 && Subtarget->hasGFX1250Insts())
+      // amdgcn_cvt_f16_fp8 has TableGen patterns only on gfx1250+.
+      IntrID = Intrinsic::amdgcn_cvt_f16_fp8;
+    else
+      return SDValue();
+    break;
+  case APFloatBase::S_Float8E5M2:
+    if (!Subtarget->hasFP8ConversionInsts() ||
+        !Subtarget->hasOCPFP8Semantics())
+      return SDValue();
+    if (DstVT == MVT::f32)
+      IntrID = Intrinsic::amdgcn_cvt_f32_bf8;
+    else if (DstVT == MVT::f16 && Subtarget->hasGFX1250Insts())
+      IntrID = Intrinsic::amdgcn_cvt_f16_bf8;
+    else
+      return SDValue();
+    break;
+  case APFloatBase::S_Float8E4M3FNUZ:
+    // On gfx942 the v_cvt_*_fp8 instructions natively implement FNUZ.
+    // On gfx950+/gfx11+ they implement OCP, so fall back to generic
+    // expansion for FNUZ inputs on those targets.
+    if (!Subtarget->hasFP8ConversionInsts() ||
+        Subtarget->hasOCPFP8Semantics())
+      return SDValue();
+    // gfx942 only has v_cvt_f32_fp8 (no f16 form). f16 destinations fall
+    // back to generic expansion.
+    if (DstVT != MVT::f32)
+      return SDValue();
+    IntrID = Intrinsic::amdgcn_cvt_f32_fp8;
+    break;
+  case APFloatBase::S_Float8E5M2FNUZ:
+    if (!Subtarget->hasFP8ConversionInsts() ||
+        Subtarget->hasOCPFP8Semantics())
+      return SDValue();
+    if (DstVT != MVT::f32)
+      return SDValue();
+    IntrID = Intrinsic::amdgcn_cvt_f32_bf8;
+    break;
+  case APFloatBase::S_Float4E2M1FN:
+    // FP4: use scale instruction with scale=1.0 on targets that have it.
+    if (DstVT == MVT::f32 && Subtarget->hasFP4ConversionScaleInsts()) {
+      SDValue I32Src = DAG.getAnyExtOrTrunc(Src, SL, MVT::i32);
+      // cvt_scalef32_pk_f32_fp4(i32 src, float scale, i32 src_sel) → v2f32
+      SDValue V2Result = DAG.getNode(
+          ISD::INTRINSIC_WO_CHAIN, SL, MVT::v2f32,
+          DAG.getTargetConstant(Intrinsic::amdgcn_cvt_scalef32_pk_f32_fp4, SL,
+                                MVT::i32),
+          I32Src, DAG.getConstantFP(1.0, SL, MVT::f32),
+          DAG.getTargetConstant(0, SL, MVT::i32) /* src_sel=0 */);
+      return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, SL, MVT::f32, V2Result,
+                         DAG.getConstant(0, SL, MVT::i32));
+    }
+    return SDValue();
+  default:
+    return SDValue();
+  }
+
+  SDValue I32Src = DAG.getAnyExtOrTrunc(Src, SL, MVT::i32);
+  return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, DstVT,
+                     DAG.getTargetConstant(IntrID, SL, MVT::i32), I32Src,
+                     DAG.getTargetConstant(0, SL, MVT::i32) /* byte_sel=0 */);
+}
+
+SDValue
+SITargetLowering::LowerCONVERT_TO_ARBITRARY_FP(SDValue Op,
+                                                SelectionDAG &DAG) const {
+  SDLoc SL(Op);
+  SDValue Src = Op.getOperand(0);
+  EVT SrcVT = Src.getValueType();
+  EVT ResVT = Op.getValueType();
+
+  unsigned SemEnum = Op.getConstantOperandVal(1);
+  auto Sem = static_cast<APFloatBase::Semantics>(SemEnum);
+  auto RoundMode = static_cast<RoundingMode>(Op.getConstantOperandVal(2));
+  unsigned Saturate = Op.getConstantOperandVal(3);
+
+  // Only RNE is supported by the hardware pk instructions.
+  if (RoundMode != RoundingMode::NearestTiesToEven)
+    return SDValue();
+
+  // Vector FP6/BF6 block-of-32 path. gfx950+ has instructions that pack 32
+  // native floats into 32 FP6/BF6 values stored in a v6i32 (192 bits).
+  //
+  //   - v32f16 / v32bf16 inputs use a single `cvt_scalef32_pk32_*` call.
+  //   - v32f32 inputs use `cvt_scalef32_2xpk16_*_f32`, which takes two
+  //     v16f32 halves and fuses them into one packed result.
+  //
+  // The saturate flag is ignored: the pk32/2xpk16 instructions always
+  // saturate to the destination's representable range as a side effect of
+  // the hardware conversion path, matching the RFC's "saturate=true is the
+  // default for FP6" note. We therefore accept any saturate value.
+  if ((Sem == APFloatBase::S_Float6E2M3FN ||
+       Sem == APFloatBase::S_Float6E3M2FN) &&
+      Subtarget->hasFP6BF6ConversionScaleInsts() && ResVT == MVT::v6i32) {
+    bool IsFP6 = Sem == APFloatBase::S_Float6E2M3FN;
+    SDValue ScaleOne = DAG.getConstantFP(1.0, SL, MVT::f32);
+
+    if (SrcVT == MVT::v32f16) {
+      unsigned VecIntrID = IsFP6
+                               ? Intrinsic::amdgcn_cvt_scalef32_pk32_fp6_f16
+                               : Intrinsic::amdgcn_cvt_scalef32_pk32_bf6_f16;
+      return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, ResVT,
+                         DAG.getTargetConstant(VecIntrID, SL, MVT::i32), Src,
+                         ScaleOne);
+    }
+    if (SrcVT == MVT::v32bf16) {
+      unsigned VecIntrID = IsFP6
+                               ? Intrinsic::amdgcn_cvt_scalef32_pk32_fp6_bf16
+                               : Intrinsic::amdgcn_cvt_scalef32_pk32_bf6_bf16;
+      return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, ResVT,
+                         DAG.getTargetConstant(VecIntrID, SL, MVT::i32), Src,
+                         ScaleOne);
+    }
+    if (SrcVT == MVT::v32f32) {
+      // Split v32f32 into two v16f32 halves and use the 2xpk16 intrinsic.
+      SDValue Lo = DAG.getNode(ISD::EXTRACT_SUBVECTOR, SL, MVT::v16f32, Src,
+                               DAG.getVectorIdxConstant(0, SL));
+      SDValue Hi = DAG.getNode(ISD::EXTRACT_SUBVECTOR, SL, MVT::v16f32, Src,
+                               DAG.getVectorIdxConstant(16, SL));
+      unsigned VecIntrID = IsFP6
+                               ? Intrinsic::amdgcn_cvt_scalef32_2xpk16_fp6_f32
+                               : Intrinsic::amdgcn_cvt_scalef32_2xpk16_bf6_f32;
+      return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, ResVT,
+                         DAG.getTargetConstant(VecIntrID, SL, MVT::i32), Lo,
+                         Hi, ScaleOne);
+    }
+    return SDValue();
+  }
+
+  unsigned IntrID;
+  switch (Sem) {
+  case APFloatBase::S_Float8E4M3FN:
+    // v_cvt_pk_fp8_f32 only implements OCP semantics on gfx950+/gfx11+.
+    // On gfx942 it packs in FNUZ layout.
+    if (!Subtarget->hasFP8ConversionInsts() ||
+        !Subtarget->hasOCPFP8Semantics())
+      return SDValue();
+    IntrID = Intrinsic::amdgcn_cvt_pk_fp8_f32;
+    break;
+  case APFloatBase::S_Float8E5M2:
+    if (Saturate)
+      return SDValue();
+    if (!Subtarget->hasFP8ConversionInsts() ||
+        !Subtarget->hasOCPFP8Semantics())
+      return SDValue();
+    IntrID = Intrinsic::amdgcn_cvt_pk_bf8_f32;
+    break;
+  case APFloatBase::S_Float8E4M3FNUZ:
+    if (!Subtarget->hasFP8ConversionInsts() ||
+        Subtarget->hasOCPFP8Semantics())
+      return SDValue();
+    IntrID = Intrinsic::amdgcn_cvt_pk_fp8_f32;
+    break;
+  case APFloatBase::S_Float8E5M2FNUZ:
+    if (Saturate)
+      return SDValue();
+    if (!Subtarget->hasFP8ConversionInsts() ||
+        Subtarget->hasOCPFP8Semantics())
+      return SDValue();
+    IntrID = Intrinsic::amdgcn_cvt_pk_bf8_f32;
+    break;
+  case APFloatBase::S_Float4E2M1FN:
+    // FP4: use scale instruction with scale=1.0 on targets that have it.
+    if (Subtarget->hasFP4ConversionScaleInsts()) {
+      if (SrcVT == MVT::f16)
+        Src = DAG.getNode(ISD::FP_EXTEND, SL, MVT::f32, Src);
+      else if (SrcVT != MVT::f32)
+        return SDValue();
+      // cvt_scalef32_pk_fp4_f32(i32 old, f32 a, f32 b, float scale, i32 sel)
+      SDValue Ops[] = {
+          DAG.getTargetConstant(Intrinsic::amdgcn_cvt_scalef32_pk_fp4_f32, SL,
+                                MVT::i32),
+          DAG.getConstant(0, SL, MVT::i32),      // old
+          Src,                                    // f32 value
+          DAG.getUNDEF(MVT::f32),                 // second slot unused
+          DAG.getConstantFP(1.0, SL, MVT::f32),  // scale=1.0
+          DAG.getTargetConstant(0, SL, MVT::i32), // dst_sel=0
+      };
+      SDValue Result =
+          DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, MVT::i32, Ops);
+      // FP4 is 4 bits; mask the low nibble.
+      Result = DAG.getNode(ISD::AND, SL, MVT::i32, Result,
+                           DAG.getConstant(0xF, SL, MVT::i32));
+      return DAG.getAnyExtOrTrunc(Result, SL, ResVT);
+    }
+    return SDValue();
+  default:
+    return SDValue();
+  }
+
+  // Scalar path: convert single f32/f16 → fp8.
+
+  // On GFX1250+, use direct f16→fp8 pk instruction (avoids f16→f32 extend).
+  if (SrcVT == MVT::f16 && Subtarget->hasGFX1250Insts()) {
+    unsigned F16IntrID = (Sem == APFloatBase::S_Float8E4M3FN)
+                             ? Intrinsic::amdgcn_cvt_pk_fp8_f16
+                             : Intrinsic::amdgcn_cvt_pk_bf8_f16;
+    SDValue V2F16 =
+        DAG.getBuildVector(MVT::v2f16, SL, {Src, DAG.getUNDEF(MVT::f16)});
+    SDValue I16Result =
+        DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, MVT::i16,
+                    DAG.getTargetConstant(F16IntrID, SL, MVT::i32), V2F16);
+    SDValue Masked = DAG.getNode(ISD::AND, SL, MVT::i16, I16Result,
+                                 DAG.getConstant(0xFF, SL, MVT::i16));
+    return DAG.getAnyExtOrTrunc(Masked, SL, ResVT);
+  }
+
+  if (SrcVT == MVT::f16)
+    Src = DAG.getNode(ISD::FP_EXTEND, SL, MVT::f32, Src);
+  else if (SrcVT != MVT::f32)
+    return SDValue();
+
+  SDValue Result = DAG.getNode(
+      ISD::INTRINSIC_WO_CHAIN, SL, MVT::i32,
+      DAG.getTargetConstant(IntrID, SL, MVT::i32), Src,
+      DAG.getUNDEF(MVT::f32), DAG.getConstant(0, SL, MVT::i32),
+      DAG.getTargetConstant(0, SL, MVT::i1) /* word_sel=0 */);
+
+  // Mask to byte 0 to isolate the FP8 result (byte 1 has garbage from undef).
+  Result = DAG.getNode(ISD::AND, SL, MVT::i32, Result,
+                       DAG.getConstant(0xFF, SL, MVT::i32));
+
+  return DAG.getAnyExtOrTrunc(Result, SL, ResVT);
+}
+
+SDValue
+SITargetLowering::LowerCONVERT_TO_ARBITRARY_FP_SR(SDValue Op,
+                                                   SelectionDAG &DAG) const {
+  SDLoc SL(Op);
+  SDValue Src = Op.getOperand(0);
+  SDValue Seed = Op.getOperand(2);
+  EVT SrcVT = Src.getValueType();
+  EVT ResVT = Op.getValueType();
+
+  unsigned SemEnum = Op.getConstantOperandVal(1);
+  auto Sem = static_cast<APFloatBase::Semantics>(SemEnum);
+  unsigned Saturate = Op.getConstantOperandVal(3);
+
+  // ---- Vector block-of-32 FP6/BF6 path ----------------------------------
+  // Mirrors LowerCONVERT_TO_ARBITRARY_FP's FP6/BF6 dispatch, using the
+  // parallel SR-flavoured intrinsic family.
+  if ((Sem == APFloatBase::S_Float6E2M3FN ||
+       Sem == APFloatBase::S_Float6E3M2FN) &&
+      Subtarget->hasFP6BF6ConversionScaleInsts() && ResVT == MVT::v6i32) {
+    bool IsFP6 = Sem == APFloatBase::S_Float6E2M3FN;
+    SDValue ScaleOne = DAG.getConstantFP(1.0, SL, MVT::f32);
+
+    unsigned VecIntrID = 0;
+    if (SrcVT == MVT::v32f32)
+      VecIntrID = IsFP6 ? Intrinsic::amdgcn_cvt_scalef32_sr_pk32_fp6_f32
+                        : Intrinsic::amdgcn_cvt_scalef32_sr_pk32_bf6_f32;
+    else if (SrcVT == MVT::v32f16)
+      VecIntrID = IsFP6 ? Intrinsic::amdgcn_cvt_scalef32_sr_pk32_fp6_f16
+                        : Intrinsic::amdgcn_cvt_scalef32_sr_pk32_bf6_f16;
+    else if (SrcVT == MVT::v32bf16)
+      VecIntrID = IsFP6 ? Intrinsic::amdgcn_cvt_scalef32_sr_pk32_fp6_bf16
+                        : Intrinsic::amdgcn_cvt_scalef32_sr_pk32_bf6_bf16;
+    else
+      return SDValue();
+    // Signature: (src, i32 seed, f32 scale) -> v6i32
+    return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, ResVT,
+                       DAG.getTargetConstant(VecIntrID, SL, MVT::i32), Src,
+                       Seed, ScaleOne);
+  }
+
+  // ---- Scalar FP8 (OCP FN) path -----------------------------------------
+  // The amdgcn_cvt_sr_{fp8,bf8}_f32 instructions implement OCP FN semantics
+  // on gfx950+/gfx11+ and FNUZ semantics on gfx942 (same dispatch quirk as
+  // the non-SR pk_fp8_f32 family). We gate on hasOCPFP8Semantics() for the
+  // FN cases and accept FNUZ on the opposite side.
+  if ((Sem == APFloatBase::S_Float8E4M3FN ||
+       Sem == APFloatBase::S_Float8E5M2 ||
+       Sem == APFloatBase::S_Float8E4M3FNUZ ||
+       Sem == APFloatBase::S_Float8E5M2FNUZ) &&
+      Subtarget->hasFP8ConversionInsts()) {
+    bool IsOCPRequest = (Sem == APFloatBase::S_Float8E4M3FN ||
+                         Sem == APFloatBase::S_Float8E5M2);
+    bool TargetIsOCP = Subtarget->hasOCPFP8Semantics();
+    if (IsOCPRequest != TargetIsOCP)
+      return SDValue();
+
+    // E5M2 SR does not support saturate (mirrors the non-SR bf8 path).
+    bool IsBF8 =
+        (Sem == APFloatBase::S_Float8E5M2 ||
+         Sem == APFloatBase::S_Float8E5M2FNUZ);
+    if (IsBF8 && Saturate)
+      return SDValue();
+
+    unsigned ScalarIntrID =
+        IsBF8 ? Intrinsic::amdgcn_cvt_sr_bf8_f32
+              : Intrinsic::amdgcn_cvt_sr_fp8_f32;
+
+    // f16 inputs: fall back to extending to f32 first. The direct
+    // amdgcn_cvt_sr_fp8_f16 / bf8_f16 forms only exist on gfx1250+ and
+    // handling them here is a separate follow-up.
+    if (SrcVT == MVT::f16)
+      Src = DAG.getNode(ISD::FP_EXTEND, SL, MVT::f32, Src);
+    else if (SrcVT != MVT::f32)
+      return SDValue();
+
+    // Signature: (f32 src, i32 seed, i32 old, imm i32 byte_sel) -> i32.
+    // Mirrors the pk_fp8_f32 convention: old is a regular Constant, byte_sel
+    // is a TargetConstant immediate (the ImmArg annotation and matching
+    // gfx940+ TableGen pattern expect the literal index on byte_sel).
+    SDValue Result = DAG.getNode(
+        ISD::INTRINSIC_WO_CHAIN, SL, MVT::i32,
+        DAG.getTargetConstant(ScalarIntrID, SL, MVT::i32), Src, Seed,
+        DAG.getConstant(0, SL, MVT::i32) /* old=0 */,
+        DAG.getTargetConstant(0, SL, MVT::i32) /* byte_sel=0 */);
+    Result = DAG.getNode(ISD::AND, SL, MVT::i32, Result,
+                         DAG.getConstant(0xFF, SL, MVT::i32));
+    return DAG.getAnyExtOrTrunc(Result, SL, ResVT);
+  }
+
+  return SDValue();
+}
+
+// Returns true if V is a CONVERT_FROM_ARBITRARY_FP node with the given
+// APFloat semantics enum.
+static bool isConvertFromArbitraryFP(SDValue V, APFloatBase::Semantics Sem) {
+  if (V.getOpcode() != ISD::CONVERT_FROM_ARBITRARY_FP)
+    return false;
+  return static_cast<APFloatBase::Semantics>(V.getConstantOperandVal(1)) == Sem;
+}
+
+// Pre-legalize DAG combine for ISD::CONVERT_TO_ARBITRARY_FP. Recognizes
+// the pattern
+//
+//   convert_to_arbitrary_fp(fdiv(val, scale), fp8, RNE, sat)
+//
+// and rewrites it to amdgcn_cvt_scalef32_pk_fp8_f32 / pk_bf8_f32 when the
+// scale is provably exact:
+//
+//   - scale is convert_from_arbitrary_fp(_, "Float8E8M0FNU"), which
+//     guarantees a power-of-two value (the OCP MX block scale type), OR
+//   - The fdiv has the AllowReciprocal fast-math flag (caller opt-in).
+//
+// The fused HW does a single rounding from val/scale to fp8 while the
+// unfused sequence rounds twice (at the fdiv and again at the convert),
+// so the gating is required to keep observable behavior unchanged for
+// code that doesn't opt in.
+//
+// The mirrored fmul(val, recip) form is intentionally not handled: the
+// HW takes the divisor (not its reciprocal) as the scale operand, so
+// matching fmul would require materializing 1/recip via an extra rcp
+// instruction, defeating the optimization.
+SDValue
+SITargetLowering::performConvertToArbitraryFPCombine(SDNode *N,
+                                                     DAGCombinerInfo &DCI) const {
+  if (!Subtarget->hasFP8ConversionScaleInsts())
+    return SDValue();
+
+  SelectionDAG &DAG = DCI.DAG;
+  bool IsSR = N->getOpcode() == ISD::CONVERT_TO_ARBITRARY_FP_SR;
+
+  // Only fp8 destinations have scaled HW instructions. For the SR variant
+  // the scalar scalef32_sr_{fp8,bf8}_f32 intrinsics are what we target.
+  auto Sem = static_cast<APFloatBase::Semantics>(N->getConstantOperandVal(1));
+  unsigned ScaledID;
+  if (Sem == APFloatBase::S_Float8E4M3FN)
+    ScaledID = IsSR ? Intrinsic::amdgcn_cvt_scalef32_sr_fp8_f32
+                    : Intrinsic::amdgcn_cvt_scalef32_pk_fp8_f32;
+  else if (Sem == APFloatBase::S_Float8E5M2)
+    ScaledID = IsSR ? Intrinsic::amdgcn_cvt_scalef32_sr_bf8_f32
+                    : Intrinsic::amdgcn_cvt_scalef32_pk_bf8_f32;
+  else
+    return SDValue();
+
+  // For the non-SR path, operand 2 is a rounding-mode constant; only RNE
+  // maps to the HW instruction. SR has its seed in that slot — no rounding-
+  // mode check to run since stochastic rounding is implicit.
+  if (!IsSR) {
+    auto RoundMode = static_cast<RoundingMode>(N->getConstantOperandVal(2));
+    if (RoundMode != RoundingMode::NearestTiesToEven)
+      return SDValue();
+  }
+
+  EVT ResVT = N->getValueType(0);
+  // Currently only the scalar form is supported. Vector lowering is a
+  // separate follow-up.
+  if (ResVT.isVector())
+    return SDValue();
+
+  SDValue Inner = N->getOperand(0);
+  if (Inner.getValueType() != MVT::f32)
+    return SDValue();
+  if (Inner.getOpcode() != ISD::FDIV)
+    return SDValue();
+  if (!Inner.hasOneUse())
+    return SDValue();
+
+  SDValue Val = Inner.getOperand(0);
+  SDValue Scale = Inner.getOperand(1);
+  if (Val.getValueType() != MVT::f32 || Scale.getValueType() != MVT::f32)
+    return SDValue();
+
+  bool ScaleIsExact =
+      isConvertFromArbitraryFP(Scale, APFloatBase::S_Float8E8M0FNU);
+  if (!ScaleIsExact && !Inner->getFlags().hasAllowReciprocal())
+    return SDValue();
+
+  SDLoc SL(N);
+
+  if (IsSR) {
+    // amdgcn_cvt_scalef32_sr_{fp8,bf8}_f32:
+    //   (i32 old_vdst, float src0, i32 seed, float scale, imm i32 dst_sel)
+    //   -> i32
+    // The seed lives at operand 2 of the ISD node.
+    SDValue Seed = N->getOperand(2);
+    SDValue SrOps[] = {
+        DAG.getTargetConstant(ScaledID, SL, MVT::i32),
+        DAG.getConstant(0, SL, MVT::i32),     // old_vdst
+        Val,                                   // src0
+        Seed,                                  // i32 seed
+        Scale,                                 // f32 scale
+        DAG.getTargetConstant(0, SL, MVT::i32) /* dst_sel=0 */,
+    };
+    SDValue Result =
+        DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, MVT::i32, SrOps);
+    // Mask byte 0 (the only meaningful lane with dst_sel=0).
+    SDValue Masked = DAG.getNode(ISD::AND, SL, MVT::i32, Result,
+                                 DAG.getConstant(0xFF, SL, MVT::i32));
+    return DAG.getZExtOrTrunc(Masked, SL, ResVT);
+  }
+
+  // amdgcn_cvt_scalef32_pk_fp8_f32:
+  //   (v2i16 old_vdst, float src0, float src1, float scale, i1 dst_lo_hi_sel)
+  //   -> v2i16
+  // For scalar lowering we put the value in src0, undef in src1, then mask
+  // byte 1 of the i32 result and truncate to the destination integer type.
+  SDValue PackedOps[] = {
+      DAG.getTargetConstant(ScaledID, SL, MVT::i32),
+      DAG.getConstant(0, SL, MVT::v2i16),     // old_vdst
+      Val,                                     // src0
+      DAG.getUNDEF(MVT::f32),                  // src1 (unused for scalar)
+      Scale,                                   // scale
+      DAG.getTargetConstant(0, SL, MVT::i1),   // dst_lo_hi_sel
+  };
+
+  SDValue Packed =
+      DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, MVT::v2i16, PackedOps);
+
+  // v2i16 -> i32 -> mask byte 0 -> truncate to ResVT.
+  SDValue AsI32 = DAG.getNode(ISD::BITCAST, SL, MVT::i32, Packed);
+  SDValue Masked = DAG.getNode(ISD::AND, SL, MVT::i32, AsI32,
+                               DAG.getConstant(0xFF, SL, MVT::i32));
+  return DAG.getZExtOrTrunc(Masked, SL, ResVT);
+}
+
+// Extract the scalar value from a vector splat. Returns SDValue() if the
+// operand is not a uniform splat across all lanes.
+static SDValue extractSplatScalar(SDValue V) {
+  if (V.getOpcode() == ISD::SPLAT_VECTOR)
+    return V.getOperand(0);
+  if (V.getOpcode() == ISD::BUILD_VECTOR) {
+    SDValue First = V.getOperand(0);
+    for (unsigned I = 1, E = V.getNumOperands(); I != E; ++I)
+      if (V.getOperand(I) != First)
+        return SDValue();
+    return First;
+  }
+  return SDValue();
+}
+
+SDValue
+SITargetLowering::matchFMulArbitraryFPScaleFrom(SDNode *FMul,
+                                                DAGCombinerInfo &DCI) const {
+  if (!Subtarget->hasFP8ConversionScaleInsts())
+    return SDValue();
+
+  SelectionDAG &DAG = DCI.DAG;
+  EVT VT = FMul->getValueType(0);
+  if (VT != MVT::f32 && VT != MVT::v2f32)
+    return SDValue();
+
+  // Identify which operand is the convert and which is the scale. The
+  // convert side can appear in two shapes:
+  //
+  //   * AMDGCN intrinsic form (amdgcn_cvt_f32_fp8 / pk_f32_fp8 / ...), which
+  //     is what frontends emitting ROCDL produce directly.
+  //   * Generic ISD::CONVERT_FROM_ARBITRARY_FP form, which is what the new
+  //     llvm.convert.from.arbitrary.fp intrinsic lowers to pre-legalize.
+  //
+  // Both shapes are always safe to fuse into the scaled HW form: the
+  // unscaled widening is exact, so running the fmul as part of the HW
+  // conversion does the same amount of rounding as the separate fmul.
+
+  SDValue LHS = FMul->getOperand(0);
+  SDValue RHS = FMul->getOperand(1);
+
+  enum ConvertKind {
+    Kind_None,
+    Kind_FP8_Scalar, // f32 result
+    Kind_BF8_Scalar,
+    Kind_FP8_Packed, // v2f32 result
+    Kind_BF8_Packed,
+  };
+
+  auto ClassifyConvert = [](SDValue V) -> ConvertKind {
+    if (V.getOpcode() == ISD::INTRINSIC_WO_CHAIN) {
+      switch (V.getConstantOperandVal(0)) {
+      case Intrinsic::amdgcn_cvt_f32_fp8:
+        return Kind_FP8_Scalar;
+      case Intrinsic::amdgcn_cvt_f32_bf8:
+        return Kind_BF8_Scalar;
+      case Intrinsic::amdgcn_cvt_pk_f32_fp8:
+        return Kind_FP8_Packed;
+      case Intrinsic::amdgcn_cvt_pk_f32_bf8:
+        return Kind_BF8_Packed;
+      }
+      return Kind_None;
+    }
+    if (V.getOpcode() == ISD::CONVERT_FROM_ARBITRARY_FP) {
+      auto Sem =
+          static_cast<APFloatBase::Semantics>(V.getConstantOperandVal(1));
+      EVT ResVT = V.getValueType();
+      if (Sem == APFloatBase::S_Float8E4M3FN) {
+        if (ResVT == MVT::f32)
+          return Kind_FP8_Scalar;
+        if (ResVT == MVT::v2f32)
+          return Kind_FP8_Packed;
+      } else if (Sem == APFloatBase::S_Float8E5M2) {
+        if (ResVT == MVT::f32)
+          return Kind_BF8_Scalar;
+        if (ResVT == MVT::v2f32)
+          return Kind_BF8_Packed;
+      }
+      return Kind_None;
+    }
+    return Kind_None;
+  };
+
+  ConvertKind Kind = ClassifyConvert(LHS);
+  SDValue Convert, Scale;
+  if (Kind != Kind_None) {
+    Convert = LHS;
+    Scale = RHS;
+  } else {
+    Kind = ClassifyConvert(RHS);
+    if (Kind == Kind_None)
+      return SDValue();
+    Convert = RHS;
+    Scale = LHS;
+  }
+
+  // Avoid duplicating the convert if its result has multiple uses.
+  if (!Convert.hasOneUse())
+    return SDValue();
+
+  // Match the convert's vector-ness to the fmul's.
+  bool ConvertIsPacked =
+      (Kind == Kind_FP8_Packed || Kind == Kind_BF8_Packed);
+  if (ConvertIsPacked != (VT == MVT::v2f32))
+    return SDValue();
+
+  // For the packed form, the scale must be a uniform splat so that the
+  // single f32 scale operand of the HW instruction is meaningful.
+  SDValue ScalarScale = Scale;
+  if (VT == MVT::v2f32) {
+    ScalarScale = extractSplatScalar(Scale);
+    if (!ScalarScale)
+      return SDValue();
+  }
+  if (ScalarScale.getValueType() != MVT::f32)
+    return SDValue();
+
+  SDLoc SL(FMul);
+
+  unsigned ScaledID;
+  switch (Kind) {
+  case Kind_FP8_Scalar:
+    ScaledID = Intrinsic::amdgcn_cvt_scalef32_f32_fp8;
+    break;
+  case Kind_BF8_Scalar:
+    ScaledID = Intrinsic::amdgcn_cvt_scalef32_f32_bf8;
+    break;
+  case Kind_FP8_Packed:
+    ScaledID = Intrinsic::amdgcn_cvt_scalef32_pk_f32_fp8;
+    break;
+  case Kind_BF8_Packed:
+    ScaledID = Intrinsic::amdgcn_cvt_scalef32_pk_f32_bf8;
+    break;
+  default:
+    return SDValue();
+  }
+
+  // Resolve the i32 source and the byte/word selector. The AMDGCN intrinsic
+  // form already has both; the generic CONVERT_FROM_ARBITRARY_FP form has
+  // only the narrow integer source, so we any-extend it to i32 and use
+  // selector = 0 (low byte for scalar, low word for packed). The packed
+  // intrinsic expects an i1 word_sel; the scalar expects an i32 byte_sel.
+  SDValue Src;
+  SDValue Sel;
+  if (Convert.getOpcode() == ISD::INTRINSIC_WO_CHAIN) {
+    Src = Convert.getOperand(1);
+    Sel = Convert.getOperand(2);
+  } else {
+    Src = DAG.getAnyExtOrTrunc(Convert.getOperand(0), SL, MVT::i32);
+    Sel = ConvertIsPacked ? DAG.getTargetConstant(0, SL, MVT::i1)
+                          : DAG.getTargetConstant(0, SL, MVT::i32);
+  }
+
+  return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, VT,
+                     DAG.getTargetConstant(ScaledID, SL, MVT::i32), Src,
+                     ScalarScale, Sel);
 }
 
 SDValue SITargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
@@ -14634,6 +15367,292 @@ SDValue SITargetLowering::performOrCombine(SDNode *N,
     }
   }
 
+  // or (and (trunc (and (pk_fp8_f32 a, undef, 0, 0), 0xFF)), 0xFF),
+  //    (shl (trunc (and (pk_fp8_f32 b, undef, 0, 0), 0xFF)), 8)
+  // → trunc (pk_fp8_f32 a, b, 0, 0)
+  //
+  // Merges two scalar FP8 conversions into a single packed instruction.
+  if (VT == MVT::i16 && Subtarget->hasFP8ConversionInsts()) {
+    // Match: or(lowByte, shl(highByte, 8))
+    // Either operand could be the shifted one.
+    for (int Swap = 0; Swap < 2; ++Swap) {
+      SDValue Lo = Swap ? RHS : LHS;
+      SDValue Hi = Swap ? LHS : RHS;
+
+      if (Hi.getOpcode() != ISD::SHL)
+        continue;
+      auto *ShAmt = dyn_cast<ConstantSDNode>(Hi.getOperand(1));
+      if (!ShAmt || ShAmt->getZExtValue() != 8)
+        continue;
+      Hi = Hi.getOperand(0);
+
+      // Trace through AND 0xFF and TRUNCATE to find the pk intrinsic.
+      // Matches both pk_fp8_f32 (operand 1 = f32, operand 2 = undef f32)
+      // and pk_fp8_f16 (operand 1 = <2 x f16> with element 1 undef).
+      auto MatchPkFP8 = [](SDValue V, SDValue &SrcVal,
+                           unsigned &IntrID) -> bool {
+        while (V.getOpcode() == ISD::AND) {
+          auto *Mask = dyn_cast<ConstantSDNode>(V.getOperand(1));
+          if (!Mask || (Mask->getZExtValue() & 0xFF) != 0xFF)
+            return false;
+          V = V.getOperand(0);
+        }
+        if (V.getOpcode() == ISD::TRUNCATE)
+          V = V.getOperand(0);
+        while (V.getOpcode() == ISD::AND) {
+          auto *Mask = dyn_cast<ConstantSDNode>(V.getOperand(1));
+          if (!Mask || (Mask->getZExtValue() & 0xFF) != 0xFF)
+            return false;
+          V = V.getOperand(0);
+        }
+
+        if (V.getOpcode() != ISD::INTRINSIC_WO_CHAIN)
+          return false;
+        unsigned ID = V.getConstantOperandVal(0);
+
+        // Match f32 pk intrinsics: pk_fp8_f32(f32, undef_f32, i32, i1)
+        if (ID == Intrinsic::amdgcn_cvt_pk_fp8_f32 ||
+            ID == Intrinsic::amdgcn_cvt_pk_bf8_f32) {
+          if (!V.getOperand(2).isUndef())
+            return false;
+          SrcVal = V.getOperand(1);
+          IntrID = ID;
+          return true;
+        }
+
+        // Match f16 pk intrinsics: pk_fp8_f16(<2 x half>) where elt 1 is undef
+        if (ID == Intrinsic::amdgcn_cvt_pk_fp8_f16 ||
+            ID == Intrinsic::amdgcn_cvt_pk_bf8_f16) {
+          SDValue V2F16Src = V.getOperand(1);
+          if (V2F16Src.getOpcode() != ISD::BUILD_VECTOR ||
+              !V2F16Src.getOperand(1).isUndef())
+            return false;
+          SrcVal = V2F16Src.getOperand(0); // the f16 value
+          IntrID = ID;
+          return true;
+        }
+
+        return false;
+      };
+
+      SDValue Val0, Val1;
+      unsigned IntrID0, IntrID1;
+      if (!MatchPkFP8(Lo, Val0, IntrID0) || !MatchPkFP8(Hi, Val1, IntrID1))
+        continue;
+      if (IntrID0 != IntrID1)
+        continue;
+
+      // Replace with single packed intrinsic using both slots.
+      SDLoc SL(N);
+
+      // f16 pk intrinsics: pk_fp8_f16(build_vector(a, b)) → i16
+      if (IntrID0 == Intrinsic::amdgcn_cvt_pk_fp8_f16 ||
+          IntrID0 == Intrinsic::amdgcn_cvt_pk_bf8_f16) {
+        SDValue V2F16 = DAG.getBuildVector(MVT::v2f16, SL, {Val0, Val1});
+        return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, MVT::i16,
+                           DAG.getTargetConstant(IntrID0, SL, MVT::i32),
+                           V2F16);
+      }
+
+      // f32 pk intrinsics: pk_fp8_f32(a, b, 0, 0) → i32, truncate to i16
+      SDValue Packed = DAG.getNode(
+          ISD::INTRINSIC_WO_CHAIN, SL, MVT::i32,
+          DAG.getTargetConstant(IntrID0, SL, MVT::i32), Val0, Val1,
+          DAG.getConstant(0, SL, MVT::i32),
+          DAG.getTargetConstant(0, SL, MVT::i1));
+      return DAG.getNode(ISD::TRUNCATE, SL, MVT::i16, Packed);
+    }
+  }
+
+  // Parallel fusion for FP4 (Float4E2M1FN) packed conversions.
+  //
+  // Each scalar FP4 conversion produces a 4-bit result in the low nibble of
+  // an i32:
+  //
+  //   nibble = and(pk_fp4_f32(0, src, undef, 1.0, 0), 0xF)
+  //
+  // The frontend packs multiple such nibbles into a wider output by placing
+  // each at a distinct 4-bit bit offset inside a tree of OR nodes. If every
+  // leaf of the OR tree rooted at N is one of these nibble conversions, we
+  // can replace the whole tree with a minimal number of packed pk_fp4_f32
+  // calls: one call per adjacent (even/odd) nibble pair fills both source
+  // slots of the HW instruction and yields a byte; the bytes are then OR'd
+  // back together at their original bit positions.
+  //
+  // This halves the number of conversion instructions for vector FP4 outputs
+  // regardless of how the OR tree is shaped (left/right-leaning), which
+  // matters for wider outputs where the scalar-then-pairwise-fuse approach
+  // only catches the innermost OR on each combine pass.
+  if ((VT == MVT::i8 || VT == MVT::i16 || VT == MVT::i32 || VT == MVT::i64) &&
+      Subtarget->hasFP4ConversionScaleInsts()) {
+    auto MatchPkFP4Nibble = [](SDValue V) -> SDValue {
+      // Accept any enclosing ZERO_EXTEND/ANY_EXTEND/TRUNCATE plus nibble
+      // masks that preserve only the low 4 bits.
+      while (true) {
+        if (V.getOpcode() == ISD::AND) {
+          auto *Mask = dyn_cast<ConstantSDNode>(V.getOperand(1));
+          if (!Mask || Mask->getZExtValue() != 0xF)
+            return SDValue();
+          V = V.getOperand(0);
+          continue;
+        }
+        if (V.getOpcode() == ISD::TRUNCATE ||
+            V.getOpcode() == ISD::ZERO_EXTEND ||
+            V.getOpcode() == ISD::ANY_EXTEND) {
+          V = V.getOperand(0);
+          continue;
+        }
+        break;
+      }
+      if (V.getOpcode() != ISD::INTRINSIC_WO_CHAIN)
+        return SDValue();
+      if (V.getConstantOperandVal(0) !=
+          Intrinsic::amdgcn_cvt_scalef32_pk_fp4_f32)
+        return SDValue();
+      // Require the second input slot to be undef so we know only the low
+      // nibble carries meaningful data.
+      if (!V.getOperand(3).isUndef())
+        return SDValue();
+      return V;
+    };
+
+    // Walk the OR tree rooted at SDValue(N, 0), collecting (pk_fp4 call,
+    // bit offset) leaves. Returns false if the tree contains any non-nibble
+    // operand.
+    SmallVector<std::pair<SDValue, unsigned>, 16> Leaves;
+    bool TreeOK = true;
+    unsigned LeafCount = 0;
+    std::function<void(SDValue, unsigned)> Walk = [&](SDValue V,
+                                                      unsigned Offset) {
+      if (!TreeOK)
+        return;
+      // Guard against runaway trees.
+      if (++LeafCount > 64) {
+        TreeOK = false;
+        return;
+      }
+      if (V.getOpcode() == ISD::OR) {
+        Walk(V.getOperand(0), Offset);
+        Walk(V.getOperand(1), Offset);
+        return;
+      }
+      if (V.getOpcode() == ISD::SHL) {
+        if (auto *C = dyn_cast<ConstantSDNode>(V.getOperand(1))) {
+          Walk(V.getOperand(0), Offset + C->getZExtValue());
+          return;
+        }
+        TreeOK = false;
+        return;
+      }
+      // Casts that don't alter the bit values at the bit-offsets we care
+      // about: zero-extension only grows the type with zeros, so the low
+      // bits (including any shift target) are preserved.
+      if (V.getOpcode() == ISD::ZERO_EXTEND ||
+          V.getOpcode() == ISD::ANY_EXTEND) {
+        Walk(V.getOperand(0), Offset);
+        return;
+      }
+      // Skip constant-zero contributions (e.g., merge artifacts or padding).
+      if (auto *C = dyn_cast<ConstantSDNode>(V)) {
+        if (C->isZero())
+          return;
+        TreeOK = false;
+        return;
+      }
+      SDValue Pk = MatchPkFP4Nibble(V);
+      if (!Pk) {
+        TreeOK = false;
+        return;
+      }
+      Leaves.push_back({Pk, Offset});
+    };
+    Walk(SDValue(N, 0), 0);
+
+    // Require at least two leaves, all at 4-bit-aligned offsets, and a
+    // complete pairing at 8-bit-aligned byte boundaries.
+    auto TryFuseFP4 = [&]() -> SDValue {
+      if (!TreeOK || Leaves.size() < 2)
+        return SDValue();
+      // All offsets must be multiples of 4 and fit within VT.
+      unsigned VTBits = VT.getScalarSizeInBits();
+      for (auto &L : Leaves) {
+        if ((L.second & 0x3) != 0)
+          return SDValue();
+        if (L.second >= VTBits)
+          return SDValue();
+      }
+      llvm::sort(Leaves, [](const std::pair<SDValue, unsigned> &A,
+                            const std::pair<SDValue, unsigned> &B) {
+        return A.second < B.second;
+      });
+      // Disallow duplicate positions — that indicates the tree was not a
+      // pure packing pattern.
+      for (size_t I = 1, E = Leaves.size(); I < E; ++I)
+        if (Leaves[I].second == Leaves[I - 1].second)
+          return SDValue();
+
+      SDLoc SL(N);
+      SmallVector<SDValue, 8> Pieces;
+      size_t I = 0;
+      while (I < Leaves.size()) {
+        SDValue PkA = Leaves[I].first;
+        unsigned OffA = Leaves[I].second;
+        // Try to pair with the next leaf if it sits at OffA+4 and OffA is
+        // byte-aligned.
+        if ((OffA & 0x7) == 0 && I + 1 < Leaves.size() &&
+            Leaves[I + 1].second == OffA + 4) {
+          SDValue PkB = Leaves[I + 1].first;
+          SDValue Val0 = PkA.getOperand(2);
+          SDValue Val1 = PkB.getOperand(2);
+          SDValue Old = PkA.getOperand(1);
+          SDValue Scale = PkA.getOperand(4);
+          SDValue DstSel = PkA.getOperand(5);
+          SDValue Ops[] = {
+              DAG.getTargetConstant(Intrinsic::amdgcn_cvt_scalef32_pk_fp4_f32,
+                                    SL, MVT::i32),
+              Old, Val0, Val1, Scale, DstSel};
+          SDValue Packed =
+              DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, MVT::i32, Ops);
+          SDValue Masked = DAG.getNode(ISD::AND, SL, MVT::i32, Packed,
+                                       DAG.getConstant(0xFF, SL, MVT::i32));
+          SDValue Byte = DAG.getZExtOrTrunc(Masked, SL, VT);
+          if (OffA != 0)
+            Byte = DAG.getNode(ISD::SHL, SL, VT, Byte,
+                               DAG.getConstant(OffA, SL, MVT::i32));
+          Pieces.push_back(Byte);
+          I += 2;
+          continue;
+        }
+        // Fall back: preserve the solitary nibble at its original offset.
+        SDValue PackedOld[] = {
+            DAG.getTargetConstant(Intrinsic::amdgcn_cvt_scalef32_pk_fp4_f32, SL,
+                                  MVT::i32),
+            PkA.getOperand(1), PkA.getOperand(2), PkA.getOperand(3),
+            PkA.getOperand(4), PkA.getOperand(5)};
+        SDValue Packed =
+            DAG.getNode(ISD::INTRINSIC_WO_CHAIN, SL, MVT::i32, PackedOld);
+        SDValue Nibble = DAG.getNode(ISD::AND, SL, MVT::i32, Packed,
+                                     DAG.getConstant(0xF, SL, MVT::i32));
+        SDValue Piece = DAG.getZExtOrTrunc(Nibble, SL, VT);
+        if (OffA != 0)
+          Piece = DAG.getNode(ISD::SHL, SL, VT, Piece,
+                              DAG.getConstant(OffA, SL, MVT::i32));
+        Pieces.push_back(Piece);
+        ++I;
+      }
+      // Require at least one actual fusion — otherwise we'd just be
+      // reshuffling the original tree.
+      if (Pieces.size() >= Leaves.size())
+        return SDValue();
+      SDValue Acc = Pieces[0];
+      for (size_t J = 1, E = Pieces.size(); J < E; ++J)
+        Acc = DAG.getNode(ISD::OR, SL, VT, Acc, Pieces[J]);
+      return Acc;
+    };
+    if (SDValue Fused = TryFuseFP4())
+      return Fused;
+  }
+
   if (VT != MVT::i64 || DCI.isBeforeLegalizeOps())
     return SDValue();
 
@@ -16985,6 +18004,12 @@ SDValue SITargetLowering::performFDivCombine(SDNode *N,
 
 SDValue SITargetLowering::performFMulCombine(SDNode *N,
                                              DAGCombinerInfo &DCI) const {
+  // Fuse fmul(amdgcn_cvt_*_fp8/bf8(...), scale) into the scaled equivalent
+  // intrinsic. Bit-identical because FP8 -> f32 is exact and the unfused
+  // sequence rounds once at the fmul, just like the fused HW instruction.
+  if (SDValue R = matchFMulArbitraryFPScaleFrom(N, DCI))
+    return R;
+
   SelectionDAG &DAG = DCI.DAG;
   EVT VT = N->getValueType(0);
   EVT ScalarVT = VT.getScalarType();
@@ -17648,6 +18673,9 @@ SDValue SITargetLowering::PerformDAGCombine(SDNode *N,
     return performInsertVectorEltCombine(N, DCI);
   case ISD::FP_ROUND:
     return performFPRoundCombine(N, DCI);
+  case ISD::CONVERT_TO_ARBITRARY_FP:
+  case ISD::CONVERT_TO_ARBITRARY_FP_SR:
+    return performConvertToArbitraryFPCombine(N, DCI);
   case ISD::LOAD: {
     if (SDValue Widened = widenLoad(cast<LoadSDNode>(N), DCI))
       return Widened;
