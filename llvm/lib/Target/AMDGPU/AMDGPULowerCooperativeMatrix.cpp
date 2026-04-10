@@ -110,12 +110,24 @@ static FixedVectorType *getConcreteVectorType(const GCNSubtarget &ST,
         if (Rows == 32 && Cols == 32)
           return FixedVectorType::get(ElemTy, 16);
       }
+      // f64 accumulator: 16x16 -> <4 x f64>, 4x4 -> scalar (1-elem vec).
+      if (ElemTy->isDoubleTy()) {
+        if (Rows == 16 && Cols == 16)
+          return FixedVectorType::get(ElemTy, 4);
+        if (Rows == 4 && Cols == 4)
+          return FixedVectorType::get(ElemTy, 1);
+      }
     } else {
-      // A/B operands for MFMA.
+      // A/B operands for MFMA. Per-lane element count = (Rows * Cols) / 64.
+      unsigned TotalElems = Rows * Cols;
+      unsigned VecLen = TotalElems / 64;
+      if (VecLen == 0) VecLen = 1; // f64 4x4x4: scalar per lane
       if (ElemTy->isHalfTy() || ElemTy->isBFloatTy())
-        return FixedVectorType::get(ElemTy, 4);
+        return FixedVectorType::get(ElemTy, VecLen);
       if (ElemTy->isIntegerTy(8))
-        return FixedVectorType::get(ElemTy, 4);
+        return FixedVectorType::get(ElemTy, VecLen);
+      if (ElemTy->isDoubleTy())
+        return FixedVectorType::get(ElemTy, VecLen);
     }
   }
 
@@ -218,6 +230,110 @@ lookupMulAdd(const GCNSubtarget &ST, LLVMContext &Ctx,
       Entry.IsMFMA = true;
       Entry.IsIU = false;
       return Entry;
+    }
+
+    // --- FP8/BF8 MFMA (gfx942 FNUZ / gfx950+ OCP) ---
+    // The same intrinsic names (mfma_f32_16x16x32_fp8_fp8 etc.) are used
+    // on both gfx942 and gfx950+; the hardware reinterprets bits as FNUZ
+    // vs OCP. The cooperative matrix type's element type encodes which
+    // format the user intended. We gate on hasFP8ConversionInsts() for
+    // the HW capability and accept either format at this level — the
+    // distinction is in the TargetExtType, not the intrinsic.
+    if (ST.hasFP8ConversionInsts()) {
+      auto *FloatTy = Type::getFloatTy(Ctx);
+      // A/B operands are i64 in the MFMA intrinsic = 8 packed i8 values.
+      // The concrete per-lane vector is <8 x i8>; CreateBitCast(<8 x i8>, i64)
+      // is legal in LLVM IR (same total bit width).
+      auto *I64Ty = Type::getInt64Ty(Ctx);
+
+      // fp8 * fp8 + f32 -> f32, 16x16x32
+      if (ElemTyA->isIntegerTy(8) && ElemTyB->isIntegerTy(8) &&
+          ElemTyC->isFloatTy() && M == 16 && N == 16 && K == 32) {
+        Entry.IntrID = Intrinsic::amdgcn_mfma_f32_16x16x32_fp8_fp8;
+        Entry.ABVecTy = I64Ty;
+        Entry.CDVecTy = FixedVectorType::get(FloatTy, 4);
+        Entry.IsMFMA = true;
+        Entry.IsIU = false;
+        return Entry;
+      }
+      // fp8 * fp8 + f32 -> f32, 32x32x16
+      if (ElemTyA->isIntegerTy(8) && ElemTyB->isIntegerTy(8) &&
+          ElemTyC->isFloatTy() && M == 32 && N == 32 && K == 16) {
+        Entry.IntrID = Intrinsic::amdgcn_mfma_f32_32x32x16_fp8_fp8;
+        Entry.ABVecTy = I64Ty;
+        Entry.CDVecTy = FixedVectorType::get(FloatTy, 16);
+        Entry.IsMFMA = true;
+        Entry.IsIU = false;
+        return Entry;
+      }
+    }
+
+    // --- Larger f16 MFMA shapes (gfx942+) ---
+    if (ST.hasGFX940Insts()) {
+      // f16 * f16 + f32 -> f32, 16x16x32 (K=32)
+      if (ElemTyA->isHalfTy() && ElemTyB->isHalfTy() &&
+          ElemTyC->isFloatTy() && M == 16 && N == 16 && K == 32) {
+        Entry.IntrID = Intrinsic::amdgcn_mfma_f32_16x16x32_f16;
+        Entry.ABVecTy = FixedVectorType::get(Type::getHalfTy(Ctx), 8);
+        Entry.CDVecTy = FixedVectorType::get(Type::getFloatTy(Ctx), 4);
+        Entry.IsMFMA = true;
+        Entry.IsIU = false;
+        return Entry;
+      }
+      // f16 * f16 + f32 -> f32, 32x32x16 (K=16)
+      if (ElemTyA->isHalfTy() && ElemTyB->isHalfTy() &&
+          ElemTyC->isFloatTy() && M == 32 && N == 32 && K == 16) {
+        Entry.IntrID = Intrinsic::amdgcn_mfma_f32_32x32x16_f16;
+        Entry.ABVecTy = FixedVectorType::get(Type::getHalfTy(Ctx), 8);
+        Entry.CDVecTy = FixedVectorType::get(Type::getFloatTy(Ctx), 16);
+        Entry.IsMFMA = true;
+        Entry.IsIU = false;
+        return Entry;
+      }
+      // bf16 * bf16 + f32 -> f32, 16x16x32 and 32x32x16 (gfx942+)
+      if (ST.hasGFX90AInsts() && ElemTyA->isBFloatTy() &&
+          ElemTyB->isBFloatTy() && ElemTyC->isFloatTy()) {
+        if (M == 16 && N == 16 && K == 32) {
+          Entry.IntrID = Intrinsic::amdgcn_mfma_f32_16x16x32_bf16;
+          Entry.ABVecTy = FixedVectorType::get(Type::getBFloatTy(Ctx), 8);
+          Entry.CDVecTy = FixedVectorType::get(Type::getFloatTy(Ctx), 4);
+          Entry.IsMFMA = true;
+          Entry.IsIU = false;
+          return Entry;
+        }
+        if (M == 32 && N == 32 && K == 16) {
+          Entry.IntrID = Intrinsic::amdgcn_mfma_f32_32x32x16_bf16;
+          Entry.ABVecTy = FixedVectorType::get(Type::getBFloatTy(Ctx), 8);
+          Entry.CDVecTy = FixedVectorType::get(Type::getFloatTy(Ctx), 16);
+          Entry.IsMFMA = true;
+          Entry.IsIU = false;
+          return Entry;
+        }
+      }
+    }
+
+    // --- f64 MFMA (gfx90a+) ---
+    if (ST.hasGFX90AInsts() && ElemTyA->isDoubleTy() &&
+        ElemTyB->isDoubleTy() && ElemTyC->isDoubleTy()) {
+      // f64 * f64 + f64 -> f64, 16x16x4
+      if (M == 16 && N == 16 && K == 4) {
+        Entry.IntrID = Intrinsic::amdgcn_mfma_f64_16x16x4f64;
+        // Intrinsic takes scalar f64 for A/B.
+        Entry.ABVecTy = Type::getDoubleTy(Ctx);
+        Entry.CDVecTy = FixedVectorType::get(Type::getDoubleTy(Ctx), 4);
+        Entry.IsMFMA = true;
+        Entry.IsIU = false;
+        return Entry;
+      }
+      // f64 * f64 + f64 -> f64, 4x4x4
+      if (M == 4 && N == 4 && K == 4) {
+        Entry.IntrID = Intrinsic::amdgcn_mfma_f64_4x4x4f64;
+        Entry.ABVecTy = Type::getDoubleTy(Ctx);
+        Entry.CDVecTy = Type::getDoubleTy(Ctx);
+        Entry.IsMFMA = true;
+        Entry.IsIU = false;
+        return Entry;
+      }
     }
   }
 
