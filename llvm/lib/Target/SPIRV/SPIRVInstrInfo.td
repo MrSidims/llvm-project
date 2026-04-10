@@ -542,6 +542,33 @@ def OpSUDotAccSat: Op<4455, (outs ID:$res), (ins TYPE:$type, ID:$vec1, ID:$vec2,
 def OpFmaKHR: Op<4427, (outs ID:$res), (ins TYPE:$type, ID:$a, ID:$b, ID:$c),
                   "$res = OpFmaKHR $type $a $b $c">;
 
+// Generic (ID-class) arithmetic ops for cooperative matrix element-wise ops.
+// The typed variants (OpIAddS, OpFAddS, etc.) are bound to scalar/vector
+// register classes and cannot accept cooperative matrix vregs. These generic
+// versions use the ID register class which accepts any SPIR-V type.
+def OpIAddGeneric: BinOp<"OpIAdd", 128>;
+def OpFAddGeneric: BinOp<"OpFAdd", 129>;
+def OpISubGeneric: BinOp<"OpISub", 130>;
+def OpFSubGeneric: BinOp<"OpFSub", 131>;
+def OpIMulGeneric: BinOp<"OpIMul", 132>;
+def OpFMulGeneric: BinOp<"OpFMul", 133>;
+def OpSDivGeneric: BinOp<"OpSDiv", 135>;
+def OpFDivGeneric: BinOp<"OpFDiv", 136>;
+def OpFRemGeneric: BinOp<"OpFRem", 140>;
+def OpShiftRightLogicalGeneric: BinOp<"OpShiftRightLogical", 194>;
+def OpShiftRightArithmeticGeneric: BinOp<"OpShiftRightArithmetic", 195>;
+def OpShiftLeftLogicalGeneric: BinOp<"OpShiftLeftLogical", 196>;
+def OpBitwiseOrGeneric: BinOp<"OpBitwiseOr", 197>;
+def OpBitwiseXorGeneric: BinOp<"OpBitwiseXor", 198>;
+def OpBitwiseAndGeneric: BinOp<"OpBitwiseAnd", 199>;
+// Generic unary arithmetic for cooperative matrix.
+def OpSNegateGeneric: UnOp<"OpSNegate", 126>;
+def OpFNegateGeneric: UnOp<"OpFNegate", 127>;
+// Generic type conversions for cooperative matrix.
+def OpUConvertGeneric: UnOp<"OpUConvert", 113>;
+def OpSConvertGeneric: UnOp<"OpSConvert", 114>;
+def OpFConvertGeneric: UnOp<"OpFConvert", 115>;
+
 // 3.42.14 Bit Instructions
 
 defm OpShiftRightLogical: BinOpTypedGen<"OpShiftRightLogical", 194, srl, 0, 1>;

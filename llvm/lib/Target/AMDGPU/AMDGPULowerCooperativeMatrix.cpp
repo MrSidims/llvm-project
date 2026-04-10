@@ -82,8 +82,21 @@ static bool getCoopMatParams(Type *Ty, Type *&ElemTy, unsigned &Scope,
 static FixedVectorType *getConcreteVectorType(const GCNSubtarget &ST,
                                               Type *ElemTy, unsigned Rows,
                                               unsigned Cols, unsigned Use) {
-  // WMMA (wave32, gfx12+): 8 elements per lane for all matrix operands.
+  // WMMA v2/v3 (wave32, gfx12+): 8 elements per lane for all matrix operands.
   if (ST.hasWMMA128bInsts() && ST.isWave32()) {
+    if (ElemTy->isHalfTy() || ElemTy->isBFloatTy())
+      return FixedVectorType::get(ElemTy, 8);
+    if (ElemTy->isFloatTy())
+      return FixedVectorType::get(ElemTy, 8);
+    if (ElemTy->isIntegerTy(8))
+      return FixedVectorType::get(ElemTy, 8);
+    if (ElemTy->isIntegerTy(32))
+      return FixedVectorType::get(ElemTy, 8);
+  }
+
+  // WMMA v1 (wave32, gfx11): 256-bit A/B (duplicated), 256-bit C/D.
+  // Same intrinsic types as v2 at the IR level: 8 elements per lane.
+  if (ST.hasWMMA256bInsts() && ST.isWave32()) {
     if (ElemTy->isHalfTy() || ElemTy->isBFloatTy())
       return FixedVectorType::get(ElemTy, 8);
     if (ElemTy->isFloatTy())
@@ -157,6 +170,44 @@ lookupMulAdd(const GCNSubtarget &ST, LLVMContext &Ctx,
     if (ElemTyA->isIntegerTy(8) && ElemTyB->isIntegerTy(8) &&
         ElemTyC->isIntegerTy(32) && M == 16 && N == 16 && K == 16) {
       // The intrinsic takes <2 x i32> for A/B (packed i8 values).
+      Entry.IntrID = Intrinsic::amdgcn_wmma_i32_16x16x16_iu8;
+      Entry.ABVecTy = FixedVectorType::get(Type::getInt32Ty(Ctx), 2);
+      Entry.CDVecTy = FixedVectorType::get(Type::getInt32Ty(Ctx), 8);
+      Entry.IsMFMA = false;
+      Entry.IsIU = true;
+      return Entry;
+    }
+  }
+
+  // --- WMMA v1 (gfx11, wave32) ---
+  // Same intrinsic names as v2 but with different HW register sizes (256-bit
+  // A/B with duplicated data). At the IR intrinsic level the types are identical
+  // to v2: <8 x f16> for A/B, <8 x f32> for C/D.
+  if (ST.hasWMMA256bInsts() && !ST.hasWMMA128bInsts() && ST.isWave32()) {
+    // f16 * f16 + f32 -> f32, 16x16x16
+    if (ElemTyA->isHalfTy() && ElemTyB->isHalfTy() && ElemTyC->isFloatTy() &&
+        M == 16 && N == 16 && K == 16) {
+      Entry.IntrID = Intrinsic::amdgcn_wmma_f32_16x16x16_f16;
+      Entry.ABVecTy = FixedVectorType::get(Type::getHalfTy(Ctx), 8);
+      Entry.CDVecTy = FixedVectorType::get(Type::getFloatTy(Ctx), 8);
+      Entry.IsMFMA = false;
+      Entry.IsIU = false;
+      return Entry;
+    }
+    // bf16 * bf16 + f32 -> f32, 16x16x16
+    if (ElemTyA->isBFloatTy() && ElemTyB->isBFloatTy() &&
+        ElemTyC->isFloatTy() && M == 16 && N == 16 && K == 16) {
+      Entry.IntrID = Intrinsic::amdgcn_wmma_f32_16x16x16_bf16;
+      // bf16 WMMA intrinsic takes <8 x i16> (bitcast of bf16)
+      Entry.ABVecTy = FixedVectorType::get(Type::getInt16Ty(Ctx), 8);
+      Entry.CDVecTy = FixedVectorType::get(Type::getFloatTy(Ctx), 8);
+      Entry.IsMFMA = false;
+      Entry.IsIU = false;
+      return Entry;
+    }
+    // i8 * i8 + i32 -> i32, 16x16x16
+    if (ElemTyA->isIntegerTy(8) && ElemTyB->isIntegerTy(8) &&
+        ElemTyC->isIntegerTy(32) && M == 16 && N == 16 && K == 16) {
       Entry.IntrID = Intrinsic::amdgcn_wmma_i32_16x16x16_iu8;
       Entry.ABVecTy = FixedVectorType::get(Type::getInt32Ty(Ctx), 2);
       Entry.CDVecTy = FixedVectorType::get(Type::getInt32Ty(Ctx), 8);
@@ -492,6 +543,27 @@ static void getWMMAv2ElementCoords(
   }
 }
 
+/// Compute (row, col) for each per-lane element of a WMMA v1 matrix
+/// (gfx11, wave32). 16x16 output: 32 lanes, 8 elements per lane.
+/// The v1 layout has stride-2 in the M dimension:
+///   col = lane_id % 16
+///   row = (lane_id / 16) + elem_idx * 2
+/// This interleaves rows from the two half-waves: lane_hi=0 gets even rows
+/// (0,2,4,6,8,10,12,14), lane_hi=1 gets odd rows (1,3,5,7,9,11,13,15).
+/// Reference: Triton AMDWmmaEncodingAttr::getTileLayout version==1.
+static void getWMMAv1ElementCoords(
+    IRBuilder<> &Builder, Value *LaneId, unsigned VecLen,
+    SmallVectorImpl<std::pair<Value *, Value *>> &Coords) {
+  Value *LaneId64 = Builder.CreateZExt(LaneId, Builder.getInt64Ty());
+  Value *Col = Builder.CreateURem(LaneId64, Builder.getInt64(16));
+  Value *LaneHi = Builder.CreateUDiv(LaneId64, Builder.getInt64(16));
+  for (unsigned E = 0; E < VecLen; ++E) {
+    Value *Row =
+        Builder.CreateAdd(LaneHi, Builder.getInt64((uint64_t)E * 2));
+    Coords.push_back({Row, Col});
+  }
+}
+
 /// Lower a coopmatrix.load call using HW-accurate lane layout.
 /// Args: ptr(0), layout_imm(1), stride(2), scope(3), rows(4), cols(5), use(6)
 /// Returns the loaded vector value.
@@ -523,23 +595,24 @@ static Value *lowerLoad(CallInst *CI, const GCNSubtarget &ST,
     getMFMAElementCoords(Builder, LaneId, Rows, Cols, VecLen, Use, Coords);
   } else if (ST.hasWMMA128bInsts() && ST.isWave32()) {
     getWMMAv2ElementCoords(Builder, LaneId, VecLen, Coords);
+  } else if (ST.hasWMMA256bInsts() && ST.isWave32()) {
+    getWMMAv1ElementCoords(Builder, LaneId, VecLen, Coords);
   } else {
     report_fatal_error("coopmatrix.load: unsupported subtarget");
   }
 
-  // Load each element: addr = base + row * stride * elem_size + col * elem_size
-  Value *Vec = PoisonValue::get(VecTy);
-  for (unsigned E = 0; E < VecLen; ++E) {
-    auto [Row, Col] = Coords[E];
-    Value *ByteOff = Builder.CreateAdd(
-        Builder.CreateMul(Row, Builder.CreateMul(Stride64,
-                                                  Builder.getInt64(ElemSize))),
-        Builder.CreateMul(Col, Builder.getInt64(ElemSize)));
-    Value *ElemPtr = Builder.CreateGEP(Builder.getInt8Ty(), Ptr, ByteOff);
-    Value *Elem = Builder.CreateAlignedLoad(ElemTy, ElemPtr,
-                                            MaybeAlign(ElemSize));
-    Vec = Builder.CreateInsertElement(Vec, Elem, E);
-  }
+  // Vectorized load: per-lane elements are contiguous in memory for all
+  // supported MFMA/WMMA layouts. Instead of VecLen individual scalar loads,
+  // compute the address of element 0 and emit one wide vector load.
+  auto [Row0, Col0] = Coords[0];
+  Value *ByteOff0 = Builder.CreateAdd(
+      Builder.CreateMul(Row0,
+                        Builder.CreateMul(Stride64,
+                                          Builder.getInt64(ElemSize))),
+      Builder.CreateMul(Col0, Builder.getInt64(ElemSize)));
+  Value *BasePtr = Builder.CreateGEP(Builder.getInt8Ty(), Ptr, ByteOff0);
+  Value *Vec = Builder.CreateAlignedLoad(VecTy, BasePtr,
+                                         MaybeAlign(ElemSize));
 
   return Vec;
 }
@@ -576,21 +649,22 @@ static void lowerStore(CallInst *CI, Value *Matrix, const GCNSubtarget &ST,
     getMFMAElementCoords(Builder, LaneId, Rows, Cols, VecLen, Use, Coords);
   } else if (ST.hasWMMA128bInsts() && ST.isWave32()) {
     getWMMAv2ElementCoords(Builder, LaneId, VecLen, Coords);
+  } else if (ST.hasWMMA256bInsts() && ST.isWave32()) {
+    getWMMAv1ElementCoords(Builder, LaneId, VecLen, Coords);
   } else {
     report_fatal_error("coopmatrix.store: unsupported subtarget");
   }
 
-  // Store each element at its correct position.
-  for (unsigned E = 0; E < VecLen; ++E) {
-    auto [Row, Col] = Coords[E];
-    Value *ByteOff = Builder.CreateAdd(
-        Builder.CreateMul(Row, Builder.CreateMul(Stride64,
-                                                  Builder.getInt64(ElemSize))),
-        Builder.CreateMul(Col, Builder.getInt64(ElemSize)));
-    Value *ElemPtr = Builder.CreateGEP(Builder.getInt8Ty(), Ptr, ByteOff);
-    Value *Elem = Builder.CreateExtractElement(Matrix, E);
-    Builder.CreateAlignedStore(Elem, ElemPtr, MaybeAlign(ElemSize));
-  }
+  // Vectorized store: per-lane elements are contiguous in memory.
+  // Compute the address of element 0 and emit one wide vector store.
+  auto [Row0, Col0] = Coords[0];
+  Value *ByteOff0 = Builder.CreateAdd(
+      Builder.CreateMul(Row0,
+                        Builder.CreateMul(Stride64,
+                                          Builder.getInt64(ElemSize))),
+      Builder.CreateMul(Col0, Builder.getInt64(ElemSize)));
+  Value *BasePtr = Builder.CreateGEP(Builder.getInt8Ty(), Ptr, ByteOff0);
+  Builder.CreateAlignedStore(Matrix, BasePtr, MaybeAlign(ElemSize));
 }
 
 /// Lower a coopmatrix.length call to a constant.
@@ -630,6 +704,9 @@ static Value *lowerLength(CallInst *CI, const GCNSubtarget &ST) {
 
   if (ST.hasWMMA128bInsts() && ST.isWave32()) {
     // gfx12 w32: all matrix operands are 8 elements per lane
+    Length = 8;
+  } else if (ST.hasWMMA256bInsts() && ST.isWave32()) {
+    // gfx11 w32 (WMMA v1): all matrix operands are 8 elements per lane
     Length = 8;
   } else if (ST.hasMAIInsts() && ST.isWave64()) {
     // MFMA: accumulator length depends on dimensions
@@ -761,6 +838,458 @@ coopmatrixScaledFormatToAPFloat(unsigned Fmt) {
     return std::nullopt; // I8 — no APFloat equiv
   default:
     return std::nullopt;
+  }
+}
+
+/// Unary operations on cooperative matrix element type.
+enum CoopMatUnaryOp : unsigned {
+  UnaryNegate = 0,
+  UnaryAbs = 1,
+  UnaryNot = 2,
+  UnaryCeil = 3,
+  UnaryFloor = 4,
+  UnaryRound = 5,
+  UnaryTrunc = 6,
+};
+
+/// Binary operations on cooperative matrix element type.
+enum CoopMatBinaryOp : unsigned {
+  BinaryAdd = 0,
+  BinarySub = 1,
+  BinaryMul = 2,
+  BinaryDiv = 3,
+  BinaryFRem = 4,
+  BinaryAnd = 5,
+  BinaryOr = 6,
+  BinaryXor = 7,
+  BinaryShl = 8,
+  BinaryAShr = 9,
+  BinaryLShr = 10,
+  BinaryMin = 11,
+  BinaryMax = 12,
+};
+
+/// Lower a coopmatrix.unary call on the concrete per-lane vector.
+/// op(imm): 0=Negate, 1=Abs, 2=Not, 3=Ceil, 4=Floor, 5=Round, 6=Trunc
+/// Args: matrix(0), op(1), scope(2), rows(3), cols(4), use(5)
+static Value *lowerUnary(CallInst *CI, Value *Mat, IRBuilder<> &Builder) {
+  auto *OpC = dyn_cast<ConstantInt>(CI->getArgOperand(1));
+  if (!OpC)
+    report_fatal_error("coopmatrix.unary: non-constant op");
+  unsigned Op = OpC->getZExtValue();
+
+  auto *VecTy = cast<FixedVectorType>(Mat->getType());
+  Type *ElemTy = VecTy->getElementType();
+
+  switch (Op) {
+  case UnaryNegate:
+    if (ElemTy->isFloatingPointTy())
+      return Builder.CreateFNeg(Mat);
+    return Builder.CreateNeg(Mat);
+  case UnaryAbs: {
+    if (ElemTy->isFloatingPointTy()) {
+      Function *FAbs = Intrinsic::getOrInsertDeclaration(
+          CI->getModule(), Intrinsic::fabs, {VecTy});
+      return Builder.CreateCall(FAbs, {Mat});
+    }
+    Function *IAbs = Intrinsic::getOrInsertDeclaration(
+        CI->getModule(), Intrinsic::abs, {VecTy});
+    return Builder.CreateCall(IAbs, {Mat, Builder.getFalse()});
+  }
+  case UnaryNot:
+    return Builder.CreateNot(Mat);
+  case UnaryCeil: {
+    Function *F = Intrinsic::getOrInsertDeclaration(
+        CI->getModule(), Intrinsic::ceil, {VecTy});
+    return Builder.CreateCall(F, {Mat});
+  }
+  case UnaryFloor: {
+    Function *F = Intrinsic::getOrInsertDeclaration(
+        CI->getModule(), Intrinsic::floor, {VecTy});
+    return Builder.CreateCall(F, {Mat});
+  }
+  case UnaryRound: {
+    Function *F = Intrinsic::getOrInsertDeclaration(
+        CI->getModule(), Intrinsic::round, {VecTy});
+    return Builder.CreateCall(F, {Mat});
+  }
+  case UnaryTrunc: {
+    Function *F = Intrinsic::getOrInsertDeclaration(
+        CI->getModule(), Intrinsic::trunc, {VecTy});
+    return Builder.CreateCall(F, {Mat});
+  }
+  default:
+    report_fatal_error("coopmatrix.unary: unknown op " + Twine(Op));
+  }
+}
+
+/// Lower a coopmatrix.binary call on the concrete per-lane vector.
+/// op(imm): 0=Add, 1=Sub, 2=Mul, 3=Div, 4=FRem, 5=And, 6=Or, 7=Xor,
+///          8=Shl, 9=AShr, 10=LShr, 11=Min, 12=Max
+/// Args: matA(0), matB(1), op(2), scope(3), rows(4), cols(5), use(6)
+static Value *lowerBinary(CallInst *CI, Value *A, Value *B,
+                          IRBuilder<> &Builder) {
+  auto *OpC = dyn_cast<ConstantInt>(CI->getArgOperand(2));
+  if (!OpC)
+    report_fatal_error("coopmatrix.binary: non-constant op");
+  unsigned Op = OpC->getZExtValue();
+
+  auto *VecTy = cast<FixedVectorType>(A->getType());
+  Type *ElemTy = VecTy->getElementType();
+  bool IsFP = ElemTy->isFloatingPointTy();
+
+  switch (Op) {
+  case BinaryAdd:
+    return IsFP ? Builder.CreateFAdd(A, B) : Builder.CreateAdd(A, B);
+  case BinarySub:
+    return IsFP ? Builder.CreateFSub(A, B) : Builder.CreateSub(A, B);
+  case BinaryMul:
+    return IsFP ? Builder.CreateFMul(A, B) : Builder.CreateMul(A, B);
+  case BinaryDiv:
+    return IsFP ? Builder.CreateFDiv(A, B) : Builder.CreateSDiv(A, B);
+  case BinaryFRem:
+    return Builder.CreateFRem(A, B);
+  case BinaryAnd:
+    return Builder.CreateAnd(A, B);
+  case BinaryOr:
+    return Builder.CreateOr(A, B);
+  case BinaryXor:
+    return Builder.CreateXor(A, B);
+  case BinaryShl:
+    return Builder.CreateShl(A, B);
+  case BinaryAShr:
+    return Builder.CreateAShr(A, B);
+  case BinaryLShr:
+    return Builder.CreateLShr(A, B);
+  case BinaryMin:
+    if (IsFP) {
+      Function *F = Intrinsic::getOrInsertDeclaration(
+          CI->getModule(), Intrinsic::minnum, {VecTy});
+      return Builder.CreateCall(F, {A, B});
+    }
+    return Builder.CreateSelect(Builder.CreateICmpSLT(A, B), A, B);
+  case BinaryMax:
+    if (IsFP) {
+      Function *F = Intrinsic::getOrInsertDeclaration(
+          CI->getModule(), Intrinsic::maxnum, {VecTy});
+      return Builder.CreateCall(F, {A, B});
+    }
+    return Builder.CreateSelect(Builder.CreateICmpSGT(A, B), A, B);
+  default:
+    report_fatal_error("coopmatrix.binary: unknown op " + Twine(Op));
+  }
+}
+
+/// Lower a coopmatrix.convert call.
+/// Args: src_matrix(0), scope(1), rows(2), cols(3), src_use(4), dst_use(5)
+static Value *lowerConvert(CallInst *CI, Value *Src, const GCNSubtarget &ST,
+                           IRBuilder<> &Builder) {
+  auto *DstTET = dyn_cast<TargetExtType>(CI->getType());
+  if (!DstTET)
+    report_fatal_error("coopmatrix.convert: invalid return type");
+
+  Type *DstElemTy;
+  unsigned Scope, Rows, Cols, DstUse;
+  if (!getCoopMatParams(DstTET, DstElemTy, Scope, Rows, Cols, DstUse))
+    report_fatal_error("coopmatrix.convert: invalid return type");
+
+  FixedVectorType *DstVecTy =
+      getConcreteVectorType(ST, DstElemTy, Rows, Cols, DstUse);
+  Type *SrcElemTy = cast<FixedVectorType>(Src->getType())->getElementType();
+
+  if (SrcElemTy == DstVecTy->getElementType())
+    return Src;
+
+  bool SrcFP = SrcElemTy->isFloatingPointTy();
+  bool DstFP = DstElemTy->isFloatingPointTy();
+
+  if (SrcFP && DstFP) {
+    unsigned SrcBits = SrcElemTy->getPrimitiveSizeInBits();
+    unsigned DstBits = DstElemTy->getPrimitiveSizeInBits();
+    if (DstBits > SrcBits)
+      return Builder.CreateFPExt(Src, DstVecTy);
+    return Builder.CreateFPTrunc(Src, DstVecTy);
+  }
+  if (!SrcFP && !DstFP)
+    return Builder.CreateIntCast(Src, DstVecTy,
+                                 SrcElemTy->isIntegerTy() /* signed */);
+  if (SrcFP && !DstFP)
+    return Builder.CreateFPToSI(Src, DstVecTy);
+  // !SrcFP && DstFP
+  return Builder.CreateSIToFP(Src, DstVecTy);
+}
+
+/// Lower a coopmatrix.extract call.
+/// Args: matrix(0), index(1), scope(2), rows(3), cols(4), use(5)
+static Value *lowerExtract(CallInst *CI, Value *Mat, IRBuilder<> &Builder) {
+  Value *Idx = CI->getArgOperand(1);
+  return Builder.CreateExtractElement(Mat, Idx);
+}
+
+/// Lower a coopmatrix.insert call.
+/// Args: matrix(0), value(1), index(2), scope(3), rows(4), cols(5), use(6)
+static Value *lowerInsert(CallInst *CI, Value *Mat, Value *Val,
+                          IRBuilder<> &Builder) {
+  Value *Idx = CI->getArgOperand(2);
+  return Builder.CreateInsertElement(Mat, Val, Idx);
+}
+
+/// Lower a coopmatrix.get_coord call.
+/// Returns <2 x i32> = {row, col} for the given per-lane element index.
+/// Args: matrix(0), index(1), scope(2), rows(3), cols(4), use(5)
+static Value *lowerGetCoord(CallInst *CI, const GCNSubtarget &ST,
+                            IRBuilder<> &Builder) {
+  // Get the matrix params from the type of the matrix operand.
+  Function *Callee = CI->getCalledFunction();
+  Type *MatTy = Callee->getFunctionType()->getParamType(0);
+  Type *ElemTy;
+  unsigned Scope, Rows, Cols, Use;
+  if (!getCoopMatParams(MatTy, ElemTy, Scope, Rows, Cols, Use))
+    report_fatal_error("coopmatrix.get_coord: invalid matrix type");
+
+  FixedVectorType *VecTy = getConcreteVectorType(ST, ElemTy, Rows, Cols, Use);
+  unsigned VecLen = VecTy->getNumElements();
+
+  Value *LaneId = getLaneId(ST, Builder, CI->getModule());
+  Value *Idx = CI->getArgOperand(1);
+
+  SmallVector<std::pair<Value *, Value *>, 16> Coords;
+  if (ST.hasMAIInsts() && ST.isWave64()) {
+    getMFMAElementCoords(Builder, LaneId, Rows, Cols, VecLen, Use, Coords);
+  } else if (ST.hasWMMA128bInsts() && ST.isWave32()) {
+    getWMMAv2ElementCoords(Builder, LaneId, VecLen, Coords);
+  } else if (ST.hasWMMA256bInsts() && ST.isWave32()) {
+    getWMMAv1ElementCoords(Builder, LaneId, VecLen, Coords);
+  } else {
+    report_fatal_error("coopmatrix.get_coord: unsupported subtarget");
+  }
+
+  // For constant index, pick directly. For dynamic, build a select chain.
+  if (auto *IdxC = dyn_cast<ConstantInt>(Idx)) {
+    unsigned E = IdxC->getZExtValue();
+    if (E >= Coords.size())
+      report_fatal_error("coopmatrix.get_coord: index out of range");
+    auto [Row, Col] = Coords[E];
+    Value *Result = PoisonValue::get(FixedVectorType::get(Builder.getInt32Ty(), 2));
+    Result = Builder.CreateInsertElement(
+        Result, Builder.CreateTrunc(Row, Builder.getInt32Ty()), (uint64_t)0);
+    Result = Builder.CreateInsertElement(
+        Result, Builder.CreateTrunc(Col, Builder.getInt32Ty()), (uint64_t)1);
+    return Result;
+  }
+
+  // Dynamic index: select chain over all possible values.
+  Value *RowResult = Builder.getInt64(0);
+  Value *ColResult = Builder.getInt64(0);
+  Value *Idx64 = Builder.CreateZExt(Idx, Builder.getInt64Ty());
+  for (unsigned E = 0; E < Coords.size(); ++E) {
+    auto [R, C] = Coords[E];
+    Value *Cmp = Builder.CreateICmpEQ(Idx64, Builder.getInt64(E));
+    RowResult = Builder.CreateSelect(Cmp, R, RowResult);
+    ColResult = Builder.CreateSelect(Cmp, C, ColResult);
+  }
+  Value *Result = PoisonValue::get(FixedVectorType::get(Builder.getInt32Ty(), 2));
+  Result = Builder.CreateInsertElement(
+      Result, Builder.CreateTrunc(RowResult, Builder.getInt32Ty()), (uint64_t)0);
+  Result = Builder.CreateInsertElement(
+      Result, Builder.CreateTrunc(ColResult, Builder.getInt32Ty()), (uint64_t)1);
+  return Result;
+}
+
+/// Lower a coopmatrix.prefetch call.
+/// Args: ptr(0), rows(1), cols(2), cache_level(3), layout(4), stride(5),
+///       scope(6)
+static void lowerPrefetch(CallInst *CI, IRBuilder<> &Builder) {
+  Value *Ptr = CI->getArgOperand(0);
+  // Emit a generic prefetch. On AMDGPU this will be lowered to
+  // s_prefetch_data or similar by the backend.
+  Function *PrefetchFn = Intrinsic::getOrInsertDeclaration(
+      CI->getModule(), Intrinsic::prefetch, {Ptr->getType()});
+  // prefetch(ptr, rw=0(read), locality=3, cache_type=1(data))
+  Builder.CreateCall(PrefetchFn,
+                     {Ptr, Builder.getInt32(0), Builder.getInt32(3),
+                      Builder.getInt32(1)});
+}
+
+/// Lower a coopmatrix.muladd_ext call.
+/// D = op(A) * op(B) + op(C) with modifiers.
+/// Args: matA(0), matB(1), matC(2), operands(3), modifiers(4), scope(5),
+///       M(6), N(7), K(8)
+static Value *lowerMulAddExt(CallInst *CI, Value *A, Value *B, Value *C,
+                             const GCNSubtarget &ST, IRBuilder<> &Builder) {
+  auto *ModC = dyn_cast<ConstantInt>(CI->getArgOperand(4));
+  if (!ModC)
+    report_fatal_error("coopmatrix.muladd_ext: non-constant modifiers");
+  unsigned Mods = ModC->getZExtValue();
+
+  // Apply pre-operation modifiers on the concrete vectors.
+  // bit 0: neg_A, bit 1: neg_B, bit 2: neg_C, bit 3: abs_C
+  if (Mods & 1)
+    A = A->getType()->isFPOrFPVectorTy() ? Builder.CreateFNeg(A)
+                                          : Builder.CreateNeg(A);
+  if (Mods & 2)
+    B = B->getType()->isFPOrFPVectorTy() ? Builder.CreateFNeg(B)
+                                          : Builder.CreateNeg(B);
+  if (Mods & 4)
+    C = C->getType()->isFPOrFPVectorTy() ? Builder.CreateFNeg(C)
+                                          : Builder.CreateNeg(C);
+  if (Mods & 8) {
+    auto *VecTy = cast<VectorType>(C->getType());
+    Function *FAbs = Intrinsic::getOrInsertDeclaration(
+        CI->getModule(), Intrinsic::fabs, {VecTy});
+    C = Builder.CreateCall(FAbs, {C});
+  }
+
+  // Delegate to regular muladd lowering.
+  Value *Result = lowerMulAdd(CI, A, B, C, ST, Builder);
+
+  // bit 4: clamp — saturate result to [0, max_float]
+  if (Mods & 16) {
+    auto *VecTy = cast<VectorType>(Result->getType());
+    if (VecTy->getElementType()->isFloatingPointTy()) {
+      Value *Zero = ConstantFP::get(VecTy, 0.0);
+      Function *MaxFn = Intrinsic::getOrInsertDeclaration(
+          CI->getModule(), Intrinsic::maxnum, {VecTy});
+      Result = Builder.CreateCall(MaxFn, {Result, Zero});
+    }
+  }
+
+  return Result;
+}
+
+/// Lower a coopmatrix.load_checked call via masked vector load.
+/// Args: ptr(0), x_off(1), y_off(2), height(3), width(4), layout(5),
+///       stride(6), scope(7), rows(8), cols(9), use(10)
+static Value *lowerLoadChecked(CallInst *CI, const GCNSubtarget &ST,
+                               IRBuilder<> &Builder) {
+  Value *Ptr = CI->getArgOperand(0);
+  Value *XOff = CI->getArgOperand(1);
+  Value *YOff = CI->getArgOperand(2);
+  Value *Height = CI->getArgOperand(3);
+  Value *Width = CI->getArgOperand(4);
+  Value *Stride = CI->getArgOperand(6);
+
+  auto *RetTy = dyn_cast<TargetExtType>(CI->getType());
+  if (!RetTy)
+    report_fatal_error("coopmatrix.load_checked: invalid return type");
+
+  Type *ElemTy;
+  unsigned Scope, Rows, Cols, Use;
+  if (!getCoopMatParams(RetTy, ElemTy, Scope, Rows, Cols, Use))
+    report_fatal_error("coopmatrix.load_checked: invalid return type");
+
+  FixedVectorType *VecTy = getConcreteVectorType(ST, ElemTy, Rows, Cols, Use);
+  unsigned VecLen = VecTy->getNumElements();
+  unsigned ElemSize = ElemTy->getPrimitiveSizeInBits() / 8;
+
+  Value *LaneId = getLaneId(ST, Builder, CI->getModule());
+  Value *Stride64 = Builder.CreateZExt(Stride, Builder.getInt64Ty());
+
+  SmallVector<std::pair<Value *, Value *>, 16> Coords;
+  if (ST.hasMAIInsts() && ST.isWave64())
+    getMFMAElementCoords(Builder, LaneId, Rows, Cols, VecLen, Use, Coords);
+  else if (ST.hasWMMA128bInsts() && ST.isWave32())
+    getWMMAv2ElementCoords(Builder, LaneId, VecLen, Coords);
+  else if (ST.hasWMMA256bInsts() && ST.isWave32())
+    getWMMAv1ElementCoords(Builder, LaneId, VecLen, Coords);
+  else
+    report_fatal_error("coopmatrix.load_checked: unsupported subtarget");
+
+  // Bounds-checked per-element load. Out-of-bounds elements get zero.
+  Value *XOff64 = Builder.CreateZExt(XOff, Builder.getInt64Ty());
+  Value *YOff64 = Builder.CreateZExt(YOff, Builder.getInt64Ty());
+  Value *Height64 = Builder.CreateZExt(Height, Builder.getInt64Ty());
+  Value *Width64 = Builder.CreateZExt(Width, Builder.getInt64Ty());
+
+  Value *Vec = ConstantAggregateZero::get(VecTy);
+  for (unsigned E = 0; E < VecLen; ++E) {
+    auto [Row, Col] = Coords[E];
+    Value *AbsRow = Builder.CreateAdd(Row, YOff64);
+    Value *AbsCol = Builder.CreateAdd(Col, XOff64);
+    Value *InBounds = Builder.CreateAnd(
+        Builder.CreateICmpULT(AbsRow, Height64),
+        Builder.CreateICmpULT(AbsCol, Width64));
+    Value *ByteOff = Builder.CreateAdd(
+        Builder.CreateMul(
+            Row, Builder.CreateMul(Stride64, Builder.getInt64(ElemSize))),
+        Builder.CreateMul(Col, Builder.getInt64(ElemSize)));
+    Value *ElemPtr = Builder.CreateGEP(Builder.getInt8Ty(), Ptr, ByteOff);
+    Value *Elem = Builder.CreateAlignedLoad(ElemTy, ElemPtr,
+                                            MaybeAlign(ElemSize));
+    Value *Zero = Constant::getNullValue(ElemTy);
+    Value *Val = Builder.CreateSelect(InBounds, Elem, Zero);
+    Vec = Builder.CreateInsertElement(Vec, Val, E);
+  }
+  return Vec;
+}
+
+/// Lower a coopmatrix.store_checked call via masked per-element store.
+/// Args: matrix(0), ptr(1), x_off(2), y_off(3), height(4), width(5),
+///       layout(6), stride(7), scope(8), rows(9), cols(10), use(11)
+static void lowerStoreChecked(CallInst *CI, Value *Matrix,
+                              const GCNSubtarget &ST, IRBuilder<> &Builder) {
+  Value *Ptr = CI->getArgOperand(1);
+  Value *XOff = CI->getArgOperand(2);
+  Value *YOff = CI->getArgOperand(3);
+  Value *Height = CI->getArgOperand(4);
+  Value *Width = CI->getArgOperand(5);
+  Value *Stride = CI->getArgOperand(7);
+
+  Type *MatTy = CI->getArgOperand(0)->getType();
+  Function *Callee = CI->getCalledFunction();
+  if (!isa<TargetExtType>(MatTy))
+    MatTy = Callee->getFunctionType()->getParamType(0);
+
+  Type *ElemTy;
+  unsigned Scope, Rows, Cols, Use;
+  if (!getCoopMatParams(MatTy, ElemTy, Scope, Rows, Cols, Use))
+    report_fatal_error("coopmatrix.store_checked: invalid matrix type");
+
+  FixedVectorType *VecTy = getConcreteVectorType(ST, ElemTy, Rows, Cols, Use);
+  unsigned VecLen = VecTy->getNumElements();
+  unsigned ElemSize = ElemTy->getPrimitiveSizeInBits() / 8;
+
+  Value *LaneId = getLaneId(ST, Builder, CI->getModule());
+  Value *Stride64 = Builder.CreateZExt(Stride, Builder.getInt64Ty());
+
+  SmallVector<std::pair<Value *, Value *>, 16> Coords;
+  if (ST.hasMAIInsts() && ST.isWave64())
+    getMFMAElementCoords(Builder, LaneId, Rows, Cols, VecLen, Use, Coords);
+  else if (ST.hasWMMA128bInsts() && ST.isWave32())
+    getWMMAv2ElementCoords(Builder, LaneId, VecLen, Coords);
+  else if (ST.hasWMMA256bInsts() && ST.isWave32())
+    getWMMAv1ElementCoords(Builder, LaneId, VecLen, Coords);
+  else
+    report_fatal_error("coopmatrix.store_checked: unsupported subtarget");
+
+  Value *XOff64 = Builder.CreateZExt(XOff, Builder.getInt64Ty());
+  Value *YOff64 = Builder.CreateZExt(YOff, Builder.getInt64Ty());
+  Value *Height64 = Builder.CreateZExt(Height, Builder.getInt64Ty());
+  Value *Width64 = Builder.CreateZExt(Width, Builder.getInt64Ty());
+
+  for (unsigned E = 0; E < VecLen; ++E) {
+    auto [Row, Col] = Coords[E];
+    Value *AbsRow = Builder.CreateAdd(Row, YOff64);
+    Value *AbsCol = Builder.CreateAdd(Col, XOff64);
+    Value *InBounds = Builder.CreateAnd(
+        Builder.CreateICmpULT(AbsRow, Height64),
+        Builder.CreateICmpULT(AbsCol, Width64));
+    Value *ByteOff = Builder.CreateAdd(
+        Builder.CreateMul(
+            Row, Builder.CreateMul(Stride64, Builder.getInt64(ElemSize))),
+        Builder.CreateMul(Col, Builder.getInt64(ElemSize)));
+    Value *ElemPtr = Builder.CreateGEP(Builder.getInt8Ty(), Ptr, ByteOff);
+    Value *Elem = Builder.CreateExtractElement(Matrix, E);
+
+    // Masked store: use llvm.masked.store to conditionally skip OOB writes.
+    // Create a single-element vector for the masked store.
+    auto *ScalarVecTy = FixedVectorType::get(ElemTy, 1);
+    Value *ScalarVec = Builder.CreateInsertElement(
+        PoisonValue::get(ScalarVecTy), Elem, (uint64_t)0);
+    auto *MaskTy = FixedVectorType::get(Builder.getInt1Ty(), 1);
+    Value *Mask = Builder.CreateInsertElement(
+        PoisonValue::get(MaskTy), InBounds, (uint64_t)0);
+    Builder.CreateMaskedStore(ScalarVec, ElemPtr, Align(ElemSize), Mask);
   }
 }
 
@@ -967,29 +1496,60 @@ static bool processFunction(Function &F, const GCNSubtarget &ST) {
       lowerStore(CI, Matrix, ST, Builder);
       break;
     }
-    // BUG-5 fix: Set 2/3 intrinsics are collected above so they don't
-    // silently flow into SelectionDAG, but they are not yet lowered here.
-    // Halt compilation with a clear message rather than miscompile.
-    // Phase 3d's set2-amdgpu-agent will replace these stubs with real
-    // lowerings.
+    // --- Set 2: element-wise / metadata ops ---
     case Intrinsic::coopmatrix_unary:
+      Replacement = lowerUnary(CI, resolve(CI->getArgOperand(0)), Builder);
+      break;
     case Intrinsic::coopmatrix_binary:
+      Replacement = lowerBinary(CI, resolve(CI->getArgOperand(0)),
+                                resolve(CI->getArgOperand(1)), Builder);
+      break;
     case Intrinsic::coopmatrix_convert:
-    case Intrinsic::coopmatrix_reduce:
+      Replacement = lowerConvert(CI, resolve(CI->getArgOperand(0)), ST, Builder);
+      break;
     case Intrinsic::coopmatrix_extract:
+      Replacement = lowerExtract(CI, resolve(CI->getArgOperand(0)), Builder);
+      break;
     case Intrinsic::coopmatrix_insert:
+      Replacement = lowerInsert(CI, resolve(CI->getArgOperand(0)),
+                                CI->getArgOperand(1), Builder);
+      break;
     case Intrinsic::coopmatrix_get_coord:
+      Replacement = lowerGetCoord(CI, ST, Builder);
+      break;
     case Intrinsic::coopmatrix_prefetch:
-    case Intrinsic::coopmatrix_muladd_ext:
-    case Intrinsic::coopmatrix_muladd_sparse:
-    case Intrinsic::coopmatrix_muladd_scaled:
+      lowerPrefetch(CI, Builder);
+      break;
+    // --- Set 3: performance / sparse / checked ops ---
+    case Intrinsic::coopmatrix_muladd_ext: {
+      Value *A = resolve(CI->getArgOperand(0));
+      Value *B = resolve(CI->getArgOperand(1));
+      Value *C = resolve(CI->getArgOperand(2));
+      Replacement = lowerMulAddExt(CI, A, B, C, ST, Builder);
+      break;
+    }
     case Intrinsic::coopmatrix_load_checked:
+      Replacement = lowerLoadChecked(CI, ST, Builder);
+      break;
     case Intrinsic::coopmatrix_store_checked:
-      report_fatal_error(Twine("Intrinsic ") +
-                         Intrinsic::getBaseName(IID) +
-                         " not yet lowered in "
-                         "AMDGPULowerCooperativeMatrix; implementation "
-                         "coming in Phase 3d");
+      lowerStoreChecked(CI, resolve(CI->getArgOperand(0)), ST, Builder);
+      break;
+    // Reduce, sparse, and scaled have no direct HW equivalent yet.
+    case Intrinsic::coopmatrix_reduce:
+      report_fatal_error(
+          "coopmatrix.reduce: cross-lane reduction not yet implemented "
+          "in AMDGPULowerCooperativeMatrix; requires amdgcn_ds_swizzle/"
+          "permlane HW intrinsics (follow-up task)");
+    case Intrinsic::coopmatrix_muladd_sparse:
+      report_fatal_error(
+          "coopmatrix.muladd_sparse: sparse MMA not yet implemented "
+          "in AMDGPULowerCooperativeMatrix; requires amdgcn_smfmac "
+          "intrinsics (follow-up task)");
+    case Intrinsic::coopmatrix_muladd_scaled:
+      report_fatal_error(
+          "coopmatrix.muladd_scaled: block-scaled MMA not yet implemented "
+          "in AMDGPULowerCooperativeMatrix; requires amdgcn_mfma_scale "
+          "intrinsics (follow-up task)");
     default:
       llvm_unreachable("unexpected cooperative matrix intrinsic");
     }

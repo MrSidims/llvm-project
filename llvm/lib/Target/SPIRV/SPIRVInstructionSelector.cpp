@@ -476,6 +476,25 @@ private:
                               MachineInstr &I) const;
   bool selectCoopMatrixLength(Register ResVReg, SPIRVTypeInst ResType,
                               MachineInstr &I) const;
+  // Set 2/3 cooperative matrix selection.
+  bool selectCoopMatrixUnary(Register ResVReg, SPIRVTypeInst ResType,
+                             MachineInstr &I) const;
+  bool selectCoopMatrixBinary(Register ResVReg, SPIRVTypeInst ResType,
+                              MachineInstr &I) const;
+  bool selectCoopMatrixConvert(Register ResVReg, SPIRVTypeInst ResType,
+                               MachineInstr &I) const;
+  bool selectCoopMatrixExtract(Register ResVReg, SPIRVTypeInst ResType,
+                               MachineInstr &I) const;
+  bool selectCoopMatrixInsert(Register ResVReg, SPIRVTypeInst ResType,
+                              MachineInstr &I) const;
+  bool selectCoopMatrixGetCoord(Register ResVReg, SPIRVTypeInst ResType,
+                                MachineInstr &I) const;
+  bool selectCoopMatrixPrefetch(MachineInstr &I) const;
+  bool selectCoopMatrixMulAddExt(Register ResVReg, SPIRVTypeInst ResType,
+                                 MachineInstr &I) const;
+  bool selectCoopMatrixLoadChecked(Register ResVReg, SPIRVTypeInst ResType,
+                                   MachineInstr &I) const;
+  bool selectCoopMatrixStoreChecked(MachineInstr &I) const;
   bool selectCoopMatrixConstruct(Register ResVReg, SPIRVTypeInst ResType,
                                  MachineInstr &I) const;
 };
@@ -4790,22 +4809,38 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
     return selectCoopMatrixLength(ResVReg, ResType, I);
   case Intrinsic::coopmatrix_construct:
     return selectCoopMatrixConstruct(ResVReg, ResType, I);
-  // Cooperative matrix intrinsics (Set 2/3) — not yet lowered.
+  // Cooperative matrix intrinsics (Set 2/3).
   case Intrinsic::coopmatrix_unary:
+    return selectCoopMatrixUnary(ResVReg, ResType, I);
   case Intrinsic::coopmatrix_binary:
+    return selectCoopMatrixBinary(ResVReg, ResType, I);
   case Intrinsic::coopmatrix_convert:
-  case Intrinsic::coopmatrix_reduce:
+    return selectCoopMatrixConvert(ResVReg, ResType, I);
   case Intrinsic::coopmatrix_extract:
+    return selectCoopMatrixExtract(ResVReg, ResType, I);
   case Intrinsic::coopmatrix_insert:
+    return selectCoopMatrixInsert(ResVReg, ResType, I);
   case Intrinsic::coopmatrix_get_coord:
+    return selectCoopMatrixGetCoord(ResVReg, ResType, I);
   case Intrinsic::coopmatrix_prefetch:
+    return selectCoopMatrixPrefetch(I);
   case Intrinsic::coopmatrix_muladd_ext:
-  case Intrinsic::coopmatrix_muladd_sparse:
-  case Intrinsic::coopmatrix_muladd_scaled:
+    return selectCoopMatrixMulAddExt(ResVReg, ResType, I);
   case Intrinsic::coopmatrix_load_checked:
+    return selectCoopMatrixLoadChecked(ResVReg, ResType, I);
   case Intrinsic::coopmatrix_store_checked:
+    return selectCoopMatrixStoreChecked(I);
+  // Genuinely unsupported — no SPIR-V operation exists.
+  case Intrinsic::coopmatrix_reduce:
     return diagnoseUnsupported(
-        I, "cooperative matrix intrinsic not yet supported in SPIR-V backend");
+        I, "coopmatrix.reduce requires SPV_NV_cooperative_matrix2 "
+           "(not yet registered; follow-up task)");
+  case Intrinsic::coopmatrix_muladd_sparse:
+    return diagnoseUnsupported(
+        I, "coopmatrix.muladd_sparse has no SPIR-V equivalent");
+  case Intrinsic::coopmatrix_muladd_scaled:
+    return diagnoseUnsupported(
+        I, "coopmatrix.muladd_scaled has no SPIR-V equivalent");
   default: {
     std::string DiagMsg;
     raw_string_ostream OS(DiagMsg);
@@ -4969,6 +5004,414 @@ bool SPIRVInstructionSelector::selectCoopMatrixConstruct(
           .addDef(ResVReg)
           .addUse(GR.getSPIRVTypeID(ResType))
           .addUse(ScalarReg);
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+// ===== Cooperative Matrix Intrinsic Selection (Set 2/3) =====
+
+bool SPIRVInstructionSelector::selectCoopMatrixUnary(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // llvm.coopmatrix.unary(matrix, op, scope, rows, cols, use)
+  // KHR-native: OpFNegate, OpSNegate, OpNot directly on cooperative matrix.
+  assert(ResType && "ResType must be set for coopmatrix.unary");
+  MachineBasicBlock &BB = *I.getParent();
+  Register MatReg = I.getOperand(2).getReg();
+  uint32_t Op = I.getOperand(3).getImm();
+
+  // Determine element type to pick int vs float opcodes.
+  SPIRVTypeInst MatType = GR.getSPIRVTypeForVReg(MatReg);
+  bool IsFloat = false;
+  if (MatType && MatType->getOpcode() == SPIRV::OpTypeCooperativeMatrixKHR) {
+    Register ElemTypeReg = MatType->getOperand(1).getReg();
+    SPIRVTypeInst ElemTy = MRI->getVRegDef(ElemTypeReg);
+    IsFloat = ElemTy && ElemTy->getOpcode() == SPIRV::OpTypeFloat;
+  }
+
+  unsigned Opcode;
+  switch (Op) {
+  case 0: // Negate
+    Opcode = IsFloat ? SPIRV::OpFNegateGeneric : SPIRV::OpSNegateGeneric;
+    break;
+  case 2: // Not
+    Opcode = SPIRV::OpNot;
+    break;
+  default:
+    // Abs, Ceil, Floor, Round, Trunc — would need NV2 per-element op.
+    return diagnoseUnsupported(
+        I, "coopmatrix.unary op requires SPV_NV_cooperative_matrix2 "
+           "(not yet registered)");
+  }
+
+  auto MIB = BuildMI(BB, I, I.getDebugLoc(), TII.get(Opcode))
+                 .addDef(ResVReg)
+                 .addUse(GR.getSPIRVTypeID(ResType))
+                 .addUse(MatReg);
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectCoopMatrixBinary(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // llvm.coopmatrix.binary(matA, matB, op, scope, rows, cols, use)
+  // KHR-native: OpFAdd/OpIAdd/... directly on cooperative matrix.
+  assert(ResType && "ResType must be set for coopmatrix.binary");
+  MachineBasicBlock &BB = *I.getParent();
+  Register AReg = I.getOperand(2).getReg();
+  Register BReg = I.getOperand(3).getReg();
+  uint32_t Op = I.getOperand(4).getImm();
+
+  SPIRVTypeInst MatType = GR.getSPIRVTypeForVReg(AReg);
+  bool IsFloat = false;
+  if (MatType && MatType->getOpcode() == SPIRV::OpTypeCooperativeMatrixKHR) {
+    Register ElemTypeReg = MatType->getOperand(1).getReg();
+    SPIRVTypeInst ElemTy = MRI->getVRegDef(ElemTypeReg);
+    IsFloat = ElemTy && ElemTy->getOpcode() == SPIRV::OpTypeFloat;
+  }
+
+  unsigned Opcode;
+  switch (Op) {
+  case 0: // Add
+    Opcode = IsFloat ? SPIRV::OpFAddGeneric : SPIRV::OpIAddGeneric;
+    break;
+  case 1: // Sub
+    Opcode = IsFloat ? SPIRV::OpFSubGeneric : SPIRV::OpISubGeneric;
+    break;
+  case 2: // Mul
+    Opcode = IsFloat ? SPIRV::OpFMulGeneric : SPIRV::OpIMulGeneric;
+    break;
+  case 3: // Div
+    Opcode = IsFloat ? SPIRV::OpFDivGeneric : SPIRV::OpSDivGeneric;
+    break;
+  case 4: // FRem
+    Opcode = SPIRV::OpFRemGeneric;
+    break;
+  case 5: // And
+    Opcode = SPIRV::OpBitwiseAndGeneric;
+    break;
+  case 6: // Or
+    Opcode = SPIRV::OpBitwiseOrGeneric;
+    break;
+  case 7: // Xor
+    Opcode = SPIRV::OpBitwiseXorGeneric;
+    break;
+  case 8: // Shl
+    Opcode = SPIRV::OpShiftLeftLogicalGeneric;
+    break;
+  case 9: // AShr
+    Opcode = SPIRV::OpShiftRightArithmeticGeneric;
+    break;
+  case 10: // LShr
+    Opcode = SPIRV::OpShiftRightLogicalGeneric;
+    break;
+  case 11: // Min
+  case 12: // Max
+    return diagnoseUnsupported(
+        I, "coopmatrix.binary Min/Max requires "
+           "SPV_NV_cooperative_matrix2 (not yet registered)");
+  default:
+    return diagnoseUnsupported(I, "coopmatrix.binary: unknown op");
+  }
+
+  auto MIB = BuildMI(BB, I, I.getDebugLoc(), TII.get(Opcode))
+                 .addDef(ResVReg)
+                 .addUse(GR.getSPIRVTypeID(ResType))
+                 .addUse(AReg)
+                 .addUse(BReg);
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectCoopMatrixConvert(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // llvm.coopmatrix.convert(src_matrix, scope, rows, cols, src_use, dst_use)
+  // KHR: OpFConvert / OpSConvert / OpUConvert on cooperative matrix.
+  assert(ResType && "ResType must be set for coopmatrix.convert");
+  MachineBasicBlock &BB = *I.getParent();
+  Register SrcReg = I.getOperand(2).getReg();
+
+  SPIRVTypeInst SrcMatType = GR.getSPIRVTypeForVReg(SrcReg);
+  bool SrcFloat = false;
+  if (SrcMatType &&
+      SrcMatType->getOpcode() == SPIRV::OpTypeCooperativeMatrixKHR) {
+    Register ElemTypeReg = SrcMatType->getOperand(1).getReg();
+    SPIRVTypeInst ElemTy = MRI->getVRegDef(ElemTypeReg);
+    SrcFloat = ElemTy && ElemTy->getOpcode() == SPIRV::OpTypeFloat;
+  }
+
+  // Determine destination element type from ResType.
+  bool DstFloat = false;
+  if (ResType && ResType->getOpcode() == SPIRV::OpTypeCooperativeMatrixKHR) {
+    Register ElemTypeReg = ResType->getOperand(1).getReg();
+    SPIRVTypeInst ElemTy = MRI->getVRegDef(ElemTypeReg);
+    DstFloat = ElemTy && ElemTy->getOpcode() == SPIRV::OpTypeFloat;
+  }
+
+  unsigned Opcode;
+  if (SrcFloat && DstFloat)
+    Opcode = SPIRV::OpFConvertGeneric;
+  else if (!SrcFloat && !DstFloat)
+    Opcode = SPIRV::OpSConvertGeneric;
+  else
+    Opcode = SPIRV::OpSConvertGeneric; // mixed int/fp: use SConvert as approx
+
+  auto MIB = BuildMI(BB, I, I.getDebugLoc(), TII.get(Opcode))
+                 .addDef(ResVReg)
+                 .addUse(GR.getSPIRVTypeID(ResType))
+                 .addUse(SrcReg);
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectCoopMatrixExtract(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // llvm.coopmatrix.extract(matrix, index, scope, rows, cols, use)
+  // -> OpCompositeExtract %result %matrix <index>
+  assert(ResType && "ResType must be set for coopmatrix.extract");
+  MachineBasicBlock &BB = *I.getParent();
+  Register MatReg = I.getOperand(2).getReg();
+  Register IdxReg = I.getOperand(3).getReg();
+
+  // Check for constant index — OpCompositeExtract requires literal index.
+  // Check if index is constant. OpCompositeExtract requires a literal.
+  MachineInstr *IdxDef = MRI->getVRegDef(IdxReg);
+  if (!IdxDef || IdxDef->getOpcode() != TargetOpcode::G_CONSTANT)
+    return diagnoseUnsupported(
+        I, "coopmatrix.extract with dynamic index not supported in SPIR-V");
+  uint32_t Idx =
+      static_cast<uint32_t>(IdxDef->getOperand(1).getCImm()->getZExtValue());
+
+  auto MIB =
+      BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpCompositeExtract))
+          .addDef(ResVReg)
+          .addUse(GR.getSPIRVTypeID(ResType))
+          .addUse(MatReg)
+          .addImm(Idx);
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectCoopMatrixInsert(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // llvm.coopmatrix.insert(matrix, value, index, scope, rows, cols, use)
+  // -> OpCompositeInsert %result %value %matrix <index>
+  assert(ResType && "ResType must be set for coopmatrix.insert");
+  MachineBasicBlock &BB = *I.getParent();
+  Register MatReg = I.getOperand(2).getReg();
+  Register ValReg = I.getOperand(3).getReg();
+  Register IdxReg = I.getOperand(4).getReg();
+
+  // Check if index is constant. OpCompositeInsert requires a literal.
+  MachineInstr *IdxDef = MRI->getVRegDef(IdxReg);
+  if (!IdxDef || IdxDef->getOpcode() != TargetOpcode::G_CONSTANT)
+    return diagnoseUnsupported(
+        I, "coopmatrix.insert with dynamic index not supported in SPIR-V");
+  uint32_t Idx =
+      static_cast<uint32_t>(IdxDef->getOperand(1).getCImm()->getZExtValue());
+
+  auto MIB =
+      BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpCompositeInsert))
+          .addDef(ResVReg)
+          .addUse(GR.getSPIRVTypeID(ResType))
+          .addUse(ValReg)
+          .addUse(MatReg)
+          .addImm(Idx);
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectCoopMatrixGetCoord(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // llvm.coopmatrix.get_coord(matrix, index, scope, rows, cols, use)
+  // -> OpCooperativeMatrixGetElementCoordINTEL %result %matrix %index
+  // Requires SPV_INTEL_joint_matrix (already registered).
+  assert(ResType && "ResType must be set for coopmatrix.get_coord");
+  MachineBasicBlock &BB = *I.getParent();
+  Register MatReg = I.getOperand(2).getReg();
+  Register IdxReg = I.getOperand(3).getReg();
+
+  auto MIB = BuildMI(BB, I, I.getDebugLoc(),
+                      TII.get(SPIRV::OpCooperativeMatrixGetElementCoordINTEL))
+                 .addDef(ResVReg)
+                 .addUse(GR.getSPIRVTypeID(ResType))
+                 .addUse(MatReg)
+                 .addUse(IdxReg);
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectCoopMatrixPrefetch(
+    MachineInstr &I) const {
+  // llvm.coopmatrix.prefetch(ptr, rows, cols, cache_level, layout, stride,
+  //                          scope)
+  // -> OpCooperativeMatrixPrefetchINTEL %ptr %rows %cols %cacheLevel %layout
+  MachineBasicBlock &BB = *I.getParent();
+  Register PtrReg = I.getOperand(1).getReg();
+  Register RowsReg = I.getOperand(2).getReg();
+  Register ColsReg = I.getOperand(3).getReg();
+  uint32_t CacheLevel = I.getOperand(4).getImm();
+  uint32_t Layout = I.getOperand(5).getImm();
+
+  SPIRVTypeInst SpvI32Ty = GR.getOrCreateSPIRVIntegerType(32, I, TII);
+  Register CacheLevelReg =
+      GR.getOrCreateConstInt(CacheLevel, I, SpvI32Ty, TII);
+  Register LayoutReg = GR.getOrCreateConstInt(Layout, I, SpvI32Ty, TII);
+
+  auto MIB = BuildMI(BB, I, I.getDebugLoc(),
+                      TII.get(SPIRV::OpCooperativeMatrixPrefetchINTEL))
+                 .addUse(PtrReg)
+                 .addUse(RowsReg)
+                 .addUse(ColsReg)
+                 .addUse(CacheLevelReg)
+                 .addUse(LayoutReg);
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectCoopMatrixMulAddExt(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // llvm.coopmatrix.muladd_ext(A, B, C, operands, modifiers, scope, M, N, K)
+  // Decompose: apply pre-ops (neg_A, neg_B, neg_C via OpFNegate/OpSNegate),
+  // then OpCooperativeMatrixMulAddKHR. Abs/clamp need NV2.
+  assert(ResType && "ResType must be set for coopmatrix.muladd_ext");
+  MachineBasicBlock &BB = *I.getParent();
+  Register AReg = I.getOperand(2).getReg();
+  Register BReg = I.getOperand(3).getReg();
+  Register CReg = I.getOperand(4).getReg();
+  uint32_t Operands = I.getOperand(5).getImm();
+  uint32_t Mods = I.getOperand(6).getImm();
+
+  // Check for abs_C/clamp (bits 3,4) — need NV2.
+  if (Mods & 0x18)
+    return diagnoseUnsupported(
+        I, "coopmatrix.muladd_ext abs_C/clamp requires "
+           "SPV_NV_cooperative_matrix2 (not yet registered)");
+
+  // Determine element type for float vs int negate.
+  SPIRVTypeInst MatType = GR.getSPIRVTypeForVReg(AReg);
+  bool IsFloat = false;
+  if (MatType && MatType->getOpcode() == SPIRV::OpTypeCooperativeMatrixKHR) {
+    Register ElemTypeReg = MatType->getOperand(1).getReg();
+    SPIRVTypeInst ElemTy = MRI->getVRegDef(ElemTypeReg);
+    IsFloat = ElemTy && ElemTy->getOpcode() == SPIRV::OpTypeFloat;
+  }
+
+  unsigned NegOp =
+      IsFloat ? SPIRV::OpFNegateGeneric : SPIRV::OpSNegateGeneric;
+
+  // Apply pre-ops with temporary registers.
+  if (Mods & 1) { // neg_A
+    SPIRVTypeInst AType = GR.getSPIRVTypeForVReg(AReg);
+    Register NegAReg =
+        MRI->createVirtualRegister(GR.getRegClass(AType));
+    GR.assignSPIRVTypeToVReg(AType, NegAReg, *I.getMF());
+    BuildMI(BB, I, I.getDebugLoc(), TII.get(NegOp))
+        .addDef(NegAReg)
+        .addUse(GR.getSPIRVTypeID(AType))
+        .addUse(AReg);
+    AReg = NegAReg;
+  }
+  if (Mods & 2) { // neg_B
+    SPIRVTypeInst BType = GR.getSPIRVTypeForVReg(BReg);
+    Register NegBReg =
+        MRI->createVirtualRegister(GR.getRegClass(BType));
+    GR.assignSPIRVTypeToVReg(BType, NegBReg, *I.getMF());
+    BuildMI(BB, I, I.getDebugLoc(), TII.get(NegOp))
+        .addDef(NegBReg)
+        .addUse(GR.getSPIRVTypeID(BType))
+        .addUse(BReg);
+    BReg = NegBReg;
+  }
+  if (Mods & 4) { // neg_C
+    SPIRVTypeInst CType = GR.getSPIRVTypeForVReg(CReg);
+    Register NegCReg =
+        MRI->createVirtualRegister(GR.getRegClass(CType));
+    GR.assignSPIRVTypeToVReg(CType, NegCReg, *I.getMF());
+    BuildMI(BB, I, I.getDebugLoc(), TII.get(NegOp))
+        .addDef(NegCReg)
+        .addUse(GR.getSPIRVTypeID(CType))
+        .addUse(CReg);
+    CReg = NegCReg;
+  }
+
+  // Emit the MulAdd.
+  auto MIB =
+      BuildMI(BB, I, I.getDebugLoc(),
+              TII.get(SPIRV::OpCooperativeMatrixMulAddKHR))
+          .addDef(ResVReg)
+          .addUse(GR.getSPIRVTypeID(ResType))
+          .addUse(AReg)
+          .addUse(BReg)
+          .addUse(CReg);
+  if (Operands != 0)
+    MIB.addImm(Operands);
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectCoopMatrixLoadChecked(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  // llvm.coopmatrix.load_checked(ptr, x_off, y_off, height, width, layout,
+  //                              stride, scope, rows, cols, use)
+  // -> OpCooperativeMatrixLoadCheckedINTEL %result %ptr %x_off %y_off
+  //    %layout %height %width [stride]
+  assert(ResType && "ResType must be set for coopmatrix.load_checked");
+  MachineBasicBlock &BB = *I.getParent();
+  Register PtrReg = I.getOperand(2).getReg();
+  Register XOffReg = I.getOperand(3).getReg();
+  Register YOffReg = I.getOperand(4).getReg();
+  Register HeightReg = I.getOperand(5).getReg();
+  Register WidthReg = I.getOperand(6).getReg();
+  uint32_t Layout = I.getOperand(7).getImm();
+  Register StrideReg = I.getOperand(8).getReg();
+
+  SPIRVTypeInst SpvI32Ty = GR.getOrCreateSPIRVIntegerType(32, I, TII);
+  Register LayoutReg = GR.getOrCreateConstInt(Layout, I, SpvI32Ty, TII);
+
+  auto MIB = BuildMI(BB, I, I.getDebugLoc(),
+                      TII.get(SPIRV::OpCooperativeMatrixLoadCheckedINTEL))
+                 .addDef(ResVReg)
+                 .addUse(GR.getSPIRVTypeID(ResType))
+                 .addUse(PtrReg)
+                 .addUse(XOffReg)
+                 .addUse(YOffReg)
+                 .addUse(LayoutReg)
+                 .addUse(HeightReg)
+                 .addUse(WidthReg)
+                 .addUse(StrideReg);
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectCoopMatrixStoreChecked(
+    MachineInstr &I) const {
+  // llvm.coopmatrix.store_checked(matrix, ptr, x_off, y_off, height, width,
+  //                               layout, stride, scope, rows, cols, use)
+  // -> OpCooperativeMatrixStoreCheckedINTEL %ptr %x_off %y_off %matrix
+  //    %layout %height %width [stride]
+  MachineBasicBlock &BB = *I.getParent();
+  Register MatReg = I.getOperand(1).getReg();
+  Register PtrReg = I.getOperand(2).getReg();
+  Register XOffReg = I.getOperand(3).getReg();
+  Register YOffReg = I.getOperand(4).getReg();
+  Register HeightReg = I.getOperand(5).getReg();
+  Register WidthReg = I.getOperand(6).getReg();
+  uint32_t Layout = I.getOperand(7).getImm();
+  Register StrideReg = I.getOperand(8).getReg();
+
+  SPIRVTypeInst SpvI32Ty = GR.getOrCreateSPIRVIntegerType(32, I, TII);
+  Register LayoutReg = GR.getOrCreateConstInt(Layout, I, SpvI32Ty, TII);
+
+  auto MIB = BuildMI(BB, I, I.getDebugLoc(),
+                      TII.get(SPIRV::OpCooperativeMatrixStoreCheckedINTEL))
+                 .addUse(PtrReg)
+                 .addUse(XOffReg)
+                 .addUse(YOffReg)
+                 .addUse(MatReg)
+                 .addUse(LayoutReg)
+                 .addUse(HeightReg)
+                 .addUse(WidthReg)
+                 .addUse(StrideReg);
   MIB.constrainAllUses(TII, TRI, RBI);
   return true;
 }
