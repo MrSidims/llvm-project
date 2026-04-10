@@ -252,8 +252,12 @@ static void getMFMAElementCoords(IRBuilder<> &Builder, Value *LaneId,
 
   if (Use == MatrixA) {
     // MFMA A: row = lane % M, col = (lane / M) * kWidth + elem
+    // NOTE: kWidth is the per-lane K-element count, which equals VecLen
+    // from the concrete vector type. It is NOT `64 / M` — for 32x32x8 f16
+    // VecLen is 4 (not 2), because the per-lane register holds 4 K values
+    // and there are 2 lane groups along K. Use VecLen directly.
     unsigned M = Rows;
-    unsigned kWidth = 64 / M;  // 4 for M=16, 2 for M=32
+    unsigned kWidth = VecLen;
     Value *Row = Builder.CreateURem(LaneId64, Builder.getInt64(M));
     Value *LaneHi = Builder.CreateUDiv(LaneId64, Builder.getInt64(M));
     Value *BaseCol = Builder.CreateMul(LaneHi, Builder.getInt64(kWidth));
@@ -265,8 +269,9 @@ static void getMFMAElementCoords(IRBuilder<> &Builder, Value *LaneId,
   }
   if (Use == MatrixB) {
     // MFMA B: col = lane % N, row = (lane / N) * kWidth + elem
+    // kWidth == VecLen (see MatrixA comment above).
     unsigned N = Cols;
-    unsigned kWidth = 64 / N;
+    unsigned kWidth = VecLen;
     Value *Col = Builder.CreateURem(LaneId64, Builder.getInt64(N));
     Value *LaneHi = Builder.CreateUDiv(LaneId64, Builder.getInt64(N));
     Value *BaseRow = Builder.CreateMul(LaneHi, Builder.getInt64(kWidth));

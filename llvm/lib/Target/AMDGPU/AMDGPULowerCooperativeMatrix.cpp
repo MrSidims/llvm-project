@@ -20,6 +20,7 @@
 #include "AMDGPU.h"
 #include "AMDGPUTargetMachine.h"
 #include "GCNSubtarget.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -35,6 +36,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -175,7 +177,10 @@ lookupMulAdd(const GCNSubtarget &ST, LLVMContext &Ctx,
       return Entry;
     }
     // bf16 * bf16 + f32 -> f32, 16x16x16 (gfx90a+, 1k variant)
-    if (ElemTyA->isBFloatTy() && ElemTyB->isBFloatTy() &&
+    // BUG-6 fix: the _1k bf16 MFMA intrinsics only exist on gfx90a and later.
+    // gfx908 has MAI instructions but no GFX90A-specific insts, so gate on
+    // hasGFX90AInsts() here (not hasMAIInsts() which includes gfx908).
+    if (ST.hasGFX90AInsts() && ElemTyA->isBFloatTy() && ElemTyB->isBFloatTy() &&
         ElemTyC->isFloatTy() && M == 16 && N == 16 && K == 16) {
       Entry.IntrID = Intrinsic::amdgcn_mfma_f32_16x16x16bf16_1k;
       Entry.ABVecTy = FixedVectorType::get(Type::getBFloatTy(Ctx), 4);
@@ -185,7 +190,7 @@ lookupMulAdd(const GCNSubtarget &ST, LLVMContext &Ctx,
       return Entry;
     }
     // bf16 * bf16 + f32 -> f32, 32x32x8 (gfx90a+, 1k variant)
-    if (ElemTyA->isBFloatTy() && ElemTyB->isBFloatTy() &&
+    if (ST.hasGFX90AInsts() && ElemTyA->isBFloatTy() && ElemTyB->isBFloatTy() &&
         ElemTyC->isFloatTy() && M == 32 && N == 32 && K == 8) {
       Entry.IntrID = Intrinsic::amdgcn_mfma_f32_32x32x4bf16_1k;
       Entry.ABVecTy = FixedVectorType::get(Type::getBFloatTy(Ctx), 4);
@@ -265,17 +270,61 @@ static Value *getLaneId(const GCNSubtarget &ST, IRBuilder<> &Builder,
 }
 
 /// Compute (row, col) for each per-lane element of an MFMA matrix.
-/// MFMA 16x16: 64 lanes, 4 elements/lane.
-///   row = (lane_id / 16) * 4 + elem_idx
-///   col = lane_id % 16
-/// MFMA 32x32: 64 lanes, 16 elements/lane (4 tiles × 4 elements).
-///   row = (lane_id >> 5) * 16 + (tile >> 1) * 8 + (tile & 1) * 4 + elem_idx
-///   col = lane_id % 32
-static void getMFMAElementCoords(IRBuilder<> &Builder, Value *LaneId,
-                                 unsigned Rows, unsigned Cols,
-                                 unsigned VecLen,
-                                 SmallVectorImpl<std::pair<Value*, Value*>> &Coords) {
+///
+/// Verified against Triton's LinearLayoutConversions.cpp which cites ROCm's
+/// amd_matrix_instruction_calculator. kWidth below is the per-lane element
+/// count along the K dimension, which equals VecLen (the number of elements
+/// in the concrete lane vector).
+///
+/// MFMA A operand (M × K):
+///   row = lane % M
+///   col = (lane / M) * kWidth + elem_idx
+/// MFMA B operand (K × N):
+///   row = (lane / N) * kWidth + elem_idx
+///   col = lane % N
+/// MFMA Accumulator 16×16 (4 elems/lane):
+///   row = (lane / 16) * 4 + elem_idx
+///   col = lane % 16
+/// MFMA Accumulator 32×32 (16 elems/lane, 4 tiles × 4 elements):
+///   row = (lane / 32) * 4 + tile * 8 + elem_idx
+///   col = lane % 32
+static void getMFMAElementCoords(
+    IRBuilder<> &Builder, Value *LaneId, unsigned Rows, unsigned Cols,
+    unsigned VecLen, unsigned Use,
+    SmallVectorImpl<std::pair<Value *, Value *>> &Coords) {
   Value *LaneId64 = Builder.CreateZExt(LaneId, Builder.getInt64Ty());
+
+  if (Use == MatrixA) {
+    // MFMA A: row = lane % M, col = (lane / M) * kWidth + elem
+    // kWidth is the per-lane element count along K, which equals VecLen
+    // (the concrete vector type's element count). For 16x16x16 f16 this is
+    // 4; for 32x32x8 f16 this is also 4 (8 K elems / 2 lane groups).
+    unsigned M = Rows;
+    unsigned kWidth = VecLen;
+    Value *Row = Builder.CreateURem(LaneId64, Builder.getInt64(M));
+    Value *LaneHi = Builder.CreateUDiv(LaneId64, Builder.getInt64(M));
+    Value *BaseCol = Builder.CreateMul(LaneHi, Builder.getInt64(kWidth));
+    for (unsigned E = 0; E < VecLen; ++E) {
+      Value *Col = Builder.CreateAdd(BaseCol, Builder.getInt64(E));
+      Coords.push_back({Row, Col});
+    }
+    return;
+  }
+  if (Use == MatrixB) {
+    // MFMA B: col = lane % N, row = (lane / N) * kWidth + elem
+    unsigned N = Cols;
+    unsigned kWidth = VecLen;
+    Value *Col = Builder.CreateURem(LaneId64, Builder.getInt64(N));
+    Value *LaneHi = Builder.CreateUDiv(LaneId64, Builder.getInt64(N));
+    Value *BaseRow = Builder.CreateMul(LaneHi, Builder.getInt64(kWidth));
+    for (unsigned E = 0; E < VecLen; ++E) {
+      Value *Row = Builder.CreateAdd(BaseRow, Builder.getInt64(E));
+      Coords.push_back({Row, Col});
+    }
+    return;
+  }
+
+  // Accumulator (Use == Accumulator)
   if (Rows == 16 && Cols == 16) {
     // 4 elements per lane: row = (lane/16)*4 + elem, col = lane%16
     Value *BaseRow = Builder.CreateMul(
@@ -287,28 +336,24 @@ static void getMFMAElementCoords(IRBuilder<> &Builder, Value *LaneId,
       Coords.push_back({Row, Col});
     }
   } else if (Rows == 32 && Cols == 32) {
-    // 16 elements per lane: 4 tiles of 4 elements
+    // BUG-1 fix: 16 elements per lane arranged as 4 tiles of 4 rows each.
+    // Half-wave stride is 4 (not 16) and tile stride is T*8 (not
+    // (T>>1)*8 + (T&1)*4). Resulting rows for lane 0: {0..3, 8..11, 16..19,
+    // 24..27}.
     Value *HalfWave = Builder.CreateLShr(LaneId64, Builder.getInt64(5));
+    Value *HalfWaveOff = Builder.CreateMul(HalfWave, Builder.getInt64(4));
     Value *Col = Builder.CreateURem(LaneId64, Builder.getInt64(32));
     for (unsigned T = 0; T < 4; ++T) {
-      Value *TileBase = Builder.CreateAdd(
-          Builder.CreateMul(HalfWave, Builder.getInt64(16)),
-          Builder.getInt64((T >> 1) * 8 + (T & 1) * 4));
+      Value *TileBase =
+          Builder.CreateAdd(HalfWaveOff, Builder.getInt64(T * 8));
       for (unsigned E = 0; E < 4; ++E) {
         Value *Row = Builder.CreateAdd(TileBase, Builder.getInt64(E));
         Coords.push_back({Row, Col});
       }
     }
   } else {
-    // Generic fallback: flat mapping for non-square MFMA operands (A/B).
-    // Each lane gets VecLen contiguous elements in row-major order.
-    Value *BaseIdx = Builder.CreateMul(LaneId64, Builder.getInt64(VecLen));
-    for (unsigned E = 0; E < VecLen; ++E) {
-      Value *Idx = Builder.CreateAdd(BaseIdx, Builder.getInt64(E));
-      Value *Row = Builder.CreateUDiv(Idx, Builder.getInt64(Cols));
-      Value *Col = Builder.CreateURem(Idx, Builder.getInt64(Cols));
-      Coords.push_back({Row, Col});
-    }
+    report_fatal_error("unsupported MFMA accumulator shape in "
+                       "getMFMAElementCoords");
   }
 }
 
@@ -359,7 +404,7 @@ static Value *lowerLoad(CallInst *CI, const GCNSubtarget &ST,
   // Compute per-element (row, col) based on HW layout.
   SmallVector<std::pair<Value *, Value *>, 16> Coords;
   if (ST.hasMAIInsts() && ST.isWave64()) {
-    getMFMAElementCoords(Builder, LaneId, Rows, Cols, VecLen, Coords);
+    getMFMAElementCoords(Builder, LaneId, Rows, Cols, VecLen, Use, Coords);
   } else if (ST.hasWMMA128bInsts() && ST.isWave32()) {
     getWMMAv2ElementCoords(Builder, LaneId, VecLen, Coords);
   } else {
@@ -412,7 +457,7 @@ static void lowerStore(CallInst *CI, Value *Matrix, const GCNSubtarget &ST,
   // Compute per-element (row, col) based on HW layout.
   SmallVector<std::pair<Value *, Value *>, 16> Coords;
   if (ST.hasMAIInsts() && ST.isWave64()) {
-    getMFMAElementCoords(Builder, LaneId, Rows, Cols, VecLen, Coords);
+    getMFMAElementCoords(Builder, LaneId, Rows, Cols, VecLen, Use, Coords);
   } else if (ST.hasWMMA128bInsts() && ST.isWave32()) {
     getWMMAv2ElementCoords(Builder, LaneId, VecLen, Coords);
   } else {
@@ -433,6 +478,14 @@ static void lowerStore(CallInst *CI, Value *Matrix, const GCNSubtarget &ST,
 }
 
 /// Lower a coopmatrix.length call to a constant.
+//
+// TODO(coopmatrix): coopmatrix_length does not take element type as an
+// operand. For configs where element size affects per-lane vector length
+// (e.g., FP8 MFMA which has 8 elems/lane vs f16's 4), this returns the
+// wrong length. Fix requires extending the intrinsic signature.
+// Phase 3a must avoid adding FP8 configs whose length diverges until
+// this is resolved, OR emit a diagnoseUnsupported for length queries
+// on affected configs. See BUG-7 in status.md §2.1.
 static Value *lowerLength(CallInst *CI, const GCNSubtarget &ST) {
   // Args: scope(0), rows(1), cols(2), use(3)
   // We need the element type to determine the vector length, but length
@@ -442,7 +495,8 @@ static Value *lowerLength(CallInst *CI, const GCNSubtarget &ST) {
   // directly -- we need to look at the context or hardcode the mapping.
   //
   // For now, we use the rows/cols/use to determine the length. The element
-  // type doesn't change the per-lane length for a given config on AMDGPU.
+  // type doesn't change the per-lane length for a given config on AMDGPU
+  // (for the configs supported today; see BUG-7 above).
 
   auto *ScopeC = dyn_cast<ConstantInt>(CI->getArgOperand(0));
   auto *RowsC = dyn_cast<ConstantInt>(CI->getArgOperand(1));
@@ -568,6 +622,32 @@ static Value *lowerMulAdd(CallInst *CI, Value *A, Value *B, Value *C,
   return Result;
 }
 
+/// Translate a coopmatrix_muladd_scaled format enum (0=FP8_E5M2,
+/// 1=FP8_E4M3, 2=BF8, 3=FP6_E3M2, 4=FP6_E2M3, 5=FP4_E2M1, 6=I8) to
+/// APFloatBase::Semantics. Returns std::nullopt for I8 (no APFloat
+/// equivalent) or invalid values. See BUG-8 in status.md §2.1.
+[[maybe_unused]] static std::optional<APFloatBase::Semantics>
+coopmatrixScaledFormatToAPFloat(unsigned Fmt) {
+  switch (Fmt) {
+  case 0:
+    return APFloatBase::S_Float8E5M2;
+  case 1:
+    return APFloatBase::S_Float8E4M3FN;
+  case 2:
+    return APFloatBase::S_Float8E5M2; // "BF8" treated as E5M2
+  case 3:
+    return APFloatBase::S_Float6E3M2FN;
+  case 4:
+    return APFloatBase::S_Float6E2M3FN;
+  case 5:
+    return APFloatBase::S_Float4E2M1FN;
+  case 6:
+    return std::nullopt; // I8 — no APFloat equiv
+  default:
+    return std::nullopt;
+  }
+}
+
 /// The main pass implementation.
 class AMDGPULowerCooperativeMatrix : public ModulePass {
 public:
@@ -619,11 +699,27 @@ static bool processFunction(Function &F, const GCNSubtarget &ST) {
         continue;
       auto IID = Callee->getIntrinsicID();
       switch (IID) {
+      // Set 1: baseline (implemented in this pass).
       case Intrinsic::coopmatrix_muladd:
       case Intrinsic::coopmatrix_construct:
       case Intrinsic::coopmatrix_length:
       case Intrinsic::coopmatrix_load:
       case Intrinsic::coopmatrix_store:
+      // Set 2: extended element-wise / metadata ops (stubbed in Phase 2).
+      case Intrinsic::coopmatrix_unary:
+      case Intrinsic::coopmatrix_binary:
+      case Intrinsic::coopmatrix_convert:
+      case Intrinsic::coopmatrix_reduce:
+      case Intrinsic::coopmatrix_extract:
+      case Intrinsic::coopmatrix_insert:
+      case Intrinsic::coopmatrix_get_coord:
+      case Intrinsic::coopmatrix_prefetch:
+      // Set 3: performance / sparse / checked ops (stubbed in Phase 2).
+      case Intrinsic::coopmatrix_muladd_ext:
+      case Intrinsic::coopmatrix_muladd_sparse:
+      case Intrinsic::coopmatrix_muladd_scaled:
+      case Intrinsic::coopmatrix_load_checked:
+      case Intrinsic::coopmatrix_store_checked:
         CoopCalls.push_back(CI);
         break;
       default:
@@ -633,6 +729,63 @@ static bool processFunction(Function &F, const GCNSubtarget &ST) {
 
   if (CoopCalls.empty())
     return false;
+
+  // BUG-4 guard: if any coopmatrix call has a use that is not itself a
+  // coopmatrix intrinsic (or a PHI of a coopmatrix type — handled below),
+  // the erase loop at the end cannot safely replace the TargetExtType
+  // value. The previous implementation RAUW'd such uses to
+  // UndefValue::get(TargetExtType) which then crashed SelectionDAG.
+  //
+  // Today no Phase 2 test exercises this case (all tests form
+  // load/construct -> muladd -> store chains). Refuse it explicitly so
+  // we never silently miscompile. Phase 3 will expand the accepted graph.
+  auto isCoopCall = [](const Value *V) {
+    const auto *CI = dyn_cast<CallInst>(V);
+    if (!CI)
+      return false;
+    const Function *Callee = CI->getCalledFunction();
+    if (!Callee)
+      return false;
+    switch (Callee->getIntrinsicID()) {
+    case Intrinsic::coopmatrix_muladd:
+    case Intrinsic::coopmatrix_construct:
+    case Intrinsic::coopmatrix_length:
+    case Intrinsic::coopmatrix_load:
+    case Intrinsic::coopmatrix_store:
+    case Intrinsic::coopmatrix_unary:
+    case Intrinsic::coopmatrix_binary:
+    case Intrinsic::coopmatrix_convert:
+    case Intrinsic::coopmatrix_reduce:
+    case Intrinsic::coopmatrix_extract:
+    case Intrinsic::coopmatrix_insert:
+    case Intrinsic::coopmatrix_get_coord:
+    case Intrinsic::coopmatrix_prefetch:
+    case Intrinsic::coopmatrix_muladd_ext:
+    case Intrinsic::coopmatrix_muladd_sparse:
+    case Intrinsic::coopmatrix_muladd_scaled:
+    case Intrinsic::coopmatrix_load_checked:
+    case Intrinsic::coopmatrix_store_checked:
+      return true;
+    default:
+      return false;
+    }
+  };
+  for (CallInst *CI : CoopCalls) {
+    // Only coopmatrix-typed producers matter (length returns i32 and is
+    // allowed to be used by anything).
+    if (!isa<TargetExtType>(CI->getType()))
+      continue;
+    for (const Use &U : CI->uses()) {
+      const User *Usr = U.getUser();
+      if (isCoopCall(Usr))
+        continue;
+      if (isa<PHINode>(Usr))
+        continue;
+      report_fatal_error("coopmatrix value with non-coopmatrix use (e.g., "
+                         "return or store of coop matrix) is not yet "
+                         "supported in AMDGPULowerCooperativeMatrix");
+    }
+  }
 
   // Phase 0: Rewrite PHI nodes that have cooperative matrix TargetExtType.
   // Create new PHIs with the concrete vector type, and map old→new.
@@ -698,6 +851,29 @@ static bool processFunction(Function &F, const GCNSubtarget &ST) {
       lowerStore(CI, Matrix, ST, Builder);
       break;
     }
+    // BUG-5 fix: Set 2/3 intrinsics are collected above so they don't
+    // silently flow into SelectionDAG, but they are not yet lowered here.
+    // Halt compilation with a clear message rather than miscompile.
+    // Phase 3d's set2-amdgpu-agent will replace these stubs with real
+    // lowerings.
+    case Intrinsic::coopmatrix_unary:
+    case Intrinsic::coopmatrix_binary:
+    case Intrinsic::coopmatrix_convert:
+    case Intrinsic::coopmatrix_reduce:
+    case Intrinsic::coopmatrix_extract:
+    case Intrinsic::coopmatrix_insert:
+    case Intrinsic::coopmatrix_get_coord:
+    case Intrinsic::coopmatrix_prefetch:
+    case Intrinsic::coopmatrix_muladd_ext:
+    case Intrinsic::coopmatrix_muladd_sparse:
+    case Intrinsic::coopmatrix_muladd_scaled:
+    case Intrinsic::coopmatrix_load_checked:
+    case Intrinsic::coopmatrix_store_checked:
+      report_fatal_error(Twine("Intrinsic ") +
+                         Intrinsic::getBaseName(IID) +
+                         " not yet lowered in "
+                         "AMDGPULowerCooperativeMatrix; implementation "
+                         "coming in Phase 3d");
     default:
       llvm_unreachable("unexpected cooperative matrix intrinsic");
     }
