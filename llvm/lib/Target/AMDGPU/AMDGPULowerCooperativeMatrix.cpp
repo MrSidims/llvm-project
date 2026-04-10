@@ -734,7 +734,7 @@ static Value *lowerLength(CallInst *CI, const GCNSubtarget &ST) {
 static Value *lowerMulAdd(CallInst *CI, Value *A, Value *B, Value *C,
                           const GCNSubtarget &ST, IRBuilder<> &Builder) {
   // Args: matA(0), matB(1), matC(2), operands_imm(3), scope(4), M(5), N(6),
-  // K(7)
+  // K(7), typeInterpA_imm(8), typeInterpB_imm(9), typeInterpC_imm(10)
   auto *MC = dyn_cast<ConstantInt>(CI->getArgOperand(5));
   auto *NC = dyn_cast<ConstantInt>(CI->getArgOperand(6));
   auto *KC = dyn_cast<ConstantInt>(CI->getArgOperand(7));

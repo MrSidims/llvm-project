@@ -31,7 +31,7 @@ entry:
           target("spirv.CooperativeMatrixKHR", i8, 3, 16, 32, 0) %a,
           target("spirv.CooperativeMatrixKHR", i8, 3, 32, 16, 1) %b,
           target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 2) %c,
-          i32 0, i32 3, i32 16, i32 16, i32 32)
+          i32 0, i32 3, i32 16, i32 16, i32 32, i32 0, i32 0, i32 0)
   ret void
 }
 
@@ -55,6 +55,6 @@ entry:
           target("spirv.CooperativeMatrixKHR", i8, 3, 32, 16, 0) %a,
           target("spirv.CooperativeMatrixKHR", i8, 3, 16, 32, 1) %b,
           target("spirv.CooperativeMatrixKHR", float, 3, 32, 32, 2) %c,
-          i32 0, i32 3, i32 32, i32 32, i32 16)
+          i32 0, i32 3, i32 32, i32 32, i32 16, i32 0, i32 0, i32 0)
   ret void
 }

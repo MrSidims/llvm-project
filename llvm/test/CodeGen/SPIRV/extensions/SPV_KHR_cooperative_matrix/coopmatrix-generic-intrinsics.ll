@@ -33,7 +33,7 @@ entry:
           target("spirv.CooperativeMatrixKHR", i32, 3, 12, 48, 0) %a,
           target("spirv.CooperativeMatrixKHR", i32, 3, 48, 12, 1) %b,
           target("spirv.CooperativeMatrixKHR", i32, 3, 12, 12, 2) %c,
-          i32 0, i32 3, i32 12, i32 12, i32 48)
+          i32 0, i32 3, i32 12, i32 12, i32 48, i32 0, i32 0, i32 0)
 
   call void
       @llvm.coopmatrix.store.tspirv.CooperativeMatrixKHR_i32_3_12_12_2t.p3.i64(

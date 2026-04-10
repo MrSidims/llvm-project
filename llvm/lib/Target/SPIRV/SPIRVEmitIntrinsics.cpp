@@ -3083,7 +3083,7 @@ mapArbFPSemanticsToSpirvEncoding(APFloatBase::Semantics Sem) {
 
 void SPIRVEmitIntrinsics::rewriteConvertArbitraryFPCalls(Function &F,
                                                           IRBuilder<> &B) {
-  const SPIRVSubtarget &ST = TM.getSubtarget<SPIRVSubtarget>(F);
+  const SPIRVSubtarget &ST = TM->getSubtarget<SPIRVSubtarget>(F);
 
   // Collect candidate calls first to avoid iterator invalidation.
   SmallVector<IntrinsicInst *, 4> Candidates;

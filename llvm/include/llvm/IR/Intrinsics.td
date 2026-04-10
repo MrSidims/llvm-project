@@ -2822,12 +2822,22 @@ def int_coopmatrix_store
        ImmArg<ArgIndex<2>>]>;
 
 // Fused multiply-add: A(MxK) * B(KxN) + C(MxN) -> Result(MxN).
-// Args: matA, matB, matC, operands(imm), scope, M, N, K
+// Args: matA, matB, matC, operands(imm), scope, M, N, K,
+//       typeInterpA(imm), typeInterpB(imm), typeInterpC(imm)
+//
+// The typeInterp arguments carry APFloatBase::Semantics enum values that
+// describe how the matrix element bits should be interpreted. This is
+// needed when the LLVM IR element type is i8 but the actual data is FP8
+// (e.g., Float8E4M3FN = 10). A value of 0 means "use the element type
+// as-is" (no reinterpretation). The result type interpretation matches
+// typeInterpC (accumulator).
 def int_coopmatrix_muladd
   : DefaultAttrsIntrinsic<[llvm_any_ty],
       [llvm_any_ty, llvm_any_ty, LLVMMatchType<0>, llvm_i32_ty,
-       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
-      [IntrNoMem, IntrConvergent, ImmArg<ArgIndex<3>>]>;
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty,
+       llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+      [IntrNoMem, IntrConvergent, ImmArg<ArgIndex<3>>,
+       ImmArg<ArgIndex<8>>, ImmArg<ArgIndex<9>>, ImmArg<ArgIndex<10>>]>;
 
 // Query per-invocation component count for a cooperative matrix type.
 // Args: scope, rows, cols, use

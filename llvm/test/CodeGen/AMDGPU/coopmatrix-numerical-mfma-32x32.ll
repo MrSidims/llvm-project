@@ -37,7 +37,7 @@ entry:
           target("spirv.CooperativeMatrixKHR", half, 3, 32, 8, 0) %a,
           target("spirv.CooperativeMatrixKHR", half, 3, 8, 32, 1) %b,
           target("spirv.CooperativeMatrixKHR", float, 3, 32, 32, 2) %c,
-          i32 0, i32 3, i32 32, i32 32, i32 8)
+          i32 0, i32 3, i32 32, i32 32, i32 8, i32 0, i32 0, i32 0)
   call void
       @llvm.coopmatrix.store.tspirv.CooperativeMatrixKHR_f32_3_32_32_2t.p1.i32(
           target("spirv.CooperativeMatrixKHR", float, 3, 32, 32, 2) %d,
@@ -85,12 +85,7 @@ declare target("spirv.CooperativeMatrixKHR", float, 3, 32, 32, 2)
     @llvm.coopmatrix.load.tspirv.CooperativeMatrixKHR_f32_3_32_32_2t.p1.i32(
         ptr addrspace(1), i32, i32, i32, i32, i32, i32)
 
-declare target("spirv.CooperativeMatrixKHR", float, 3, 32, 32, 2)
-    @llvm.coopmatrix.muladd.tspirv.CooperativeMatrixKHR_f32_3_32_32_2t.tspirv.CooperativeMatrixKHR_f16_3_32_8_0t.tspirv.CooperativeMatrixKHR_f16_3_8_32_1t(
-        target("spirv.CooperativeMatrixKHR", half, 3, 32, 8, 0),
-        target("spirv.CooperativeMatrixKHR", half, 3, 8, 32, 1),
-        target("spirv.CooperativeMatrixKHR", float, 3, 32, 32, 2),
-        i32, i32, i32, i32, i32)
+; muladd declaration auto-generated from Intrinsics.td
 
 declare void
     @llvm.coopmatrix.store.tspirv.CooperativeMatrixKHR_f32_3_32_32_2t.p1.i32(

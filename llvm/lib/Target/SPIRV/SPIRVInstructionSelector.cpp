@@ -4925,26 +4925,113 @@ bool SPIRVInstructionSelector::selectCoopMatrixStore(MachineInstr &I) const {
 
 bool SPIRVInstructionSelector::selectCoopMatrixMulAdd(
     Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
-  // llvm.coopmatrix.muladd(A, B, C, operands_imm, scope, M, N, K)
-  // -> OpCooperativeMatrixMulAddKHR %result %A %B %C [operands]
+  // llvm.coopmatrix.muladd(A, B, C, operands_imm, scope, M, N, K,
+  //                        typeInterpA_imm, typeInterpB_imm, typeInterpC_imm)
+  // -> [optional bitcasts] + OpCooperativeMatrixMulAddKHR + [optional bitcast]
   assert(ResType && "ResType must be set for coopmatrix.muladd");
   MachineBasicBlock &BB = *I.getParent();
   Register AReg = I.getOperand(2).getReg();
   Register BReg = I.getOperand(3).getReg();
   Register CReg = I.getOperand(4).getReg();
   uint32_t Operands = I.getOperand(5).getImm();
+  Register ScopeReg = I.getOperand(6).getReg();
+  Register MReg = I.getOperand(7).getReg();
+  Register NReg = I.getOperand(8).getReg();
+  Register KReg = I.getOperand(9).getReg();
+  uint32_t TypeInterpA = I.getOperand(10).getImm();
+  uint32_t TypeInterpB = I.getOperand(11).getImm();
+  uint32_t TypeInterpC = I.getOperand(12).getImm();
+
+  // Helper: if TypeInterp != 0, create a phantom FP cooperative matrix type
+  // and emit OpBitcast from the integer coop matrix to the phantom FP8 coop
+  // matrix. This bridges the gap between LLVM IR (which has no FP8 types,
+  // so matrices carry i8 elements) and SPIR-V (which needs OpTypeFloat 8
+  // with encoding for FP8 matmul).
+  auto bitcastToPhantomFP = [&](Register SrcReg, uint32_t TypeInterp,
+                                Register Rows, Register Cols,
+                                Register Use) -> Register {
+    if (TypeInterp == 0)
+      return SrcReg;
+
+    SPIRV::FPEncoding::FPEncoding Enc;
+    unsigned FpWidth = 0;
+    if (!decodeArbFPFormatEnum(TypeInterp, Enc, FpWidth))
+      report_fatal_error(
+          "coopmatrix.muladd: unsupported type interpretation enum", false);
+
+    MachineIRBuilder MIRBuilder(I);
+    SPIRVTypeInst PhantomElemTy =
+        GR.getOrCreateSPIRVFloatTypeWithEncoding(FpWidth, Enc, MIRBuilder);
+    SPIRVTypeInst PhantomMatTy = GR.getOrCreateOpTypeCoopMatrFromRegs(
+        MIRBuilder, PhantomElemTy, ScopeReg, Rows, Cols, Use);
+
+    Register TmpReg =
+        MRI->createVirtualRegister(GR.getRegClass(PhantomMatTy));
+    GR.assignSPIRVTypeToVReg(PhantomMatTy, TmpReg, *I.getMF());
+
+    BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpBitcast))
+        .addDef(TmpReg)
+        .addUse(GR.getSPIRVTypeID(PhantomMatTy))
+        .addUse(SrcReg)
+        .constrainAllUses(TII, TRI, RBI);
+    return TmpReg;
+  };
+
+  // Build Use constant registers for cooperative matrix type parameters.
+  SPIRVTypeInst SpvI32Ty = GR.getOrCreateSPIRVIntegerType(32, I, TII);
+  Register UseA = GR.getOrCreateConstInt(0, I, SpvI32Ty, TII); // MatrixA
+  Register UseB = GR.getOrCreateConstInt(1, I, SpvI32Ty, TII); // MatrixB
+  Register UseC = GR.getOrCreateConstInt(2, I, SpvI32Ty, TII); // Accumulator
+
+  // Bitcast operands to phantom FP8 types if type interpretation is set.
+  Register FinalA = bitcastToPhantomFP(AReg, TypeInterpA, MReg, KReg, UseA);
+  Register FinalB = bitcastToPhantomFP(BReg, TypeInterpB, KReg, NReg, UseB);
+  Register FinalC = bitcastToPhantomFP(CReg, TypeInterpC, MReg, NReg, UseC);
+
+  // If typeInterpC is set and result is an integer coop matrix, the muladd
+  // must produce the phantom FP coop matrix type, then bitcast back.
+  SPIRVTypeInst MulAddResType = ResType;
+  bool NeedResultBitcast = false;
+  if (TypeInterpC != 0) {
+    SPIRV::FPEncoding::FPEncoding Enc;
+    unsigned FpWidth = 0;
+    if (decodeArbFPFormatEnum(TypeInterpC, Enc, FpWidth)) {
+      MachineIRBuilder MIRBuilder(I);
+      SPIRVTypeInst PhantomElemTy =
+          GR.getOrCreateSPIRVFloatTypeWithEncoding(FpWidth, Enc, MIRBuilder);
+      MulAddResType = GR.getOrCreateOpTypeCoopMatrFromRegs(
+          MIRBuilder, PhantomElemTy, ScopeReg, MReg, NReg, UseC);
+      NeedResultBitcast = true;
+    }
+  }
+
+  Register MulAddRes = NeedResultBitcast
+      ? MRI->createVirtualRegister(GR.getRegClass(MulAddResType))
+      : ResVReg;
+  if (NeedResultBitcast)
+    GR.assignSPIRVTypeToVReg(MulAddResType, MulAddRes, *I.getMF());
 
   auto MIB =
       BuildMI(BB, I, I.getDebugLoc(),
               TII.get(SPIRV::OpCooperativeMatrixMulAddKHR))
-          .addDef(ResVReg)
-          .addUse(GR.getSPIRVTypeID(ResType))
-          .addUse(AReg)
-          .addUse(BReg)
-          .addUse(CReg);
+          .addDef(MulAddRes)
+          .addUse(GR.getSPIRVTypeID(MulAddResType))
+          .addUse(FinalA)
+          .addUse(FinalB)
+          .addUse(FinalC);
   if (Operands != 0)
     MIB.addImm(Operands);
   MIB.constrainAllUses(TII, TRI, RBI);
+
+  // Bitcast result back from phantom FP8 coop matrix to integer coop matrix.
+  if (NeedResultBitcast) {
+    BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpBitcast))
+        .addDef(ResVReg)
+        .addUse(GR.getSPIRVTypeID(ResType))
+        .addUse(MulAddRes)
+        .constrainAllUses(TII, TRI, RBI);
+  }
+
   return true;
 }
 

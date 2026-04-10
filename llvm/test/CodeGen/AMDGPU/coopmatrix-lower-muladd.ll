@@ -72,7 +72,7 @@ define void @test_muladd_f16_f32_16x16x16(half %sa, half %sb, float %sc) {
           target("spirv.CooperativeMatrixKHR", half, 3, 16, 16, 0) %a,
           target("spirv.CooperativeMatrixKHR", half, 3, 16, 16, 1) %b,
           target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 2) %c,
-          i32 0, i32 3, i32 16, i32 16, i32 16)
+          i32 0, i32 3, i32 16, i32 16, i32 16, i32 0, i32 0, i32 0)
   ret void
 }
 

@@ -487,6 +487,28 @@ bool SPIRVPrepareFunctions::substituteIntrinsicCalls(Function *F) {
                                        EraseFromParent);
         Changed = true;
         break;
+      // Cooperative matrix intrinsics must NOT be lowered to external function
+      // calls — they are handled natively by the SPIR-V instruction selector
+      // via OpCooperativeMatrix* KHR/INTEL ops.
+      case Intrinsic::coopmatrix_load:
+      case Intrinsic::coopmatrix_store:
+      case Intrinsic::coopmatrix_muladd:
+      case Intrinsic::coopmatrix_length:
+      case Intrinsic::coopmatrix_construct:
+      case Intrinsic::coopmatrix_unary:
+      case Intrinsic::coopmatrix_binary:
+      case Intrinsic::coopmatrix_convert:
+      case Intrinsic::coopmatrix_extract:
+      case Intrinsic::coopmatrix_insert:
+      case Intrinsic::coopmatrix_get_coord:
+      case Intrinsic::coopmatrix_prefetch:
+      case Intrinsic::coopmatrix_muladd_ext:
+      case Intrinsic::coopmatrix_muladd_sparse:
+      case Intrinsic::coopmatrix_muladd_scaled:
+      case Intrinsic::coopmatrix_load_checked:
+      case Intrinsic::coopmatrix_store_checked:
+      case Intrinsic::coopmatrix_reduce:
+        break; // Pass through to instruction selector
       default:
         if (TM.getTargetTriple().getVendor() == Triple::AMD ||
             any_of(SPVAllowUnknownIntrinsics, [II](auto &&Prefix) {

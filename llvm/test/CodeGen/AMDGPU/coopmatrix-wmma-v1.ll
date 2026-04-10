@@ -27,7 +27,7 @@ define void @test_wmma_v1_f16_muladd(half %sa, half %sb, float %sc) {
           target("spirv.CooperativeMatrixKHR", half, 3, 16, 16, 0) %a,
           target("spirv.CooperativeMatrixKHR", half, 3, 16, 16, 1) %b,
           target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 2) %c,
-          i32 0, i32 3, i32 16, i32 16, i32 16)
+          i32 0, i32 3, i32 16, i32 16, i32 16, i32 0, i32 0, i32 0)
   ret void
 }
 
@@ -54,7 +54,7 @@ define void @test_wmma_v1_i8_muladd(i8 %sa, i8 %sb, i32 %sc) {
           target("spirv.CooperativeMatrixKHR", i8, 3, 16, 16, 0) %a,
           target("spirv.CooperativeMatrixKHR", i8, 3, 16, 16, 1) %b,
           target("spirv.CooperativeMatrixKHR", i32, 3, 16, 16, 2) %c,
-          i32 0, i32 3, i32 16, i32 16, i32 16)
+          i32 0, i32 3, i32 16, i32 16, i32 16, i32 0, i32 0, i32 0)
   ret void
 }
 
