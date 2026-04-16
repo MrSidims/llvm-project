@@ -1270,6 +1270,11 @@ SPIRVTypeInst SPIRVGlobalRegistry::restOfCreateSPIRVType(
   SPIRVTypeInst SpirvType = createSPIRVType(Ty, MIRBuilder, AccessQual,
                                             ExplicitLayoutRequired, EmitIR);
   TypesInProcessing.erase(Ty);
+
+  // Slim cooperative matrix types (spec-constant dimensions) return nullptr.
+  // Type creation is deferred to the instruction selector.
+  if (!SpirvType)
+    return nullptr;
   VRegToTypeMap[&MIRBuilder.getMF()][getSPIRVTypeID(SpirvType)] = SpirvType;
 
   // TODO: We could end up with two SPIR-V types pointing to the same llvm type.

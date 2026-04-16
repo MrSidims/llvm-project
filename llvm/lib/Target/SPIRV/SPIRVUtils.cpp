@@ -863,9 +863,20 @@ bool getVacantFunctionName(Module &M, std::string &Name) {
 
 // Assign SPIR-V type to the register. If the register has no valid assigned
 // class, set register LLT type and class according to the SPIR-V type.
+// For slim cooperative matrix types, SpvType may be nullptr (type creation
+// is deferred to the instruction selector).
 void setRegClassType(Register Reg, SPIRVTypeInst SpvType,
                      SPIRVGlobalRegistry *GR, MachineRegisterInfo *MRI,
                      const MachineFunction &MF, bool Force) {
+  if (!SpvType) {
+    // Slim cooperative matrix type - use generic ID register class.
+    // Type will be assigned later by the instruction selector.
+    if (!MRI->getRegClassOrNull(Reg) || Force) {
+      MRI->setRegClass(Reg, &SPIRV::IDRegClass);
+      MRI->setType(Reg, LLT::scalar(64));
+    }
+    return;
+  }
   GR->assignSPIRVTypeToVReg(SpvType, Reg, MF);
   if (!MRI->getRegClassOrNull(Reg) || Force) {
     MRI->setRegClass(Reg, GR->getRegClass(SpvType));
@@ -887,9 +898,16 @@ void setRegClassType(Register Reg, const Type *Ty, SPIRVGlobalRegistry *GR,
 
 // Create a virtual register and assign SPIR-V type to the register. Set
 // register LLT type and class according to the SPIR-V type.
+// For slim cooperative matrix types, SpvType may be nullptr.
 Register createVirtualRegister(SPIRVTypeInst SpvType, SPIRVGlobalRegistry *GR,
                                MachineRegisterInfo *MRI,
                                const MachineFunction &MF) {
+  if (!SpvType) {
+    // Slim cooperative matrix type - use generic ID register class.
+    Register Reg = MRI->createVirtualRegister(&SPIRV::IDRegClass);
+    MRI->setType(Reg, LLT::scalar(64));
+    return Reg;
+  }
   Register Reg = MRI->createVirtualRegister(GR->getRegClass(SpvType));
   MRI->setType(Reg, GR->getRegType(SpvType));
   GR->assignSPIRVTypeToVReg(SpvType, Reg, MF);

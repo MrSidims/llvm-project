@@ -4928,7 +4928,6 @@ bool SPIRVInstructionSelector::selectCoopMatrixMulAdd(
   // llvm.coopmatrix.muladd(A, B, C, operands_imm, scope, M, N, K,
   //                        typeInterpA_imm, typeInterpB_imm, typeInterpC_imm)
   // -> [optional bitcasts] + OpCooperativeMatrixMulAddKHR + [optional bitcast]
-  assert(ResType && "ResType must be set for coopmatrix.muladd");
   MachineBasicBlock &BB = *I.getParent();
   Register AReg = I.getOperand(2).getReg();
   Register BReg = I.getOperand(3).getReg();
@@ -4941,6 +4940,42 @@ bool SPIRVInstructionSelector::selectCoopMatrixMulAdd(
   uint32_t TypeInterpA = I.getOperand(10).getImm();
   uint32_t TypeInterpB = I.getOperand(11).getImm();
   uint32_t TypeInterpC = I.getOperand(12).getImm();
+
+  // For slim types (spec-constant dims), create the type from SSA args.
+  // Check if ResType is null OR is not a cooperative matrix type (might have
+  // been incorrectly assigned a scalar type during pre-legalization).
+  bool NeedCreateType = !ResType ||
+      (ResType && ResType->getOpcode() != SPIRV::OpTypeCooperativeMatrixKHR);
+  if (NeedCreateType) {
+    MachineIRBuilder MIRBuilder(I);
+    SPIRVTypeInst SpvI32Ty = GR.getOrCreateSPIRVIntegerType(32, I, TII);
+    Register UseC = GR.getOrCreateConstInt(2, I, SpvI32Ty, TII); // Accumulator
+    // Get element type from the deferred LLVM TargetExtType.
+    const Type *DeferredTy = GR.findDeferredType(ResVReg);
+    // For slim coopmatrix types, DeferredTy should be set. If not, try to
+    // infer the element type from the C operand (accumulator matrix).
+    SPIRVTypeInst ElemType = nullptr;
+    if (DeferredTy) {
+      const auto *ExtTy = cast<TargetExtType>(DeferredTy);
+      ElemType = GR.getOrCreateSPIRVType(
+          ExtTy->getTypeParameter(0), MIRBuilder,
+          SPIRV::AccessQualifier::ReadWrite, false);
+    } else {
+      // Fallback: infer element type from C operand's type.
+      SPIRVTypeInst CType = GR.getSPIRVTypeForVReg(CReg);
+      if (CType && CType->getOpcode() == SPIRV::OpTypeCooperativeMatrixKHR) {
+        // Element type is the first operand of OpTypeCooperativeMatrixKHR
+        ElemType = GR.getSPIRVTypeForVReg(CType->getOperand(1).getReg());
+      }
+      if (!ElemType) {
+        // Last resort: assume float32 for accumulator
+        ElemType = GR.getOrCreateSPIRVFloatType(32, MIRBuilder);
+      }
+    }
+    ResType = GR.getOrCreateOpTypeCoopMatrFromRegs(MIRBuilder, ElemType,
+                                                   ScopeReg, MReg, NReg, UseC);
+    GR.assignSPIRVTypeToVReg(ResType, ResVReg, *I.getMF());
+  }
 
   // Helper: if TypeInterp != 0, create a phantom FP cooperative matrix type
   // and emit OpBitcast from the integer coop matrix to the phantom FP8 coop
@@ -5082,9 +5117,28 @@ bool SPIRVInstructionSelector::selectCoopMatrixConstruct(
     Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
   // llvm.coopmatrix.construct(scalar, scope, rows, cols, use)
   // -> OpCompositeConstruct %result %scalar
-  assert(ResType && "ResType must be set for coopmatrix.construct");
   MachineBasicBlock &BB = *I.getParent();
   Register ScalarReg = I.getOperand(2).getReg();
+
+  // For slim types (spec-constant dims), create the type from SSA args.
+  if (!ResType) {
+    MachineIRBuilder MIRBuilder(I);
+    Register ScopeReg = I.getOperand(3).getReg();
+    Register RowsReg = I.getOperand(4).getReg();
+    Register ColsReg = I.getOperand(5).getReg();
+    Register UseReg = I.getOperand(6).getReg();
+    // Get element type from the deferred LLVM TargetExtType.
+    const Type *DeferredTy = GR.findDeferredType(ResVReg);
+    assert(DeferredTy && "Slim cooperative matrix type must be deferred");
+    const auto *ExtTy = cast<TargetExtType>(DeferredTy);
+    SPIRVTypeInst ElemType = GR.getOrCreateSPIRVType(
+        ExtTy->getTypeParameter(0), MIRBuilder,
+        SPIRV::AccessQualifier::ReadWrite, false);
+    ResType = GR.getOrCreateOpTypeCoopMatrFromRegs(MIRBuilder, ElemType,
+                                                   ScopeReg, RowsReg,
+                                                   ColsReg, UseReg);
+    GR.assignSPIRVTypeToVReg(ResType, ResVReg, *I.getMF());
+  }
 
   auto MIB =
       BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpCompositeConstruct))
@@ -5101,10 +5155,28 @@ bool SPIRVInstructionSelector::selectCoopMatrixUnary(
     Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
   // llvm.coopmatrix.unary(matrix, op, scope, rows, cols, use)
   // KHR-native: OpFNegate, OpSNegate, OpNot directly on cooperative matrix.
-  assert(ResType && "ResType must be set for coopmatrix.unary");
   MachineBasicBlock &BB = *I.getParent();
   Register MatReg = I.getOperand(2).getReg();
   uint32_t Op = I.getOperand(3).getImm();
+
+  // For slim types (spec-constant dims), create the type from SSA args.
+  if (!ResType) {
+    MachineIRBuilder MIRBuilder(I);
+    Register ScopeReg = I.getOperand(4).getReg();
+    Register RowsReg = I.getOperand(5).getReg();
+    Register ColsReg = I.getOperand(6).getReg();
+    Register UseReg = I.getOperand(7).getReg();
+    const Type *DeferredTy = GR.findDeferredType(ResVReg);
+    assert(DeferredTy && "Slim cooperative matrix type must be deferred");
+    const auto *ExtTy = cast<TargetExtType>(DeferredTy);
+    SPIRVTypeInst ElemType = GR.getOrCreateSPIRVType(
+        ExtTy->getTypeParameter(0), MIRBuilder,
+        SPIRV::AccessQualifier::ReadWrite, false);
+    ResType = GR.getOrCreateOpTypeCoopMatrFromRegs(MIRBuilder, ElemType,
+                                                   ScopeReg, RowsReg,
+                                                   ColsReg, UseReg);
+    GR.assignSPIRVTypeToVReg(ResType, ResVReg, *I.getMF());
+  }
 
   // Determine element type to pick int vs float opcodes.
   SPIRVTypeInst MatType = GR.getSPIRVTypeForVReg(MatReg);
@@ -5142,11 +5214,29 @@ bool SPIRVInstructionSelector::selectCoopMatrixBinary(
     Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
   // llvm.coopmatrix.binary(matA, matB, op, scope, rows, cols, use)
   // KHR-native: OpFAdd/OpIAdd/... directly on cooperative matrix.
-  assert(ResType && "ResType must be set for coopmatrix.binary");
   MachineBasicBlock &BB = *I.getParent();
   Register AReg = I.getOperand(2).getReg();
   Register BReg = I.getOperand(3).getReg();
   uint32_t Op = I.getOperand(4).getImm();
+
+  // For slim types (spec-constant dims), create the type from SSA args.
+  if (!ResType) {
+    MachineIRBuilder MIRBuilder(I);
+    Register ScopeReg = I.getOperand(5).getReg();
+    Register RowsReg = I.getOperand(6).getReg();
+    Register ColsReg = I.getOperand(7).getReg();
+    Register UseReg = I.getOperand(8).getReg();
+    const Type *DeferredTy = GR.findDeferredType(ResVReg);
+    assert(DeferredTy && "Slim cooperative matrix type must be deferred");
+    const auto *ExtTy = cast<TargetExtType>(DeferredTy);
+    SPIRVTypeInst ElemType = GR.getOrCreateSPIRVType(
+        ExtTy->getTypeParameter(0), MIRBuilder,
+        SPIRV::AccessQualifier::ReadWrite, false);
+    ResType = GR.getOrCreateOpTypeCoopMatrFromRegs(MIRBuilder, ElemType,
+                                                   ScopeReg, RowsReg,
+                                                   ColsReg, UseReg);
+    GR.assignSPIRVTypeToVReg(ResType, ResVReg, *I.getMF());
+  }
 
   SPIRVTypeInst MatType = GR.getSPIRVTypeForVReg(AReg);
   bool IsFloat = false;
@@ -5213,9 +5303,28 @@ bool SPIRVInstructionSelector::selectCoopMatrixConvert(
     Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
   // llvm.coopmatrix.convert(src_matrix, scope, rows, cols, src_use, dst_use)
   // KHR: OpFConvert / OpSConvert / OpUConvert on cooperative matrix.
-  assert(ResType && "ResType must be set for coopmatrix.convert");
   MachineBasicBlock &BB = *I.getParent();
   Register SrcReg = I.getOperand(2).getReg();
+
+  // For slim types (spec-constant dims), create the type from SSA args.
+  if (!ResType) {
+    MachineIRBuilder MIRBuilder(I);
+    Register ScopeReg = I.getOperand(3).getReg();
+    Register RowsReg = I.getOperand(4).getReg();
+    Register ColsReg = I.getOperand(5).getReg();
+    // dst_use is operand 7
+    Register UseReg = I.getOperand(7).getReg();
+    const Type *DeferredTy = GR.findDeferredType(ResVReg);
+    assert(DeferredTy && "Slim cooperative matrix type must be deferred");
+    const auto *ExtTy = cast<TargetExtType>(DeferredTy);
+    SPIRVTypeInst ElemType = GR.getOrCreateSPIRVType(
+        ExtTy->getTypeParameter(0), MIRBuilder,
+        SPIRV::AccessQualifier::ReadWrite, false);
+    ResType = GR.getOrCreateOpTypeCoopMatrFromRegs(MIRBuilder, ElemType,
+                                                   ScopeReg, RowsReg,
+                                                   ColsReg, UseReg);
+    GR.assignSPIRVTypeToVReg(ResType, ResVReg, *I.getMF());
+  }
 
   SPIRVTypeInst SrcMatType = GR.getSPIRVTypeForVReg(SrcReg);
   bool SrcFloat = false;
@@ -5260,8 +5369,8 @@ bool SPIRVInstructionSelector::selectCoopMatrixExtract(
   Register IdxReg = I.getOperand(3).getReg();
 
   // Check for constant index — OpCompositeExtract requires literal index.
-  // Check if index is constant. OpCompositeExtract requires a literal.
-  MachineInstr *IdxDef = MRI->getVRegDef(IdxReg);
+  // Use getVRegDef() to look through ASSIGN_TYPE pseudo-instructions.
+  MachineInstr *IdxDef = getVRegDef(*MRI, IdxReg);
   if (!IdxDef || IdxDef->getOpcode() != TargetOpcode::G_CONSTANT)
     return diagnoseUnsupported(
         I, "coopmatrix.extract with dynamic index not supported in SPIR-V");
@@ -5282,14 +5391,34 @@ bool SPIRVInstructionSelector::selectCoopMatrixInsert(
     Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
   // llvm.coopmatrix.insert(matrix, value, index, scope, rows, cols, use)
   // -> OpCompositeInsert %result %value %matrix <index>
-  assert(ResType && "ResType must be set for coopmatrix.insert");
   MachineBasicBlock &BB = *I.getParent();
   Register MatReg = I.getOperand(2).getReg();
   Register ValReg = I.getOperand(3).getReg();
   Register IdxReg = I.getOperand(4).getReg();
 
+  // For slim types (spec-constant dims), create the type from SSA args.
+  if (!ResType) {
+    MachineIRBuilder MIRBuilder(I);
+    Register ScopeReg = I.getOperand(5).getReg();
+    Register RowsReg = I.getOperand(6).getReg();
+    Register ColsReg = I.getOperand(7).getReg();
+    Register UseReg = I.getOperand(8).getReg();
+    // Get element type from the deferred LLVM TargetExtType.
+    const Type *DeferredTy = GR.findDeferredType(ResVReg);
+    assert(DeferredTy && "Slim cooperative matrix type must be deferred");
+    const auto *ExtTy = cast<TargetExtType>(DeferredTy);
+    SPIRVTypeInst ElemType = GR.getOrCreateSPIRVType(
+        ExtTy->getTypeParameter(0), MIRBuilder,
+        SPIRV::AccessQualifier::ReadWrite, false);
+    ResType = GR.getOrCreateOpTypeCoopMatrFromRegs(MIRBuilder, ElemType,
+                                                   ScopeReg, RowsReg,
+                                                   ColsReg, UseReg);
+    GR.assignSPIRVTypeToVReg(ResType, ResVReg, *I.getMF());
+  }
+
   // Check if index is constant. OpCompositeInsert requires a literal.
-  MachineInstr *IdxDef = MRI->getVRegDef(IdxReg);
+  // Use getVRegDef() to look through ASSIGN_TYPE pseudo-instructions.
+  MachineInstr *IdxDef = getVRegDef(*MRI, IdxReg);
   if (!IdxDef || IdxDef->getOpcode() != TargetOpcode::G_CONSTANT)
     return diagnoseUnsupported(
         I, "coopmatrix.insert with dynamic index not supported in SPIR-V");
