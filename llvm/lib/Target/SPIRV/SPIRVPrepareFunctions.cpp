@@ -509,6 +509,11 @@ bool SPIRVPrepareFunctions::substituteIntrinsicCalls(Function *F) {
       case Intrinsic::coopmatrix_store_checked:
       case Intrinsic::coopmatrix_reduce:
         break; // Pass through to instruction selector
+      // SPIR-V native intrinsics — handled by SPIRVInstructionSelector, not
+      // lowered to external function calls.
+      case Intrinsic::spv_spec_constant:
+      case Intrinsic::spv_named_boolean_spec_constant:
+        break; // Pass through to instruction selector
       default:
         if (TM.getTargetTriple().getVendor() == Triple::AMD ||
             any_of(SPVAllowUnknownIntrinsics, [II](auto &&Prefix) {

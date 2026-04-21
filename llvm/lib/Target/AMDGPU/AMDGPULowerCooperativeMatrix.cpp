@@ -601,18 +601,29 @@ static Value *lowerLoad(CallInst *CI, const GCNSubtarget &ST,
     report_fatal_error("coopmatrix.load: unsupported subtarget");
   }
 
-  // Vectorized load: per-lane elements are contiguous in memory for all
-  // supported MFMA/WMMA layouts. Instead of VecLen individual scalar loads,
-  // compute the address of element 0 and emit one wide vector load.
-  auto [Row0, Col0] = Coords[0];
-  Value *ByteOff0 = Builder.CreateAdd(
-      Builder.CreateMul(Row0,
-                        Builder.CreateMul(Stride64,
-                                          Builder.getInt64(ElemSize))),
-      Builder.CreateMul(Col0, Builder.getInt64(ElemSize)));
-  Value *BasePtr = Builder.CreateGEP(Builder.getInt8Ty(), Ptr, ByteOff0);
-  Value *Vec = Builder.CreateAlignedLoad(VecTy, BasePtr,
-                                         MaybeAlign(ElemSize));
+  // Check if per-lane elements are contiguous in memory.
+  // For MFMA A/B operands: elements are in the same row, consecutive columns
+  //   -> contiguous for row-major layout
+  // For MFMA Accumulator: elements are in the same column, consecutive rows
+  //   -> NOT contiguous for row-major layout (stride apart)
+  // For WMMA: elements are in consecutive rows, same column
+  //   -> NOT contiguous for row-major layout
+  //
+  // For now, always use scalar loads to be correct. A future optimization can
+  // detect when vectorized loads are valid based on layout and Use.
+  Value *Vec = PoisonValue::get(VecTy);
+  for (unsigned E = 0; E < VecLen; ++E) {
+    auto [Row, Col] = Coords[E];
+    Value *ByteOff = Builder.CreateAdd(
+        Builder.CreateMul(Row,
+                          Builder.CreateMul(Stride64,
+                                            Builder.getInt64(ElemSize))),
+        Builder.CreateMul(Col, Builder.getInt64(ElemSize)));
+    Value *ElemPtr = Builder.CreateGEP(Builder.getInt8Ty(), Ptr, ByteOff);
+    Value *Elem = Builder.CreateAlignedLoad(ElemTy, ElemPtr,
+                                            MaybeAlign(ElemSize));
+    Vec = Builder.CreateInsertElement(Vec, Elem, E);
+  }
 
   return Vec;
 }
@@ -655,16 +666,20 @@ static void lowerStore(CallInst *CI, Value *Matrix, const GCNSubtarget &ST,
     report_fatal_error("coopmatrix.store: unsupported subtarget");
   }
 
-  // Vectorized store: per-lane elements are contiguous in memory.
-  // Compute the address of element 0 and emit one wide vector store.
-  auto [Row0, Col0] = Coords[0];
-  Value *ByteOff0 = Builder.CreateAdd(
-      Builder.CreateMul(Row0,
-                        Builder.CreateMul(Stride64,
-                                          Builder.getInt64(ElemSize))),
-      Builder.CreateMul(Col0, Builder.getInt64(ElemSize)));
-  Value *BasePtr = Builder.CreateGEP(Builder.getInt8Ty(), Ptr, ByteOff0);
-  Builder.CreateAlignedStore(Matrix, BasePtr, MaybeAlign(ElemSize));
+  // Per-lane elements are NOT contiguous in memory for accumulator stores
+  // (elements are in consecutive rows, same column -> stride apart).
+  // Use scalar stores for correctness.
+  for (unsigned E = 0; E < VecLen; ++E) {
+    auto [Row, Col] = Coords[E];
+    Value *ByteOff = Builder.CreateAdd(
+        Builder.CreateMul(Row,
+                          Builder.CreateMul(Stride64,
+                                            Builder.getInt64(ElemSize))),
+        Builder.CreateMul(Col, Builder.getInt64(ElemSize)));
+    Value *ElemPtr = Builder.CreateGEP(Builder.getInt8Ty(), Ptr, ByteOff);
+    Value *Elem = Builder.CreateExtractElement(Matrix, E);
+    Builder.CreateAlignedStore(Elem, ElemPtr, MaybeAlign(ElemSize));
+  }
 }
 
 /// Lower a coopmatrix.length call to a constant.
