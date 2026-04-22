@@ -6526,6 +6526,131 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     return RValue::get(
         emitBuiltinWithOneOverloadedType<1>(*this, E, Intrinsic::canonicalize));
 
+  case Builtin::BI__builtin_convert_from_arbitrary_fp: {
+    unsigned Encoding =
+        E->getArg(1)->EvaluateKnownConstInt(getContext()).getZExtValue();
+
+    StringRef FormatStr;
+    unsigned SrcBitWidth;
+    switch (Encoding) {
+    case 0:
+      FormatStr = "Float8E5M2";
+      SrcBitWidth = 8;
+      break;
+    case 1:
+      FormatStr = "Float8E4M3FN";
+      SrcBitWidth = 8;
+      break;
+    case 2:
+      FormatStr = "Float4E2M1FN";
+      SrcBitWidth = 4;
+      break;
+    case 3:
+      FormatStr = "Float6E3M2FN";
+      SrcBitWidth = 6;
+      break;
+    case 4:
+      FormatStr = "Float6E2M3FN";
+      SrcBitWidth = 6;
+      break;
+    default:
+      llvm_unreachable("invalid encoding; should have been caught by Sema");
+    }
+
+    llvm::Value *RawVal = EmitScalarExpr(E->getArg(0));
+    llvm::Type *SrcIntTy =
+        llvm::IntegerType::get(getLLVMContext(), SrcBitWidth);
+    RawVal = Builder.CreateTrunc(RawVal, SrcIntTy);
+
+    llvm::Value *MDArg = llvm::MetadataAsValue::get(
+        getLLVMContext(), llvm::MDString::get(getLLVMContext(), FormatStr));
+
+    llvm::Type *ResultTy = ConvertType(E->getType());
+    llvm::Function *F = CGM.getIntrinsic(
+        llvm::Intrinsic::convert_from_arbitrary_fp, {ResultTy, SrcIntTy});
+
+    llvm::Value *Result = Builder.CreateCall(F, {RawVal, MDArg});
+    return RValue::get(Result);
+  }
+
+  case Builtin::BI__builtin_convert_to_arbitrary_fp: {
+    unsigned Encoding =
+        E->getArg(1)->EvaluateKnownConstInt(getContext()).getZExtValue();
+    unsigned RoundEncoding =
+        E->getArg(2)->EvaluateKnownConstInt(getContext()).getZExtValue();
+    unsigned Saturate =
+        E->getArg(3)->EvaluateKnownConstInt(getContext()).getZExtValue();
+
+    StringRef FormatStr;
+    unsigned DstBitWidth;
+    switch (Encoding) {
+    case 0:
+      FormatStr = "Float8E5M2";
+      DstBitWidth = 8;
+      break;
+    case 1:
+      FormatStr = "Float8E4M3FN";
+      DstBitWidth = 8;
+      break;
+    case 2:
+      FormatStr = "Float4E2M1FN";
+      DstBitWidth = 4;
+      break;
+    case 3:
+      FormatStr = "Float6E3M2FN";
+      DstBitWidth = 6;
+      break;
+    case 4:
+      FormatStr = "Float6E2M3FN";
+      DstBitWidth = 6;
+      break;
+    default:
+      llvm_unreachable("invalid encoding; should have been caught by Sema");
+    }
+
+    StringRef RoundStr;
+    switch (RoundEncoding) {
+    case 0:
+      RoundStr = "round.tonearest";
+      break;
+    case 1:
+      RoundStr = "round.upward";
+      break;
+    case 2:
+      RoundStr = "round.downward";
+      break;
+    case 3:
+      RoundStr = "round.towardzero";
+      break;
+    case 4:
+      RoundStr = "round.tonearestaway";
+      break;
+    default:
+      llvm_unreachable(
+          "invalid rounding mode; should have been caught by Sema");
+    }
+
+    llvm::Value *FloatVal = EmitScalarExpr(E->getArg(0));
+
+    llvm::Value *FmtMD = llvm::MetadataAsValue::get(
+        getLLVMContext(), llvm::MDString::get(getLLVMContext(), FormatStr));
+    llvm::Value *RoundMD = llvm::MetadataAsValue::get(
+        getLLVMContext(), llvm::MDString::get(getLLVMContext(), RoundStr));
+    llvm::Value *SatVal = llvm::ConstantInt::get(
+        llvm::Type::getInt1Ty(getLLVMContext()), Saturate ? 1 : 0);
+
+    llvm::Type *DstIntTy =
+        llvm::IntegerType::get(getLLVMContext(), DstBitWidth);
+    llvm::Type *SrcFPTy = FloatVal->getType();
+    llvm::Function *F = CGM.getIntrinsic(
+        llvm::Intrinsic::convert_to_arbitrary_fp, {DstIntTy, SrcFPTy});
+
+    llvm::Value *Result =
+        Builder.CreateCall(F, {FloatVal, FmtMD, RoundMD, SatVal});
+    Result = Builder.CreateZExt(Result, ConvertType(E->getType()));
+    return RValue::get(Result);
+  }
+
   case Builtin::BI__builtin_thread_pointer: {
     if (!getContext().getTargetInfo().isTLSSupported())
       CGM.ErrorUnsupported(E, "__builtin_thread_pointer");
