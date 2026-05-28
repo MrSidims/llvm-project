@@ -576,9 +576,17 @@ generateAssignInstrs(MachineFunction &MF, SPIRVGlobalRegistry *GR,
         Register Reg = MI.getOperand(1).getReg();
         MIB.setInsertPt(*MI.getParent(), MI.getIterator());
         Type *ElementTy = getMDOperandAsType(MI.getOperand(2).getMetadata(), 0);
-        SPIRVTypeInst AssignedPtrType = GR->getOrCreateSPIRVPointerType(
-            ElementTy, MI,
-            addressSpaceToStorageClass(MI.getOperand(3).getImm(), *ST));
+        auto SC = addressSpaceToStorageClass(MI.getOperand(3).getImm(), *ST);
+        SPIRVTypeInst AssignedPtrType =
+            GR->getOrCreateSPIRVPointerType(ElementTy, MI, SC);
+
+        // For untyped pointers, store the element type for later use.
+        if (ST->useUntypedPointers()) {
+          SPIRVTypeInst ElemSpvType = GR->getOrCreateSPIRVType(
+              ElementTy, MIB, SPIRV::AccessQualifier::ReadWrite, true);
+          GR->setUntypedPtrElementType(Reg, ElemSpvType);
+        }
+
         MachineInstr *Def = MRI.getVRegDef(Reg);
         assert(Def && "Expecting an instruction that defines the register");
         // G_GLOBAL_VALUE already has type info.

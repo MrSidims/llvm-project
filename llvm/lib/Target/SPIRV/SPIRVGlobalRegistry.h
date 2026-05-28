@@ -79,6 +79,12 @@ class SPIRVGlobalRegistry : public SPIRVIRMapping {
   // Maps composite values to deduced types where untyped pointers are replaced
   // with typed ones.
   DenseMap<Value *, Type *> DeducedNestedTys;
+
+  // For untyped pointers: maps registers to their associated element types.
+  // This is needed because OpTypeUntypedPointerKHR doesn't encode the element
+  // type, but OpUntypedVariableKHR requires a DataType operand.
+  DenseMap<std::pair<const MachineFunction *, Register>, SPIRVTypeInst>
+      UntypedPointerElementTypes;
   // Maps values to "assign type" calls, thus being a registry of created
   // Intrinsic::spv_assign_ptr_type instructions.
   DenseMap<Value *, CallInst *> AssignPtrTypeInstr;
@@ -207,6 +213,16 @@ public:
   Type *findDeducedCompositeType(const Value *Val) {
     auto It = DeducedNestedTys.find(Val);
     return It == DeducedNestedTys.end() ? nullptr : It->second;
+  }
+
+  // For untyped pointers: store the element type associated with a register.
+  void setUntypedPtrElementType(Register Reg, SPIRVTypeInst ElemType) {
+    UntypedPointerElementTypes[{CurMF, Reg}] = ElemType;
+  }
+  // For untyped pointers: get the element type associated with a register.
+  SPIRVTypeInst getUntypedPtrElementType(Register Reg) const {
+    auto It = UntypedPointerElementTypes.find({CurMF, Reg});
+    return It == UntypedPointerElementTypes.end() ? nullptr : It->second;
   }
   // - Find a type of the given Global value
   Type *getDeducedGlobalValueType(const GlobalValue *Global) {
@@ -630,6 +646,12 @@ public:
   SPIRVTypeInst changePointerStorageClass(SPIRVTypeInst PtrType,
                                           SPIRV::StorageClass::StorageClass SC,
                                           MachineInstr &I);
+
+  // Returns a SPIR-V untyped pointer type (OpTypeUntypedPointerKHR) for the
+  // given storage class. Requires SPV_KHR_untyped_pointers extension.
+  SPIRVTypeInst
+  getOrCreateSPIRVUntypedPointerType(SPIRV::StorageClass::StorageClass SC,
+                                     MachineIRBuilder &MIRBuilder);
 
   SPIRVTypeInst
   getOrCreateVulkanBufferType(MachineIRBuilder &MIRBuilder, Type *ElemType,

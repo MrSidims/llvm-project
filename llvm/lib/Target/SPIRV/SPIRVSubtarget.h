@@ -108,6 +108,11 @@ public:
   bool canUseExtInstSet(SPIRV::InstructionSet::InstructionSet E) const;
   SPIRV::InstructionSet::InstructionSet getPreferredInstructionSet() const;
 
+  // Returns true if untyped pointers (SPV_KHR_untyped_pointers) should be used.
+  bool useUntypedPointers() const {
+    return canUseExtension(SPIRV::Extension::SPV_KHR_untyped_pointers);
+  }
+
   SPIRVGlobalRegistry *getSPIRVGlobalRegistry() const { return GR.get(); }
 
   const CallLowering *getCallLowering() const override {

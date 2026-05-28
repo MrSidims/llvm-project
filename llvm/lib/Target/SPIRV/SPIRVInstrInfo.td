@@ -285,6 +285,32 @@ def OpPtrNotEqual: Op<402, (outs ID:$res), (ins TYPE:$resType, ID:$a, ID:$b),
 def OpPtrDiff: Op<403, (outs ID:$res), (ins TYPE:$resType, ID:$a, ID:$b),
                   "$res = OpPtrDiff $resType $a $b">;
 
+// - SPV_KHR_untyped_pointers
+
+def OpTypeUntypedPointerKHR: Op<4417, (outs TYPE:$res), (ins StorageClass:$storage),
+                  "$res = OpTypeUntypedPointerKHR $storage">;
+def OpUntypedVariableKHR: Op<4418, (outs ID:$res),
+                  (ins TYPE:$type, StorageClass:$sc, TYPE:$dataType, variable_ops),
+                  "$res = OpUntypedVariableKHR $type $sc $dataType">;
+def OpUntypedAccessChainKHR: Op<4419, (outs ID:$res),
+                  (ins TYPE:$type, TYPE:$baseType, ID:$base, variable_ops),
+                  "$res = OpUntypedAccessChainKHR $type $baseType $base">;
+def OpUntypedInBoundsAccessChainKHR: Op<4420, (outs ID:$res),
+                  (ins TYPE:$type, TYPE:$baseType, ID:$base, variable_ops),
+                  "$res = OpUntypedInBoundsAccessChainKHR $type $baseType $base">;
+def OpUntypedPtrAccessChainKHR: Op<4423, (outs ID:$res),
+                  (ins TYPE:$type, TYPE:$baseType, ID:$base, ID:$element, variable_ops),
+                  "$res = OpUntypedPtrAccessChainKHR $type $baseType $base $element">;
+def OpUntypedInBoundsPtrAccessChainKHR: Op<4424, (outs ID:$res),
+                  (ins TYPE:$type, TYPE:$baseType, ID:$base, ID:$element, variable_ops),
+                  "$res = OpUntypedInBoundsPtrAccessChainKHR $type $baseType $base $element">;
+def OpUntypedArrayLengthKHR: Op<4425, (outs ID:$res),
+                  (ins TYPE:$resTy, TYPE:$structure, ID:$pointer, i32imm:$arrayMember),
+                  "$res = OpUntypedArrayLengthKHR $resTy $structure $pointer $arrayMember">;
+def OpUntypedPrefetchKHR: Op<4426, (outs),
+                  (ins ID:$pointer, ID:$numBytes, variable_ops),
+                  "OpUntypedPrefetchKHR $pointer $numBytes">;
+
 // - SPV_INTEL_variable_length_array
 
 def OpVariableLengthArrayINTEL: Op<5818, (outs ID:$res), (ins TYPE:$type, ID:$length),

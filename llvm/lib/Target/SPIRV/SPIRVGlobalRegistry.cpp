@@ -841,10 +841,34 @@ Register SPIRVGlobalRegistry::buildGlobalVariable(
   if (&GVBuilder.getMBB() != &EntryBB)
     GVBuilder.setInsertPt(EntryBB, EntryBB.getFirstTerminator());
 
-  auto MIB = GVBuilder.buildInstr(SPIRV::OpVariable)
+  // Check if we should use untyped variables (SPV_KHR_untyped_pointers).
+  const SPIRVSubtarget &Subtarget =
+      cast<SPIRVSubtarget>(MIRBuilder.getMF().getSubtarget());
+  const bool UseUntypedPointers = Subtarget.useUntypedPointers();
+  const unsigned VariableOpcode =
+      UseUntypedPointers ? SPIRV::OpUntypedVariableKHR : SPIRV::OpVariable;
+
+  auto MIB = GVBuilder.buildInstr(VariableOpcode)
                  .addDef(ResVReg)
-                 .addUse(getSPIRVTypeID(BaseType))
-                 .addImm(static_cast<uint32_t>(Storage));
+                 .addUse(getSPIRVTypeID(BaseType));
+
+  // Add storage class (comes before DataType for OpUntypedVariableKHR).
+  MIB.addImm(static_cast<uint32_t>(Storage));
+
+  // For OpUntypedVariableKHR, add the Data Type operand after the storage class.
+  if (UseUntypedPointers) {
+    SPIRVTypeInst PointeeType = getPointeeType(BaseType);
+    if (PointeeType)
+      MIB.addUse(getSPIRVTypeID(PointeeType));
+    else {
+      // For untyped pointers without a known pointee type, use i8 as default.
+      const SPIRVInstrInfo &TII = *Subtarget.getInstrInfo();
+      SPIRVTypeInst DefaultType = getOrCreateSPIRVIntegerType(
+          8, MIRBuilder.getMF().front().front(), TII);
+      MIB.addUse(getSPIRVTypeID(DefaultType));
+    }
+  }
+
   if (Init)
     MIB.addUse(Init->getOperand(0).getReg());
   // ISel may introduce a new register on this step, so we need to add it to
@@ -1079,6 +1103,12 @@ SPIRVTypeInst SPIRVGlobalRegistry::getOrCreateSpecialType(
 SPIRVTypeInst SPIRVGlobalRegistry::getOpTypePointer(
     SPIRV::StorageClass::StorageClass SC, SPIRVTypeInst ElemType,
     MachineIRBuilder &MIRBuilder, Register Reg) {
+  // Check if we should use untyped pointers (SPV_KHR_untyped_pointers).
+  const SPIRVSubtarget &ST =
+      cast<SPIRVSubtarget>(MIRBuilder.getMF().getSubtarget());
+  if (ST.useUntypedPointers())
+    return getOrCreateSPIRVUntypedPointerType(SC, MIRBuilder);
+
   if (!Reg.isValid())
     Reg = createTypeVReg(MIRBuilder);
 
@@ -2032,6 +2062,12 @@ SPIRVTypeInst SPIRVGlobalRegistry::getOrCreateSPIRVPointerType(
 SPIRVTypeInst SPIRVGlobalRegistry::getOrCreateSPIRVPointerTypeInternal(
     SPIRVTypeInst BaseType, MachineIRBuilder &MIRBuilder,
     SPIRV::StorageClass::StorageClass SC) {
+  // Check if we should use untyped pointers (SPV_KHR_untyped_pointers).
+  const SPIRVSubtarget &ST =
+      cast<SPIRVSubtarget>(MIRBuilder.getMF().getSubtarget());
+  if (ST.useUntypedPointers())
+    return getOrCreateSPIRVUntypedPointerType(SC, MIRBuilder);
+
   const Type *PointerElementType = getTypeForSPIRVType(BaseType);
   unsigned AddressSpace = storageClassToAddressSpace(SC);
   if (const MachineInstr *MI = findMI(PointerElementType, AddressSpace, CurMF))
@@ -2048,6 +2084,28 @@ SPIRVTypeInst SPIRVGlobalRegistry::getOrCreateSPIRVPointerTypeInternal(
             .addUse(getSPIRVTypeID(BaseType));
       });
   add(PointerElementType, AddressSpace, NewMI);
+  return finishCreatingSPIRVType(Ty, NewMI);
+}
+
+SPIRVTypeInst SPIRVGlobalRegistry::getOrCreateSPIRVUntypedPointerType(
+    SPIRV::StorageClass::StorageClass SC, MachineIRBuilder &MIRBuilder) {
+  unsigned AddressSpace = storageClassToAddressSpace(SC);
+  // Use STK_UntypedPointer handle keyed by address space only
+  auto Handle = SPIRV::irhandle_untyped_pointer(AddressSpace);
+  if (const MachineInstr *MI = findMI(Handle, CurMF))
+    return MI;
+
+  Type *Ty = PointerType::get(MIRBuilder.getMF().getFunction().getContext(),
+                              AddressSpace);
+  const MachineInstr *NewMI = createConstOrTypeAtFunctionEntry(
+      MIRBuilder, [&](MachineIRBuilder &MIRBuilder) {
+        return BuildMI(MIRBuilder.getMBB(), MIRBuilder.getInsertPt(),
+                       MIRBuilder.getDebugLoc(),
+                       MIRBuilder.getTII().get(SPIRV::OpTypeUntypedPointerKHR))
+            .addDef(createTypeVReg(CurMF->getRegInfo()))
+            .addImm(static_cast<uint32_t>(SC));
+      });
+  add(Handle, NewMI);
   return finishCreatingSPIRVType(Ty, NewMI);
 }
 

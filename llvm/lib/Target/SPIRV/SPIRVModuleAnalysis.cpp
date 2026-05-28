@@ -2422,6 +2422,22 @@ void addInstrRequirements(const MachineInstr &MI,
     // TODO: Add UntypedPointersKHR when implemented.
     break;
   }
+  case SPIRV::OpTypeUntypedPointerKHR:
+  case SPIRV::OpUntypedVariableKHR:
+  case SPIRV::OpUntypedAccessChainKHR:
+  case SPIRV::OpUntypedInBoundsAccessChainKHR:
+  case SPIRV::OpUntypedPtrAccessChainKHR:
+  case SPIRV::OpUntypedInBoundsPtrAccessChainKHR:
+  case SPIRV::OpUntypedArrayLengthKHR:
+  case SPIRV::OpUntypedPrefetchKHR: {
+    if (!ST.canUseExtension(SPIRV::Extension::SPV_KHR_untyped_pointers))
+      report_fatal_error("Untyped pointer instructions require the following "
+                         "SPIR-V extension: SPV_KHR_untyped_pointers",
+                         false);
+    Reqs.addExtension(SPIRV::Extension::SPV_KHR_untyped_pointers);
+    Reqs.addCapability(SPIRV::Capability::UntypedPointersKHR);
+    break;
+  }
   case SPIRV::OpPredicatedLoadINTEL:
   case SPIRV::OpPredicatedStoreINTEL: {
     if (!ST.canUseExtension(SPIRV::Extension::SPV_INTEL_predicated_io))

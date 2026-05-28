@@ -4537,32 +4537,69 @@ bool SPIRVInstructionSelector::selectGEP(Register ResVReg,
                                          SPIRVTypeInst ResType,
                                          MachineInstr &I) const {
   const bool IsGEPInBounds = I.getOperand(2).getImm();
+  const bool UseUntypedPointers = STI.useUntypedPointers();
 
-  // OpAccessChain could be used for OpenCL, but the SPIRV-LLVM Translator only
-  // relies on PtrAccessChain, so we'll try not to deviate. For Vulkan however,
-  // we have to use Op[InBounds]AccessChain.
-  const unsigned Opcode = STI.isLogicalSPIRV()
-                              ? (IsGEPInBounds ? SPIRV::OpInBoundsAccessChain
-                                               : SPIRV::OpAccessChain)
-                              : (IsGEPInBounds ? SPIRV::OpInBoundsPtrAccessChain
-                                               : SPIRV::OpPtrAccessChain);
+  // Determine the opcode based on pointer type and bounds checking.
+  // When using untyped pointers, use OpUntyped*AccessChainKHR variants.
+  unsigned Opcode;
+  if (UseUntypedPointers) {
+    if (STI.isLogicalSPIRV()) {
+      Opcode = IsGEPInBounds ? SPIRV::OpUntypedInBoundsAccessChainKHR
+                             : SPIRV::OpUntypedAccessChainKHR;
+    } else {
+      Opcode = IsGEPInBounds ? SPIRV::OpUntypedInBoundsPtrAccessChainKHR
+                             : SPIRV::OpUntypedPtrAccessChainKHR;
+    }
+  } else {
+    // OpAccessChain could be used for OpenCL, but the SPIRV-LLVM Translator
+    // only relies on PtrAccessChain, so we'll try not to deviate. For Vulkan
+    // however, we have to use Op[InBounds]AccessChain.
+    if (STI.isLogicalSPIRV()) {
+      Opcode =
+          IsGEPInBounds ? SPIRV::OpInBoundsAccessChain : SPIRV::OpAccessChain;
+    } else {
+      Opcode = IsGEPInBounds ? SPIRV::OpInBoundsPtrAccessChain
+                             : SPIRV::OpPtrAccessChain;
+    }
+  }
 
   auto Res = BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(Opcode))
                  .addDef(ResVReg)
-                 .addUse(GR.getSPIRVTypeID(ResType))
-                 // Object to get a pointer to.
-                 .addUse(I.getOperand(3).getReg());
-  assert(
-      (Opcode == SPIRV::OpPtrAccessChain ||
-       Opcode == SPIRV::OpInBoundsPtrAccessChain ||
-       (getImm(I.getOperand(4), MRI) && foldImm(I.getOperand(4), MRI) == 0)) &&
-      "Cannot translate GEP to OpAccessChain. First index must be 0.");
+                 .addUse(GR.getSPIRVTypeID(ResType));
+
+  // For untyped access chains, we need to add the base type operand.
+  if (UseUntypedPointers) {
+    // Get the element type from the base pointer register.
+    // For untyped pointers, this was stored when processing spv_assign_ptr_type.
+    Register BaseReg = I.getOperand(3).getReg();
+    SPIRVTypeInst BaseType = GR.getUntypedPtrElementType(BaseReg);
+    if (!BaseType) {
+      // Fallback: try to get from pointee type (for typed pointers mixed usage)
+      SPIRVTypeInst BasePtrType = GR.getSPIRVTypeForVReg(BaseReg);
+      BaseType = BasePtrType ? GR.getPointeeType(BasePtrType) : nullptr;
+    }
+    if (!BaseType) {
+      // Last resort: use i8 as the base type
+      BaseType = GR.getOrCreateSPIRVIntegerType(8, I, TII);
+    }
+    Res.addUse(GR.getSPIRVTypeID(BaseType));
+  }
+
+  // Object to get a pointer to.
+  Res.addUse(I.getOperand(3).getReg());
+
+  const bool IsAccessChainOpcode =
+      (Opcode == SPIRV::OpAccessChain ||
+       Opcode == SPIRV::OpInBoundsAccessChain ||
+       Opcode == SPIRV::OpUntypedAccessChainKHR ||
+       Opcode == SPIRV::OpUntypedInBoundsAccessChainKHR);
+
+  assert((!IsAccessChainOpcode ||
+          (getImm(I.getOperand(4), MRI) && foldImm(I.getOperand(4), MRI) == 0)) &&
+         "Cannot translate GEP to OpAccessChain. First index must be 0.");
 
   // Adding indices.
-  const unsigned StartingIndex =
-      (Opcode == SPIRV::OpAccessChain || Opcode == SPIRV::OpInBoundsAccessChain)
-          ? 5
-          : 4;
+  const unsigned StartingIndex = IsAccessChainOpcode ? 5 : 4;
   for (unsigned i = StartingIndex; i < I.getNumExplicitOperands(); ++i)
     Res.addUse(I.getOperand(i).getReg());
   Res.constrainAllUses(TII, TRI, RBI);
@@ -6514,11 +6551,31 @@ bool SPIRVInstructionSelector::selectFrameIndex(Register ResVReg,
   // Change order of instructions if needed: all OpVariable instructions in a
   // function must be the first instructions in the first block
   auto It = getOpVariableMBBIt(*I.getMF());
-  BuildMI(*It->getParent(), It, It->getDebugLoc(), TII.get(SPIRV::OpVariable))
-      .addDef(ResVReg)
-      .addUse(GR.getSPIRVTypeID(ResType))
-      .addImm(static_cast<uint32_t>(SPIRV::StorageClass::Function))
-      .constrainAllUses(TII, TRI, RBI);
+
+  // Use OpUntypedVariableKHR when untyped pointers are enabled.
+  bool UseUntypedPointers = STI.useUntypedPointers();
+  unsigned Opcode =
+      UseUntypedPointers ? SPIRV::OpUntypedVariableKHR : SPIRV::OpVariable;
+
+  auto MIB = BuildMI(*It->getParent(), It, It->getDebugLoc(), TII.get(Opcode))
+                 .addDef(ResVReg)
+                 .addUse(GR.getSPIRVTypeID(ResType));
+
+  // Add storage class (comes before DataType for OpUntypedVariableKHR).
+  MIB.addImm(static_cast<uint32_t>(SPIRV::StorageClass::Function));
+
+  // OpUntypedVariableKHR requires a DataType operand after the storage class.
+  if (UseUntypedPointers) {
+    // Get the element type that was stored when processing spv_assign_ptr_type.
+    SPIRVTypeInst DataType = GR.getUntypedPtrElementType(ResVReg);
+    if (!DataType) {
+      // Fallback to i32 if the element type wasn't tracked.
+      DataType = GR.getOrCreateSPIRVIntegerType(32, I, TII);
+    }
+    MIB.addUse(GR.getSPIRVTypeID(DataType));
+  }
+  MIB.constrainAllUses(TII, TRI, RBI);
+
   if (!STI.isShader()) {
     unsigned Alignment = I.getOperand(2).getImm();
     buildOpDecorate(ResVReg, *It, TII, SPIRV::Decoration::Alignment,
