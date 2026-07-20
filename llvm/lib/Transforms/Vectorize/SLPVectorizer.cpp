@@ -14442,13 +14442,24 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
   InstructionsCompatibilityAnalysis Analysis(DT, DL, TTI, TLI);
   SmallVector<BoUpSLP::ValueList> Operands = Analysis.buildOperands(S, VL);
 
-  InstructionsState OpS = getSameOpcode(Operands.front(), TLI);
+  ArrayRef<Value *> FMulOperands = Operands.front();
+  InstructionsState OpS = getSameOpcode(FMulOperands, TLI);
+  if (Operands.size() > 1 &&
+      (!OpS.valid() || OpS.isAltShuffle() ||
+       OpS.getOpcode() != Instruction::FMul)) {
+    InstructionsState AltS = getSameOpcode(Operands[1], TLI);
+    if (AltS.valid() && !AltS.isAltShuffle() &&
+        AltS.getOpcode() == Instruction::FMul) {
+      OpS = AltS;
+      FMulOperands = Operands[1];
+    }
+  }
   if (!OpS.valid())
     return InstructionCost::getInvalid();
 
   if (OpS.isAltShuffle() || OpS.getOpcode() != Instruction::FMul)
     return InstructionCost::getInvalid();
-  if (!CheckForContractable(Operands.front()))
+  if (!CheckForContractable(FMulOperands))
     return InstructionCost::getInvalid();
   // Compare the costs.
   InstructionCost FMulPlusFAddCost = 0;
@@ -14466,7 +14477,7 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
     FMulPlusFAddCost += TTI.getInstructionCost(I, CostKind);
   }
   unsigned NumOps = 0;
-  for (auto [V, Op] : zip(VL, Operands.front())) {
+  for (auto [V, Op] : zip(VL, FMulOperands)) {
     if (S.isCopyableElement(V))
       continue;
     auto *I = dyn_cast<Instruction>(Op);
@@ -14480,7 +14491,8 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
     ++NumOps;
     if (auto *FPCI = dyn_cast<FPMathOperator>(I))
       FMF &= FPCI->getFastMathFlags();
-    FMulPlusFAddCost += TTI.getInstructionCost(I, CostKind);
+    FMulPlusFAddCost +=
+        TTI.getArithmeticInstrCost(I->getOpcode(), I->getType(), CostKind);
   }
   Type *Ty = VL.front()->getType();
   IntrinsicCostAttributes ICA(Intrinsic::fmuladd, Ty, {Ty, Ty, Ty}, FMF);
