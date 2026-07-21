@@ -13510,7 +13510,8 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
                                        const InstructionsState &S,
                                        DominatorTree &DT, const DataLayout &DL,
                                        TargetTransformInfo &TTI,
-                                       const TargetLibraryInfo &TLI);
+                                       const TargetLibraryInfo &TLI,
+                                       bool TrySecondOperand = true);
 
 uint64_t BoUpSLP::getNumScalarInsts(bool HasTreeLoop) {
   uint64_t Total = 0;
@@ -14325,7 +14326,8 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
                                        const InstructionsState &S,
                                        DominatorTree &DT, const DataLayout &DL,
                                        TargetTransformInfo &TTI,
-                                       const TargetLibraryInfo &TLI) {
+                                       const TargetLibraryInfo &TLI,
+                                       bool TrySecondOperand) {
   assert(all_of(VL,
                 [](Value *V) {
                   return V->getType()->getScalarType()->isFloatingPointTy();
@@ -14358,7 +14360,7 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
 
   ArrayRef<Value *> FMulOperands = Operands.front();
   InstructionsState OpS = getSameOpcode(FMulOperands, TLI);
-  if (Operands.size() > 1 &&
+  if (TrySecondOperand && Operands.size() > 1 &&
       (!OpS.valid() || OpS.isAltShuffle() ||
        OpS.getOpcode() != Instruction::FMul)) {
     InstructionsState AltS = getSameOpcode(Operands[1], TLI);
@@ -31162,7 +31164,8 @@ private:
               if (hasRequiredNumberOfUses(IsCmpSelMinMax, RdxOp)) {
                 if (RdxKind == RecurKind::FAdd) {
                   InstructionCost FMACost = canConvertToFMA(
-                      RdxOp, getSameOpcode(RdxOp, TLI), DT, DL, *TTI, TLI);
+                      RdxOp, getSameOpcode(RdxOp, TLI), DT, DL, *TTI, TLI,
+                      /*TrySecondOperand=*/false);
                   if (FMACost.isValid()) {
                     LLVM_DEBUG(dbgs() << "FMA cost: " << FMACost << "\n");
                     if (auto *I = dyn_cast<Instruction>(RdxVal)) {
@@ -31262,7 +31265,7 @@ private:
             }
             if (!Ops.empty()) {
               FMACost = canConvertToFMA(Ops, getSameOpcode(Ops, TLI), DT, DL,
-                                        *TTI, TLI);
+                                        *TTI, TLI, /*TrySecondOperand=*/false);
               if (FMACost.isValid()) {
                 // Calculate actual FMAD cost.
                 IntrinsicCostAttributes ICA(Intrinsic::fmuladd, RVecTy,
