@@ -13511,7 +13511,7 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
                                        DominatorTree &DT, const DataLayout &DL,
                                        TargetTransformInfo &TTI,
                                        const TargetLibraryInfo &TLI,
-                                       bool TrySecondOperand = true);
+                                       bool TrySecondOperand = false);
 
 uint64_t BoUpSLP::getNumScalarInsts(bool HasTreeLoop) {
   uint64_t Total = 0;
@@ -13589,7 +13589,8 @@ uint64_t BoUpSLP::getNumScalarInsts(bool HasTreeLoop) {
           if (!I || (TE.isAltShuffle() && I->getOpcode() != Instruction::FAdd &&
                      I->getOpcode() != Instruction::FSub))
             continue;
-          if (canConvertToFMA(I, InstructionsState(I, I), *DT, *DL, *TTI, *TLI)
+          if (canConvertToFMA(I, InstructionsState(I, I), *DT, *DL, *TTI, *TLI,
+                              /*TrySecondOperand=*/true)
                   .isValid()) {
             assert(Count > 0 && "Underflow in scalar inst count (fma)");
             --Count;
@@ -16887,7 +16888,8 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
   };
   auto GetFMulAddCost = [&, &TTI = *TTI](const InstructionsState &S,
                                          Instruction *VI) {
-    InstructionCost Cost = canConvertToFMA(VI, S, *DT, *DL, TTI, *TLI);
+    InstructionCost Cost =
+        canConvertToFMA(VI, S, *DT, *DL, TTI, *TLI, /*TrySecondOperand=*/true);
     return Cost;
   };
   switch (ShuffleOrOp) {
@@ -32070,7 +32072,8 @@ bool SLPVectorizerPass::tryToVectorize(
   if (!AllowFMACandidates &&
       (I->getOpcode() == Instruction::FAdd ||
        I->getOpcode() == Instruction::FSub) &&
-      canConvertToFMA(I, getSameOpcode(I, *TLI), *DT, *DL, *TTI, *TLI)
+      canConvertToFMA(I, getSameOpcode(I, *TLI), *DT, *DL, *TTI, *TLI,
+                      /*TrySecondOperand=*/true)
           .isValid()) {
     FMACandidates.insert(I);
     return false;
