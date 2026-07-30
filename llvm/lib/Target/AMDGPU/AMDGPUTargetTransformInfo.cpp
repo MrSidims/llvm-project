@@ -524,6 +524,27 @@ bool GCNTTIImpl::getTgtMemIntrinsic(IntrinsicInst *Inst,
   }
 }
 
+bool GCNTTIImpl::canFuseFMulWithFAddSub(MVT::SimpleValueType SLT,
+                                        const Instruction *FMul,
+                                        const Instruction *FAddSub) const {
+  const int OPC = TLI->InstructionOpcodeToISD(FAddSub->getOpcode());
+  if (OPC != ISD::FADD && OPC != ISD::FSUB)
+    return false;
+
+  // v_mad_f32/v_mac_f32 and their f16 counterparts are exact for the separate
+  // operations, so the fusion is performed regardless of the fast-math flags.
+  // They do not support denormals.
+  if (ST->hasMadMacF32Insts() && SLT == MVT::f32 && !HasFP32Denormals)
+    return true;
+  if (ST->has16BitInsts() && SLT == MVT::f16 && !HasFP64FP16Denormals)
+    return true;
+
+  // Estimate all types may be fused with contract/unsafe flags.
+  const TargetOptions &Options = TLI->getTargetMachine().Options;
+  return Options.AllowFPOpFusion == FPOpFusion::Fast ||
+         (FAddSub->hasAllowContract() && FMul->hasAllowContract());
+}
+
 InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
     TTI::OperandValueInfo Op1Info, TTI::OperandValueInfo Op2Info,
@@ -587,21 +608,9 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     // fmul(b,c) supposing the fadd|fsub will get estimated cost for the whole
     // fused operation.
     if (CxtI && CxtI->hasOneUse())
-      if (const auto *FAdd = dyn_cast<BinaryOperator>(*CxtI->user_begin())) {
-        const int OPC = TLI->InstructionOpcodeToISD(FAdd->getOpcode());
-        if (OPC == ISD::FADD || OPC == ISD::FSUB) {
-          if (ST->hasMadMacF32Insts() && SLT == MVT::f32 && !HasFP32Denormals)
-            return TargetTransformInfo::TCC_Free;
-          if (ST->has16BitInsts() && SLT == MVT::f16 && !HasFP64FP16Denormals)
-            return TargetTransformInfo::TCC_Free;
-
-          // Estimate all types may be fused with contract/unsafe flags
-          const TargetOptions &Options = TLI->getTargetMachine().Options;
-          if (Options.AllowFPOpFusion == FPOpFusion::Fast ||
-              (FAdd->hasAllowContract() && CxtI->hasAllowContract()))
-            return TargetTransformInfo::TCC_Free;
-        }
-      }
+      if (const auto *FAdd = dyn_cast<BinaryOperator>(*CxtI->user_begin()))
+        if (canFuseFMulWithFAddSub(SLT, CxtI, FAdd))
+          return TargetTransformInfo::TCC_Free;
     [[fallthrough]];
   case ISD::FADD:
   case ISD::FSUB:
@@ -1482,6 +1491,41 @@ InstructionCost GCNTTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
 bool GCNTTIImpl::isProfitableToSinkOperands(Instruction *I,
                                             SmallVectorImpl<Use *> &Ops) const {
   using namespace PatternMatch;
+
+  // fadd/fsub (fmul a, b), c -> fma/mad a, b, c.
+  //
+  // FMA formation happens in DAGCombiner, which never looks outside of a single
+  // basic block, and AMDGPU has no MachineCombiner patterns to form it later.
+  // An fmul left in a different block from its fadd/fsub user is therefore
+  // never fused, even though getArithmeticInstrCost prices it as if it were.
+  //
+  // The generic sinking pass run in addPreISel already covers the plain
+  // dominator case, but it refuses to sink into a loop, which is exactly where
+  // LICM strands a loop-invariant fmul whose fadd user is in the loop body.
+  //
+  // Only the operand instruction selection will actually fuse is a candidate:
+  // both visitFADDForFMACombine and visitFSUBForFMACombine try the first
+  // operand and fall back to the second, and they fuse at most one of them.
+  // Sinking the other would move a multiply that stays a multiply, which is a
+  // pessimization if the user is in a hotter block. Requiring a single use
+  // keeps this a move rather than a duplication: CodeGenPrepare clones the
+  // operand and erases the now-dead original.
+  if (I->getOpcode() == Instruction::FAdd ||
+      I->getOpcode() == Instruction::FSub) {
+    MVT::SimpleValueType SLT =
+        getTypeLegalizationCost(I->getType()).second.getScalarType().SimpleTy;
+    for (Use &Op : I->operands()) {
+      auto *FMul = dyn_cast<Instruction>(Op.get());
+      if (!FMul || FMul->getOpcode() != Instruction::FMul ||
+          !FMul->hasOneUse() || !canFuseFMulWithFAddSub(SLT, FMul, I))
+        continue;
+      // This is the operand that will be fused. If it is already local there is
+      // nothing to do, and no later operand is a candidate either.
+      if (FMul->getParent() != I->getParent())
+        Ops.push_back(&Op);
+      break;
+    }
+  }
 
   for (auto &Op : I->operands()) {
     // Ensure we are not already sinking this operand.

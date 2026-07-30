@@ -103,6 +103,12 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
 
   std::pair<InstructionCost, MVT> getTypeLegalizationCost(Type *Ty) const;
 
+  /// \returns true if \p FMul, whose single user is the fadd/fsub
+  /// \p FAddSub, is expected to be fused into an FMA/FMAD during instruction
+  /// selection. \p SLT is the legalized scalar type of the operation.
+  bool canFuseFMulWithFAddSub(MVT::SimpleValueType SLT, const Instruction *FMul,
+                              const Instruction *FAddSub) const;
+
   /// \returns true if V might be divergent even when all of its operands
   /// are uniform.
   bool isSourceOfDivergence(const Value *V) const;
