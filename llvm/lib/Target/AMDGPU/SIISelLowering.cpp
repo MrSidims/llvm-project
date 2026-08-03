@@ -7475,6 +7475,12 @@ bool SITargetLowering::isFMAFasterThanFMulAndFAdd(const Function &F,
   return isFMAFasterThanFMulAndFAdd(VT, SIModeRegisterDefaults(F, *Subtarget));
 }
 
+bool SITargetLowering::isFMAFasterThanFMulAndFAdd(const Function &F,
+                                                  Type *Ty) const {
+  return isFMAFasterThanFMulAndFAdd(
+      F, getValueType(F.getDataLayout(), Ty, /*AllowUnknown=*/true));
+}
+
 bool SITargetLowering::isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
                                                   LLT Ty) const {
   switch (Ty.getScalarSizeInBits()) {

@@ -513,6 +513,7 @@ public:
   /// Variants for IR level callers, which have no MachineFunction and read the
   /// mode register defaults from \p F instead.
   bool isFMAFasterThanFMulAndFAdd(const Function &F, EVT VT) const;
+  bool isFMAFasterThanFMulAndFAdd(const Function &F, Type *Ty) const override;
   bool isFMADLegal(const Function &F, EVT VT) const;
 
   SDValue splitUnaryVectorOp(SDValue Op, SelectionDAG &DAG) const;
