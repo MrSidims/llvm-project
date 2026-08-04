@@ -68,6 +68,11 @@ static cl::opt<bool> UseDivergentRegisterIndexing(
     cl::desc("Use indirect register addressing for divergent indexes"),
     cl::init(false));
 
+static DenormalFPEnv getDenormalFPEnv(const MachineFunction &MF) {
+  SIModeRegisterDefaults Mode = MF.getInfo<SIMachineFunctionInfo>()->getMode();
+  return DenormalFPEnv(Mode.FP64FP16Denormals, Mode.FP32Denormals);
+}
+
 static bool denormalModeIsFlushAllF32(const MachineFunction &MF) {
   const SIMachineFunctionInfo *Info = MF.getInfo<SIMachineFunctionInfo>();
   return Info->getMode().FP32Denormals == DenormalMode::getPreserveSign();
@@ -7432,8 +7437,8 @@ LLT SITargetLowering::getPreferredShiftAmountTy(LLT Ty) const {
 // however does not support denormals, so we do report fma as faster if we have
 // a fast fma device and require denormals.
 //
-bool SITargetLowering::isFMAFasterThanFMulAndFAdd(
-    EVT VT, const SIModeRegisterDefaults &Mode) const {
+bool SITargetLowering::isFMAFasterThanFMulAndFAdd(EVT VT,
+                                                  DenormalFPEnv FPEnv) const {
   VT = VT.getScalarType();
 
   switch (VT.getSimpleVT().SimpleTy) {
@@ -7445,7 +7450,7 @@ bool SITargetLowering::isFMAFasterThanFMulAndFAdd(
     // Otherwise f32 mad is always full rate and returns the same result as
     // the separate operations so should be preferred over fma.
     // However does not support denormals.
-    if (Mode.FP32Denormals != DenormalMode::getPreserveSign())
+    if (FPEnv.F32Mode != DenormalMode::getPreserveSign())
       return Subtarget->hasFastFMAF32() || Subtarget->hasDLInsts();
 
     // If the subtarget has v_fmac_f32, that's just as good as v_mac_f32.
@@ -7456,7 +7461,7 @@ bool SITargetLowering::isFMAFasterThanFMulAndFAdd(
   case MVT::f16:
   case MVT::bf16:
     return Subtarget->has16BitInsts() &&
-           Mode.FP64FP16Denormals != DenormalMode::getPreserveSign();
+           FPEnv.DefaultMode != DenormalMode::getPreserveSign();
   default:
     break;
   }
@@ -7466,13 +7471,12 @@ bool SITargetLowering::isFMAFasterThanFMulAndFAdd(
 
 bool SITargetLowering::isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
                                                   EVT VT) const {
-  return isFMAFasterThanFMulAndFAdd(
-      VT, MF.getInfo<SIMachineFunctionInfo>()->getMode());
+  return isFMAFasterThanFMulAndFAdd(VT, getDenormalFPEnv(MF));
 }
 
 bool SITargetLowering::isFMAFasterThanFMulAndFAdd(const Function &F,
                                                   EVT VT) const {
-  return isFMAFasterThanFMulAndFAdd(VT, SIModeRegisterDefaults(F, *Subtarget));
+  return isFMAFasterThanFMulAndFAdd(VT, F.getDenormalFPEnv());
 }
 
 bool SITargetLowering::isFMAFasterThanFMulAndFAdd(const Function &F,
@@ -7497,16 +7501,15 @@ bool SITargetLowering::isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
   return false;
 }
 
-bool SITargetLowering::isFMADLegal(EVT VT,
-                                   const SIModeRegisterDefaults &Mode) const {
+bool SITargetLowering::isFMADLegal(EVT VT, DenormalFPEnv FPEnv) const {
   // TODO: Check future ftz flag
   // v_mad_f32/v_mac_f32 do not support denormals.
   if (VT == MVT::f32)
     return Subtarget->hasMadMacF32Insts() &&
-           Mode.FP32Denormals == DenormalMode::getPreserveSign();
+           FPEnv.F32Mode == DenormalMode::getPreserveSign();
   if (VT == MVT::f16)
     return Subtarget->hasMadF16() &&
-           Mode.FP64FP16Denormals == DenormalMode::getPreserveSign();
+           FPEnv.DefaultMode == DenormalMode::getPreserveSign();
 
   return false;
 }
@@ -7515,25 +7518,23 @@ bool SITargetLowering::isFMADLegal(const MachineInstr &MI, LLT Ty) const {
   if (!Ty.isScalar())
     return false;
 
-  SIModeRegisterDefaults Mode =
-      MI.getMF()->getInfo<SIMachineFunctionInfo>()->getMode();
+  DenormalFPEnv FPEnv = getDenormalFPEnv(*MI.getMF());
   if (Ty.getScalarSizeInBits() == 16)
-    return isFMADLegal(MVT::f16, Mode);
+    return isFMADLegal(MVT::f16, FPEnv);
   if (Ty.getScalarSizeInBits() == 32)
-    return isFMADLegal(MVT::f32, Mode);
+    return isFMADLegal(MVT::f32, FPEnv);
 
   return false;
 }
 
 bool SITargetLowering::isFMADLegal(const SelectionDAG &DAG,
                                    const SDNode *N) const {
-  return isFMADLegal(
-      N->getValueType(0),
-      DAG.getMachineFunction().getInfo<SIMachineFunctionInfo>()->getMode());
+  return isFMADLegal(N->getValueType(0),
+                     getDenormalFPEnv(DAG.getMachineFunction()));
 }
 
 bool SITargetLowering::isFMADLegal(const Function &F, EVT VT) const {
-  return isFMADLegal(VT, SIModeRegisterDefaults(F, *Subtarget));
+  return isFMADLegal(VT, F.getDenormalFPEnv());
 }
 
 //===----------------------------------------------------------------------===//
