@@ -18,6 +18,7 @@
 #define LLVM_LIB_TARGET_AMDGPU_AMDGPUTARGETTRANSFORMINFO_H
 
 #include "AMDGPU.h"
+#include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/CodeGen/BasicTTIImpl.h"
 #include "llvm/Support/AMDGPUAddrSpace.h"
 #include <optional>
@@ -70,6 +71,7 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
   const SITargetLowering *TLI;
   AMDGPUTTIImpl CommonTTI;
   bool IsGraphics;
+  DenormalFPEnv FPEnv;
   bool HasFP32Denormals;
   bool HasFP64FP16Denormals;
   static constexpr bool InlinerVectorBonusPercent = 0;
@@ -103,10 +105,11 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
 
   std::pair<InstructionCost, MVT> getTypeLegalizationCost(Type *Ty) const;
 
-  /// \returns true if \p FMul, whose single user is the fadd/fsub
-  /// \p FAddSub, is expected to be fused into an FMA/FMAD during instruction
-  /// selection. \p SLT is the legalized scalar type of the operation.
-  bool canFuseFMulWithFAddSub(MVT::SimpleValueType SLT, const Instruction *FMul,
+  /// \returns true if \p FMul, whose only user is the fadd/fsub \p FAddSub, is
+  /// selected as a single FMA or FMAD together with it. This answers what
+  /// DAGCombiner would do for a pair in the same basic block, so a true here
+  /// says nothing about where the two instructions are.
+  bool canFuseFMulWithFAddSub(const Instruction *FMul,
                               const Instruction *FAddSub) const;
 
   /// \returns true if V might be divergent even when all of its operands
