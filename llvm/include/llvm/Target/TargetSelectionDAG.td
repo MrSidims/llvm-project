@@ -1327,7 +1327,9 @@ def immAllZerosV : SDPatternOperator; // ISD::isConstantSplatVectorAllZeros
 // An 'fmul' node which has contract flag
 def fmul_contract : PatFrag<(ops node:$a, node:$b), (fmul node:$a, node:$b),[{
   return N->getFlags().hasAllowContract();
-}]>;
+}]> {
+  let GISelPredicateCode = [{ return MI.getFlag(MachineInstr::FmContract); }];
+}
 
 // An 'fadd' node which can be contracted with fmul_contract into a fma or other relaxed instruction
 def fadd_contract : PatFrag<(ops node:$a, node:$b), (fadd node:$a, node:$b),[{
@@ -1337,6 +1339,31 @@ def fadd_contract : PatFrag<(ops node:$a, node:$b), (fadd node:$a, node:$b),[{
 def fsub_contract : PatFrag<(ops node:$a, node:$b), (fsub node:$a, node:$b),[{
   return N->getFlags().hasAllowContract();
 }]>;
+
+// An 'fma' node which has contract flag
+def fma_contract : PatFrag<(ops node:$a, node:$b, node:$c),
+                           (fma node:$a, node:$b, node:$c), [{
+  return N->getFlags().hasAllowContract();
+}]> {
+  let GISelPredicateCode = [{ return MI.getFlag(MachineInstr::FmContract); }];
+}
+
+// An 'fmad' node which has contract flag
+def fmad_contract : PatFrag<(ops node:$a, node:$b, node:$c),
+                            (fmad node:$a, node:$b, node:$c), [{
+  return N->getFlags().hasAllowContract();
+}]> {
+  let GISelPredicateCode = [{ return MI.getFlag(MachineInstr::FmContract); }];
+}
+
+// An 'fpround' node which has contract flag, i.e. one which may be folded into
+// the operation producing its source such that the source is rounded only once,
+// to the narrower type.
+def fpround_contract : PatFrag<(ops node:$src), (fpround node:$src), [{
+  return N->getFlags().hasAllowContract();
+}]> {
+  let GISelPredicateCode = [{ return MI.getFlag(MachineInstr::FmContract); }];
+}
 
 def not  : PatFrag<(ops node:$in), (xor node:$in, -1)>;
 def vnot : PatFrag<(ops node:$in), (xor node:$in, immAllOnesV)>;

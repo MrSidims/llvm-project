@@ -3721,10 +3721,15 @@ bool AMDGPULegalizerInfo::legalizeFlogCommon(MachineInstr &MI,
     bool PromoteToF32 =
         Ty == F16 && (!MI.getFlag(MachineInstr::FmAfn) || !ST.has16BitInsts());
     if (PromoteToF32) {
+      // Log and multiply in f32 is always good enough for f16. The whole f32
+      // sequence only approximates the f16 result, so contraction inside it
+      // gives up no accuracy that was promised, and it lets the final multiply
+      // and the round back to f16 become one mixed-precision instruction.
+      Flags |= MachineInstr::FmContract;
       Register LogVal = MRI.createGenericVirtualRegister(F32);
       auto PromoteSrc = B.buildFPExt(F32, X);
       legalizeFlogUnsafe(B, LogVal, PromoteSrc.getReg(0), IsLog10, Flags);
-      B.buildFPTrunc(Dst, LogVal);
+      B.buildFPTrunc(Dst, LogVal, Flags);
     } else {
       legalizeFlogUnsafe(B, Dst, X, IsLog10, Flags);
     }

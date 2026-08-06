@@ -2780,7 +2780,11 @@ SDValue AMDGPUTargetLowering::LowerFLOGCommon(SDValue Op,
                                            !isTypeLegal(MVT::f16));
 
     if (PromoteToF32) {
-      // Log and multiply in f32 is always good enough for f16.
+      // Log and multiply in f32 is always good enough for f16. The whole f32
+      // sequence only approximates the f16 result, so contraction inside it
+      // gives up no accuracy that was promised, and it lets the final multiply
+      // and the round back to f16 become one mixed-precision instruction.
+      Flags.setAllowContract(true);
       X = DAG.getNode(ISD::FP_EXTEND, DL, MVT::f32, X, Flags);
     }
 
