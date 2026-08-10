@@ -22,10 +22,16 @@
 /// superset of the tags on the candidate so it orders at least the address
 /// spaces the candidate would. A workgroup barrier is removable in the same way
 /// with respect to other workgroup barriers. In kernels the function entry
-/// and exits act as covers for fences because under the HSA memory model the
-/// dispatch packet performs a system scope acquire at launch and a system
-/// scope release at completion. That is a runtime contract rather than an
-/// LLVM IR guarantee. Kernel entry never justifies removal of an execution
+/// and exits act as covers for fences. A release fence that reaches kernel
+/// exit without a later atomic store and an acquire fence that reaches
+/// kernel entry without an earlier atomic load take part in no
+/// synchronization and their removal needs no contract at all. The
+/// remaining boundary cases rely on the HSA memory model where the dispatch
+/// packet performs a system scope acquire at launch and a system scope
+/// release at completion, so anything published before launch is already
+/// visible to every wave and everything the kernel wrote is released at
+/// completion. That is a runtime contract rather than an LLVM IR
+/// guarantee. Kernel entry never justifies removal of an execution
 /// barrier since launch does not rendezvous waves. Kernel exit justifies it
 /// when no observable access follows on any path. A rendezvous no later
 /// access can observe orders nothing, and removal takes the barrier from
@@ -440,7 +446,8 @@ bool BarrierOptimizer::run() {
   // Narrowing walks stop at a cover on the promise that accesses beyond it
   // are ordered by the cover at the candidate scope in every address space
   // so only untagged covers qualify there.
-  auto MakeFenceCover = [this](const FenceInst *Self, const ScopeInfo &SelfScope,
+  auto MakeFenceCover = [this](const FenceInst *Self,
+                               const ScopeInfo &SelfScope,
                                bool AllowTaggedCovers) {
     return [this, Self, SelfScope, AllowTaggedCovers](const Instruction &I) {
       if (&I == Self)
