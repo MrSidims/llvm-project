@@ -217,22 +217,29 @@ std::optional<unsigned> BarrierOptimizer::scanBackward(Instruction *From,
                                                        bool BarrierBlocks,
                                                        bool BoundaryCovers) {
   unsigned Mask = 0;
+  bool Justified = false;
   SmallPtrSet<BasicBlock *, 16> Visited;
   SmallVector<BasicBlock *, 16> Worklist;
 
   auto ScanRange = [&](BasicBlock::reverse_iterator Begin,
                        BasicBlock::reverse_iterator End) {
     for (auto It = Begin; It != End; ++It) {
-      if (IsCover(*It))
+      if (IsCover(*It)) {
+        Justified = true;
         return true;
+      }
       Mask |= accessMask(*It, BarrierBlocks);
     }
     return false;
   };
 
   auto EnqueueOrFail = [&](BasicBlock *BB) {
-    if (BB == &F.getEntryBlock())
-      return BoundaryCovers && IsKernel;
+    if (BB == &F.getEntryBlock()) {
+      if (!BoundaryCovers || !IsKernel)
+        return false;
+      Justified = true;
+      return true;
+    }
     append_range(Worklist, predecessors(BB));
     return true;
   };
@@ -253,6 +260,11 @@ std::optional<unsigned> BarrierOptimizer::scanBackward(Instruction *From,
     if (!EnqueueOrFail(BB))
       return std::nullopt;
   }
+  // A drained worklist proves nothing by itself. Access free cycles visit
+  // every block without ever reaching a cover or a boundary, so require
+  // that at least one path was justified.
+  if (!Justified)
+    return std::nullopt;
   return Mask;
 }
 
@@ -261,13 +273,16 @@ std::optional<unsigned> BarrierOptimizer::scanForward(Instruction *From,
                                                       bool BarrierBlocks,
                                                       bool BoundaryCovers) {
   unsigned Mask = 0;
+  bool Justified = false;
   SmallPtrSet<BasicBlock *, 16> Visited;
   SmallVector<BasicBlock *, 16> Worklist;
 
   auto ScanRange = [&](BasicBlock::iterator Begin, BasicBlock::iterator End) {
     for (auto It = Begin; It != End; ++It) {
-      if (IsCover(*It))
+      if (IsCover(*It)) {
+        Justified = true;
         return true;
+      }
       Mask |= accessMask(*It, BarrierBlocks);
     }
     return false;
@@ -275,8 +290,12 @@ std::optional<unsigned> BarrierOptimizer::scanForward(Instruction *From,
 
   auto EnqueueOrFail = [&](BasicBlock *BB) {
     Instruction *Term = BB->getTerminator();
-    if (succ_empty(BB))
-      return isa<UnreachableInst>(Term) || (BoundaryCovers && IsKernel);
+    if (succ_empty(BB)) {
+      if (!isa<UnreachableInst>(Term) && (!BoundaryCovers || !IsKernel))
+        return false;
+      Justified = true;
+      return true;
+    }
     append_range(Worklist, successors(BB));
     return true;
   };
@@ -297,6 +316,11 @@ std::optional<unsigned> BarrierOptimizer::scanForward(Instruction *From,
     if (!EnqueueOrFail(BB))
       return std::nullopt;
   }
+  // A drained worklist proves nothing by itself. Access free cycles visit
+  // every block without ever reaching a cover or a boundary, so require
+  // that at least one path was justified.
+  if (!Justified)
+    return std::nullopt;
   return Mask;
 }
 

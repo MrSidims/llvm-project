@@ -579,4 +579,43 @@ define void @fence_then_unreachable(ptr addrspace(1) %p) {
   unreachable
 }
 
+; A fence followed only by an access free infinite loop stays. A drained
+; walk that never reached a cover or a boundary must not justify removal.
+define amdgpu_kernel void @fence_infinite_loop(ptr addrspace(1) %p) {
+; CHECK-LABEL: @fence_infinite_loop(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("agent") release
+; CHECK-NEXT:    br label [[SPIN:%.*]]
+; CHECK:       spin:
+; CHECK-NEXT:    br label [[SPIN]]
+;
+entry:
+  store i32 1, ptr addrspace(1) %p
+  fence syncscope("agent") release
+  br label %spin
+
+spin:
+  br label %spin
+}
+
+; Same for a barrier whose forward region is an access free infinite loop.
+define amdgpu_kernel void @barrier_infinite_loop() {
+; CHECK-LABEL: @barrier_infinite_loop(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
+; CHECK-NEXT:    call void @llvm.amdgcn.s.barrier()
+; CHECK-NEXT:    br label [[SPIN:%.*]]
+; CHECK:       spin:
+; CHECK-NEXT:    br label [[SPIN]]
+;
+entry:
+  store i32 1, ptr addrspace(3) @lds
+  call void @llvm.amdgcn.s.barrier()
+  br label %spin
+
+spin:
+  br label %spin
+}
+
 !0 = !{!"amdgpu-as", !"local"}
