@@ -13,7 +13,11 @@
 ///
 /// A fence is removable when on one side of it every path reaches a covering
 /// fence of at least equal strength before any access to memory that other
-/// threads could observe. A workgroup barrier is removable in the same way
+/// threads could observe. The walks are direction aware. A pure acquire
+/// fence can synchronize only through an atomic load sequenced before it and
+/// a pure release fence only through an atomic store sequenced after it, so
+/// on that side only atomic and volatile accesses and calls that may contain
+/// them defeat removal. A workgroup barrier is removable in the same way
 /// with respect to other workgroup barriers. In kernels the function entry
 /// and exits act as covers for fences because under the HSA memory model the
 /// dispatch packet performs a system scope acquire at launch and a system
@@ -53,6 +57,11 @@ using namespace llvm;
 namespace {
 
 enum : unsigned { MemLDS = 1, MemGlobal = 2, MemAll = MemLDS | MemGlobal };
+
+// Which accesses can take part in a synchronization the scanned fence
+// provides. Volatile accesses always count because hand rolled flag
+// protocols lean on fences around them.
+enum class Relevance { All, AtomicReads, AtomicWrites };
 
 enum : unsigned {
   RankSingleThread = 0,
@@ -120,8 +129,11 @@ static unsigned classifyAS(unsigned AS) {
 // cover found beyond a barrier must not justify removal because the position
 // of a fence relative to a barrier decides which accesses the barrier
 // publishes. Narrowing walks may look through barriers since a barrier never
-// makes LDS visible outside the workgroup.
-static unsigned accessMask(const Instruction &I, bool BarrierBlocks) {
+// makes LDS visible outside the workgroup. Under a refined relevance only
+// accesses able to take part in the pairing the scanned fence provides are
+// reported.
+static unsigned accessMask(const Instruction &I, bool BarrierBlocks,
+                           Relevance Rel) {
   if (isa<FenceInst>(&I))
     return 0;
   if (auto *CB = dyn_cast<CallBase>(&I)) {
@@ -153,6 +165,10 @@ static unsigned accessMask(const Instruction &I, bool BarrierBlocks) {
     MemoryEffects ME = CB->getMemoryEffects();
     if (ME.doesNotAccessMemory())
       return 0;
+    if (Rel == Relevance::AtomicReads && !CB->mayReadFromMemory())
+      return 0;
+    if (Rel == Relevance::AtomicWrites && !CB->mayWriteToMemory())
+      return 0;
     if (ME.onlyAccessesArgPointees()) {
       unsigned Mask = 0;
       for (const Use &U : CB->args())
@@ -162,10 +178,20 @@ static unsigned accessMask(const Instruction &I, bool BarrierBlocks) {
     }
     return MemAll;
   }
-  if (auto *LI = dyn_cast<LoadInst>(&I))
+  if (auto *LI = dyn_cast<LoadInst>(&I)) {
+    if (Rel == Relevance::AtomicWrites && !LI->isVolatile())
+      return 0;
+    if (Rel == Relevance::AtomicReads && !LI->isAtomic() && !LI->isVolatile())
+      return 0;
     return classifyAS(LI->getPointerAddressSpace());
-  if (auto *SI = dyn_cast<StoreInst>(&I))
+  }
+  if (auto *SI = dyn_cast<StoreInst>(&I)) {
+    if (Rel == Relevance::AtomicReads && !SI->isVolatile())
+      return 0;
+    if (Rel == Relevance::AtomicWrites && !SI->isAtomic() && !SI->isVolatile())
+      return 0;
     return classifyAS(SI->getPointerAddressSpace());
+  }
   if (auto *RMW = dyn_cast<AtomicRMWInst>(&I))
     return classifyAS(RMW->getPointerAddressSpace());
   if (auto *CX = dyn_cast<AtomicCmpXchgInst>(&I))
@@ -206,16 +232,20 @@ private:
   }
 
   std::optional<unsigned> scanBackward(Instruction *From, CoverFn IsCover,
-                                       bool BarrierBlocks, bool BoundaryCovers);
+                                       bool BarrierBlocks, bool BoundaryCovers,
+                                       Relevance Rel);
   std::optional<unsigned> scanForward(Instruction *From, CoverFn IsCover,
-                                      bool BarrierBlocks, bool BoundaryCovers);
-  bool tryRemove(Instruction *I, CoverFn IsCover, bool BoundaryCovers);
+                                      bool BarrierBlocks, bool BoundaryCovers,
+                                      Relevance Rel);
+  bool tryRemove(Instruction *I, CoverFn IsCover, bool BoundaryCovers,
+                 Relevance BackRel, Relevance FwdRel);
 };
 
 std::optional<unsigned> BarrierOptimizer::scanBackward(Instruction *From,
                                                        CoverFn IsCover,
                                                        bool BarrierBlocks,
-                                                       bool BoundaryCovers) {
+                                                       bool BoundaryCovers,
+                                                       Relevance Rel) {
   unsigned Mask = 0;
   bool Justified = false;
   SmallPtrSet<BasicBlock *, 16> Visited;
@@ -228,7 +258,7 @@ std::optional<unsigned> BarrierOptimizer::scanBackward(Instruction *From,
         Justified = true;
         return true;
       }
-      Mask |= accessMask(*It, BarrierBlocks);
+      Mask |= accessMask(*It, BarrierBlocks, Rel);
     }
     return false;
   };
@@ -271,7 +301,8 @@ std::optional<unsigned> BarrierOptimizer::scanBackward(Instruction *From,
 std::optional<unsigned> BarrierOptimizer::scanForward(Instruction *From,
                                                       CoverFn IsCover,
                                                       bool BarrierBlocks,
-                                                      bool BoundaryCovers) {
+                                                      bool BoundaryCovers,
+                                                      Relevance Rel) {
   unsigned Mask = 0;
   bool Justified = false;
   SmallPtrSet<BasicBlock *, 16> Visited;
@@ -283,7 +314,7 @@ std::optional<unsigned> BarrierOptimizer::scanForward(Instruction *From,
         Justified = true;
         return true;
       }
-      Mask |= accessMask(*It, BarrierBlocks);
+      Mask |= accessMask(*It, BarrierBlocks, Rel);
     }
     return false;
   };
@@ -325,15 +356,16 @@ std::optional<unsigned> BarrierOptimizer::scanForward(Instruction *From,
 }
 
 bool BarrierOptimizer::tryRemove(Instruction *I, CoverFn IsCover,
-                                 bool BoundaryCovers) {
+                                 bool BoundaryCovers, Relevance BackRel,
+                                 Relevance FwdRel) {
   std::optional<unsigned> Back =
-      scanBackward(I, IsCover, /*BarrierBlocks=*/true, BoundaryCovers);
+      scanBackward(I, IsCover, /*BarrierBlocks=*/true, BoundaryCovers, BackRel);
   if (Back && *Back == 0) {
     I->eraseFromParent();
     return true;
   }
   std::optional<unsigned> Fwd =
-      scanForward(I, IsCover, /*BarrierBlocks=*/true, BoundaryCovers);
+      scanForward(I, IsCover, /*BarrierBlocks=*/true, BoundaryCovers, FwdRel);
   if (Fwd && *Fwd == 0) {
     I->eraseFromParent();
     return true;
@@ -364,7 +396,8 @@ bool BarrierOptimizer::run() {
     auto IsCover = [B](const Instruction &I) {
       return &I != B && isWorkgroupBarrier(I);
     };
-    if (tryRemove(B, IsCover, /*BoundaryCovers=*/false)) {
+    if (tryRemove(B, IsCover, /*BoundaryCovers=*/false, Relevance::All,
+                  Relevance::All)) {
       B = nullptr;
       Changed = true;
     }
@@ -391,7 +424,12 @@ bool BarrierOptimizer::run() {
     if (!Scope)
       continue;
     auto IsCover = MakeFenceCover(FI, *Scope);
-    if (tryRemove(FI, IsCover, /*BoundaryCovers=*/true)) {
+    AtomicOrdering Ord = FI->getOrdering();
+    Relevance BackRel =
+        isReleaseOrStronger(Ord) ? Relevance::All : Relevance::AtomicReads;
+    Relevance FwdRel =
+        isAcquireOrStronger(Ord) ? Relevance::All : Relevance::AtomicWrites;
+    if (tryRemove(FI, IsCover, /*BoundaryCovers=*/true, BackRel, FwdRel)) {
       FI = nullptr;
       Changed = true;
     }
@@ -407,14 +445,14 @@ bool BarrierOptimizer::run() {
     if (!Scope || Scope->Rank < RankAgent)
       continue;
     auto IsCover = MakeFenceCover(FI, *Scope);
-    std::optional<unsigned> Back = scanBackward(FI, IsCover,
-                                                /*BarrierBlocks=*/false,
-                                                /*BoundaryCovers=*/true);
+    std::optional<unsigned> Back =
+        scanBackward(FI, IsCover, /*BarrierBlocks=*/false,
+                     /*BoundaryCovers=*/true, Relevance::All);
     if (!Back || (*Back & MemGlobal))
       continue;
-    std::optional<unsigned> Fwd = scanForward(FI, IsCover,
-                                              /*BarrierBlocks=*/false,
-                                              /*BoundaryCovers=*/true);
+    std::optional<unsigned> Fwd =
+        scanForward(FI, IsCover, /*BarrierBlocks=*/false,
+                    /*BoundaryCovers=*/true, Relevance::All);
     if (!Fwd || (*Fwd & MemGlobal))
       continue;
     StringRef NewScope = Scope->IsOneAs ? "workgroup-one-as" : "workgroup";

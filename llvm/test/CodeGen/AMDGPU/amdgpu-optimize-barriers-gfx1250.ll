@@ -10,6 +10,7 @@ define amdgpu_kernel void @no_narrow_lds_only_gfx1250() {
 ; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
 ; CHECK-NEXT:    fence syncscope("agent") release
 ; CHECK-NEXT:    store atomic i32 1, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
+; CHECK-NEXT:    [[F:%.*]] = load atomic i32, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
 ; CHECK-NEXT:    fence syncscope("agent") acquire
 ; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(3) @lds, align 4
 ; CHECK-NEXT:    store i32 [[V]], ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 3), align 4
@@ -18,6 +19,7 @@ define amdgpu_kernel void @no_narrow_lds_only_gfx1250() {
   store i32 1, ptr addrspace(3) @lds
   fence syncscope("agent") release
   store atomic i32 1, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
+  %f = load atomic i32, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
   fence syncscope("agent") acquire
   %v = load i32, ptr addrspace(3) @lds
   store i32 %v, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 3)

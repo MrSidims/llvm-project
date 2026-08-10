@@ -9,12 +9,11 @@ declare void @ext()
 
 ; One inlined syncthreads triplet is redundant. The first barrier is covered
 ; forward by the second and the first release fence by the second release.
-; The acquire fence between the barriers survives because a cover beyond a
-; barrier is not honored.
+; The leftover acquire fence has no atomic load sequenced before it on any
+; path from kernel entry so it synchronizes nothing and goes as well.
 define amdgpu_kernel void @double_syncthreads(ptr addrspace(1) %out) {
 ; CHECK-LABEL: @double_syncthreads(
 ; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
-; CHECK-NEXT:    fence syncscope("workgroup") acquire
 ; CHECK-NEXT:    fence syncscope("workgroup") release
 ; CHECK-NEXT:    call void @llvm.amdgcn.s.barrier()
 ; CHECK-NEXT:    fence syncscope("workgroup") acquire
@@ -63,12 +62,13 @@ define amdgpu_kernel void @barrier_needed(ptr addrspace(1) %out) {
 }
 
 ; Agent fences whose reachable shared accesses are all LDS narrow to
-; workgroup scope.
+; workgroup scope. The atomic flag handshake keeps both fences alive.
 define amdgpu_kernel void @narrow_lds_only() {
 ; CHECK-LABEL: @narrow_lds_only(
 ; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
 ; CHECK-NEXT:    fence syncscope("workgroup") release
 ; CHECK-NEXT:    store atomic i32 1, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
+; CHECK-NEXT:    [[F:%.*]] = load atomic i32, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
 ; CHECK-NEXT:    fence syncscope("workgroup") acquire
 ; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(3) @lds, align 4
 ; CHECK-NEXT:    store i32 [[V]], ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 3), align 4
@@ -77,6 +77,7 @@ define amdgpu_kernel void @narrow_lds_only() {
   store i32 1, ptr addrspace(3) @lds
   fence syncscope("agent") release
   store atomic i32 1, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
+  %f = load atomic i32, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
   fence syncscope("agent") acquire
   %v = load i32, ptr addrspace(3) @lds
   store i32 %v, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 3)
@@ -89,6 +90,7 @@ define amdgpu_kernel void @no_narrow_global(ptr addrspace(1) %p) {
 ; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
 ; CHECK-NEXT:    fence syncscope("agent") release
 ; CHECK-NEXT:    store atomic i32 1, ptr addrspace(3) @lds monotonic, align 4
+; CHECK-NEXT:    [[F:%.*]] = load atomic i32, ptr addrspace(3) @lds monotonic, align 4
 ; CHECK-NEXT:    fence syncscope("agent") acquire
 ; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(1) [[P]], align 4
 ; CHECK-NEXT:    store i32 [[V]], ptr addrspace(3) @lds, align 4
@@ -97,6 +99,7 @@ define amdgpu_kernel void @no_narrow_global(ptr addrspace(1) %p) {
   store i32 1, ptr addrspace(1) %p
   fence syncscope("agent") release
   store atomic i32 1, ptr addrspace(3) @lds monotonic, align 4
+  %f = load atomic i32, ptr addrspace(3) @lds monotonic, align 4
   fence syncscope("agent") acquire
   %v = load i32, ptr addrspace(1) %p
   store i32 %v, ptr addrspace(3) @lds
@@ -109,6 +112,7 @@ define amdgpu_kernel void @no_narrow_flat(ptr %p) {
 ; CHECK-NEXT:    store i32 1, ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    fence syncscope("agent") release
 ; CHECK-NEXT:    store atomic i32 1, ptr addrspace(3) @lds monotonic, align 4
+; CHECK-NEXT:    [[F:%.*]] = load atomic i32, ptr addrspace(3) @lds monotonic, align 4
 ; CHECK-NEXT:    fence syncscope("agent") acquire
 ; CHECK-NEXT:    [[V:%.*]] = load i32, ptr [[P]], align 4
 ; CHECK-NEXT:    store i32 [[V]], ptr addrspace(3) @lds, align 4
@@ -117,6 +121,7 @@ define amdgpu_kernel void @no_narrow_flat(ptr %p) {
   store i32 1, ptr %p
   fence syncscope("agent") release
   store atomic i32 1, ptr addrspace(3) @lds monotonic, align 4
+  %f = load atomic i32, ptr addrspace(3) @lds monotonic, align 4
   fence syncscope("agent") acquire
   %v = load i32, ptr %p
   store i32 %v, ptr addrspace(3) @lds
@@ -341,12 +346,11 @@ define amdgpu_kernel void @oneas_no_cover(ptr addrspace(1) %p) {
   ret void
 }
 
-; Removal of the redundant barrier and release composes with narrowing of
-; the surviving agent fences to workgroup scope.
+; Removal of the redundant triplet composes with narrowing of the surviving
+; agent fences to workgroup scope.
 define amdgpu_kernel void @remove_then_narrow() {
 ; CHECK-LABEL: @remove_then_narrow(
 ; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
-; CHECK-NEXT:    fence syncscope("workgroup") acquire
 ; CHECK-NEXT:    fence syncscope("workgroup") release
 ; CHECK-NEXT:    call void @llvm.amdgcn.s.barrier()
 ; CHECK-NEXT:    fence syncscope("workgroup") acquire
@@ -473,19 +477,24 @@ define amdgpu_ps void @ps_trailing_fence(ptr addrspace(1) %p) {
 }
 
 ; Acquire and release are mutually incomparable so neither adjacent fence
-; covers the other.
+; covers the other. The atomic accesses outside the pair are pairing points
+; that keep both alive.
 define amdgpu_kernel void @release_acquire_adjacent(ptr addrspace(1) %p) {
 ; CHECK-LABEL: @release_acquire_adjacent(
 ; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
+; CHECK-NEXT:    [[F:%.*]] = load atomic i32, ptr addrspace(1) [[P]] monotonic, align 4
 ; CHECK-NEXT:    fence syncscope("agent") release
 ; CHECK-NEXT:    fence syncscope("agent") acquire
+; CHECK-NEXT:    store atomic i32 [[F]], ptr addrspace(1) [[P]] monotonic, align 4
 ; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(1) [[P]], align 4
 ; CHECK-NEXT:    store i32 [[V]], ptr addrspace(1) [[P]], align 4
 ; CHECK-NEXT:    ret void
 ;
   store i32 1, ptr addrspace(1) %p
+  %f = load atomic i32, ptr addrspace(1) %p monotonic, align 4
   fence syncscope("agent") release
   fence syncscope("agent") acquire
+  store atomic i32 %f, ptr addrspace(1) %p monotonic, align 4
   %v = load i32, ptr addrspace(1) %p
   store i32 %v, ptr addrspace(1) %p
   ret void
@@ -554,6 +563,7 @@ define amdgpu_kernel void @narrow_oneas_lds_only() {
 ; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
 ; CHECK-NEXT:    fence syncscope("workgroup-one-as") release
 ; CHECK-NEXT:    store atomic i32 1, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
+; CHECK-NEXT:    [[F:%.*]] = load atomic i32, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
 ; CHECK-NEXT:    fence syncscope("workgroup-one-as") acquire
 ; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(3) @lds, align 4
 ; CHECK-NEXT:    store i32 [[V]], ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 3), align 4
@@ -562,6 +572,7 @@ define amdgpu_kernel void @narrow_oneas_lds_only() {
   store i32 1, ptr addrspace(3) @lds
   fence syncscope("agent-one-as") release
   store atomic i32 1, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
+  %f = load atomic i32, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 2) monotonic, align 4
   fence syncscope("agent-one-as") acquire
   %v = load i32, ptr addrspace(3) @lds
   store i32 %v, ptr addrspace(3) getelementptr ([64 x i32], ptr addrspace(3) @lds, i32 0, i32 3)
@@ -616,6 +627,153 @@ entry:
 
 spin:
   br label %spin
+}
+
+; A pure acquire fence with no atomic load sequenced before it on any path
+; synchronizes nothing. Plain accesses on that side do not keep it alive.
+define amdgpu_kernel void @acquire_no_prior_atomic_load(ptr addrspace(1) %p) {
+; CHECK-LABEL: @acquire_no_prior_atomic_load(
+; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
+; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(3) @lds, align 4
+; CHECK-NEXT:    [[W:%.*]] = load i32, ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    store i32 [[W]], ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(1) %p
+  %v = load i32, ptr addrspace(3) @lds
+  fence syncscope("agent") acquire
+  %w = load i32, ptr addrspace(1) %p
+  store i32 %w, ptr addrspace(1) %p
+  ret void
+}
+
+; A prior atomic load is a pairing point and keeps the acquire fence.
+define amdgpu_kernel void @acquire_prior_atomic_load(ptr addrspace(1) %p) {
+; CHECK-LABEL: @acquire_prior_atomic_load(
+; CHECK-NEXT:    [[F:%.*]] = load atomic i32, ptr addrspace(1) [[P:%.*]] monotonic, align 4
+; CHECK-NEXT:    fence syncscope("agent") acquire
+; CHECK-NEXT:    [[W:%.*]] = load i32, ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    store i32 [[W]], ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    ret void
+;
+  %f = load atomic i32, ptr addrspace(1) %p monotonic, align 4
+  fence syncscope("agent") acquire
+  %w = load i32, ptr addrspace(1) %p
+  store i32 %w, ptr addrspace(1) %p
+  ret void
+}
+
+; A prior volatile load keeps the acquire fence for hand rolled protocols.
+define amdgpu_kernel void @acquire_prior_volatile_load(ptr addrspace(1) %p) {
+; CHECK-LABEL: @acquire_prior_volatile_load(
+; CHECK-NEXT:    [[F:%.*]] = load volatile i32, ptr addrspace(1) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("agent") acquire
+; CHECK-NEXT:    [[W:%.*]] = load i32, ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    store i32 [[W]], ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    ret void
+;
+  %f = load volatile i32, ptr addrspace(1) %p
+  fence syncscope("agent") acquire
+  %w = load i32, ptr addrspace(1) %p
+  store i32 %w, ptr addrspace(1) %p
+  ret void
+}
+
+; A pure release fence with no atomic store sequenced after it on any path
+; synchronizes nothing. Plain accesses on that side do not keep it alive.
+define amdgpu_kernel void @release_no_later_atomic_store(ptr addrspace(1) %p) {
+; CHECK-LABEL: @release_no_later_atomic_store(
+; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
+; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    store i32 [[V]], ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(1) %p
+  fence syncscope("agent") release
+  %v = load i32, ptr addrspace(1) %p
+  store i32 %v, ptr addrspace(1) %p
+  ret void
+}
+
+; A later atomic store is a pairing point and keeps the release fence.
+define amdgpu_kernel void @release_later_atomic_store(ptr addrspace(1) %p) {
+; CHECK-LABEL: @release_later_atomic_store(
+; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("agent") release
+; CHECK-NEXT:    store atomic i32 1, ptr addrspace(1) [[P]] monotonic, align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(1) %p
+  fence syncscope("agent") release
+  store atomic i32 1, ptr addrspace(1) %p monotonic, align 4
+  ret void
+}
+
+; A later volatile store keeps the release fence for hand rolled protocols.
+define amdgpu_kernel void @release_later_volatile_store(ptr addrspace(1) %p) {
+; CHECK-LABEL: @release_later_volatile_store(
+; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("agent") release
+; CHECK-NEXT:    store volatile i32 1, ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(1) %p
+  fence syncscope("agent") release
+  store volatile i32 1, ptr addrspace(1) %p
+  ret void
+}
+
+; A call that may write memory can contain an atomic store and keeps the
+; release fence alive.
+define amdgpu_kernel void @release_later_call(ptr addrspace(1) %p) {
+; CHECK-LABEL: @release_later_call(
+; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("agent") release
+; CHECK-NEXT:    call void @ext()
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(1) %p
+  fence syncscope("agent") release
+  call void @ext()
+  ret void
+}
+
+; An atomicrmw reads and writes atomically so it is a pairing point on
+; either side of any fence.
+define amdgpu_kernel void @rmw_pairs_both_ways(ptr addrspace(1) %p) {
+; CHECK-LABEL: @rmw_pairs_both_ways(
+; CHECK-NEXT:    [[F:%.*]] = atomicrmw add ptr addrspace(1) [[P:%.*]], i32 1 monotonic, align 4
+; CHECK-NEXT:    fence syncscope("agent") acquire
+; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    fence syncscope("agent") release
+; CHECK-NEXT:    [[TMP1:%.*]] = atomicrmw add ptr addrspace(1) [[P]], i32 1 monotonic, align 4
+; CHECK-NEXT:    ret void
+;
+  %f = atomicrmw add ptr addrspace(1) %p, i32 1 monotonic, align 4
+  fence syncscope("agent") acquire
+  %v = load i32, ptr addrspace(1) %p
+  fence syncscope("agent") release
+  atomicrmw add ptr addrspace(1) %p, i32 1 monotonic, align 4
+  ret void
+}
+
+; Fences with acquire and release halves keep full relevance on both sides
+; so plain accesses keep them alive.
+define amdgpu_kernel void @seqcst_no_refinement(ptr addrspace(1) %p) {
+; CHECK-LABEL: @seqcst_no_refinement(
+; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("agent") seq_cst
+; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    fence syncscope("agent") acq_rel
+; CHECK-NEXT:    store i32 [[V]], ptr addrspace(1) [[P]], align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(1) %p
+  fence syncscope("agent") seq_cst
+  %v = load i32, ptr addrspace(1) %p
+  fence syncscope("agent") acq_rel
+  store i32 %v, ptr addrspace(1) %p
+  ret void
 }
 
 !0 = !{!"amdgpu-as", !"local"}
