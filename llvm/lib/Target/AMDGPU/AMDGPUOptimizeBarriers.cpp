@@ -22,8 +22,11 @@
 /// and exits act as covers for fences because under the HSA memory model the
 /// dispatch packet performs a system scope acquire at launch and a system
 /// scope release at completion. That is a runtime contract rather than an
-/// LLVM IR guarantee. Boundaries never justify removal of an execution
-/// barrier since kernel entry and exit do not rendezvous waves.
+/// LLVM IR guarantee. Kernel entry never justifies removal of an execution
+/// barrier since launch does not rendezvous waves. Kernel exit justifies it
+/// when no observable access follows on any path. A rendezvous no later
+/// access can observe orders nothing, and removal takes the barrier from
+/// every wave alike so no wave can be left waiting.
 ///
 /// A fence with agent or wider scope whose reachable shared accesses on both
 /// sides are all LDS is narrowed to workgroup scope since LDS is not visible
@@ -237,8 +240,8 @@ private:
   std::optional<unsigned> scanForward(Instruction *From, CoverFn IsCover,
                                       bool BarrierBlocks, bool BoundaryCovers,
                                       Relevance Rel);
-  bool tryRemove(Instruction *I, CoverFn IsCover, bool BoundaryCovers,
-                 Relevance BackRel, Relevance FwdRel);
+  bool tryRemove(Instruction *I, CoverFn IsCover, bool BackBoundaryCovers,
+                 bool FwdBoundaryCovers, Relevance BackRel, Relevance FwdRel);
 };
 
 std::optional<unsigned> BarrierOptimizer::scanBackward(Instruction *From,
@@ -356,16 +359,17 @@ std::optional<unsigned> BarrierOptimizer::scanForward(Instruction *From,
 }
 
 bool BarrierOptimizer::tryRemove(Instruction *I, CoverFn IsCover,
-                                 bool BoundaryCovers, Relevance BackRel,
+                                 bool BackBoundaryCovers,
+                                 bool FwdBoundaryCovers, Relevance BackRel,
                                  Relevance FwdRel) {
-  std::optional<unsigned> Back =
-      scanBackward(I, IsCover, /*BarrierBlocks=*/true, BoundaryCovers, BackRel);
+  std::optional<unsigned> Back = scanBackward(
+      I, IsCover, /*BarrierBlocks=*/true, BackBoundaryCovers, BackRel);
   if (Back && *Back == 0) {
     I->eraseFromParent();
     return true;
   }
-  std::optional<unsigned> Fwd =
-      scanForward(I, IsCover, /*BarrierBlocks=*/true, BoundaryCovers, FwdRel);
+  std::optional<unsigned> Fwd = scanForward(
+      I, IsCover, /*BarrierBlocks=*/true, FwdBoundaryCovers, FwdRel);
   if (Fwd && *Fwd == 0) {
     I->eraseFromParent();
     return true;
@@ -396,7 +400,8 @@ bool BarrierOptimizer::run() {
     auto IsCover = [B](const Instruction &I) {
       return &I != B && isWorkgroupBarrier(I);
     };
-    if (tryRemove(B, IsCover, /*BoundaryCovers=*/false, Relevance::All,
+    if (tryRemove(B, IsCover, /*BackBoundaryCovers=*/false,
+                  /*FwdBoundaryCovers=*/true, Relevance::All,
                   Relevance::All)) {
       B = nullptr;
       Changed = true;
@@ -429,7 +434,8 @@ bool BarrierOptimizer::run() {
         isReleaseOrStronger(Ord) ? Relevance::All : Relevance::AtomicReads;
     Relevance FwdRel =
         isAcquireOrStronger(Ord) ? Relevance::All : Relevance::AtomicWrites;
-    if (tryRemove(FI, IsCover, /*BoundaryCovers=*/true, BackRel, FwdRel)) {
+    if (tryRemove(FI, IsCover, /*BackBoundaryCovers=*/true,
+                  /*FwdBoundaryCovers=*/true, BackRel, FwdRel)) {
       FI = nullptr;
       Changed = true;
     }

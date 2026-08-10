@@ -408,11 +408,10 @@ join:
   ret void
 }
 
-; A barrier is never removed by the kernel boundary rule even when no
-; accesses surround it.
+; No observable access follows the lone barrier so the exit boundary
+; justifies removal. Entry alone never would.
 define amdgpu_kernel void @lone_barrier_kernel() {
 ; CHECK-LABEL: @lone_barrier_kernel(
-; CHECK-NEXT:    call void @llvm.amdgcn.s.barrier()
 ; CHECK-NEXT:    ret void
 ;
   call void @llvm.amdgcn.s.barrier()
@@ -627,6 +626,72 @@ entry:
 
 spin:
   br label %spin
+}
+
+; Nothing observable follows the barrier on any path so the rendezvous is
+; unobservable and the exit boundary justifies removal.
+define amdgpu_kernel void @barrier_trailing_exit() {
+; CHECK-LABEL: @barrier_trailing_exit(
+; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(3) @lds
+  call void @llvm.amdgcn.s.barrier()
+  ret void
+}
+
+; An access after the barrier keeps it even though nothing precedes it.
+define amdgpu_kernel void @barrier_entry_boundary_kept() {
+; CHECK-LABEL: @barrier_entry_boundary_kept(
+; CHECK-NEXT:    call void @llvm.amdgcn.s.barrier()
+; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
+; CHECK-NEXT:    ret void
+;
+  call void @llvm.amdgcn.s.barrier()
+  store i32 1, ptr addrspace(3) @lds
+  ret void
+}
+
+; The exit rule needs every path clean. A load on one successor path keeps
+; the barrier.
+define amdgpu_kernel void @barrier_divergent_exit_kept(i1 %c, ptr addrspace(1) %out) {
+; CHECK-LABEL: @barrier_divergent_exit_kept(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
+; CHECK-NEXT:    call void @llvm.amdgcn.s.barrier()
+; CHECK-NEXT:    br i1 [[C:%.*]], label [[A:%.*]], label [[B:%.*]]
+; CHECK:       a:
+; CHECK-NEXT:    ret void
+; CHECK:       b:
+; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(3) @lds, align 4
+; CHECK-NEXT:    store i32 [[V]], ptr addrspace(1) [[OUT:%.*]], align 4
+; CHECK-NEXT:    ret void
+;
+entry:
+  store i32 1, ptr addrspace(3) @lds
+  call void @llvm.amdgcn.s.barrier()
+  br i1 %c, label %a, label %b
+
+a:
+  ret void
+
+b:
+  %v = load i32, ptr addrspace(3) @lds
+  store i32 %v, ptr addrspace(1) %out
+  ret void
+}
+
+; A trailing barrier in a non kernel function stays. The caller may have
+; observable accesses after the call.
+define void @barrier_trailing_func() {
+; CHECK-LABEL: @barrier_trailing_func(
+; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
+; CHECK-NEXT:    call void @llvm.amdgcn.s.barrier()
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(3) @lds
+  call void @llvm.amdgcn.s.barrier()
+  ret void
 }
 
 ; A pure acquire fence with no atomic load sequenced before it on any path
