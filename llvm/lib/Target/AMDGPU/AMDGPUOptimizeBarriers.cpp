@@ -331,11 +331,11 @@ bool BarrierOptimizer::run() {
 
   bool Changed = false;
 
-  // Barriers are resolved before fences. Removing a barrier here exposes
-  // covers beyond it to the fence walks below. That is sound because a
-  // removed barrier was itself covered by another barrier with no access
-  // in between, so any fence walk crossing the removed position still
-  // meets the surviving barrier and stops there.
+  // Barriers are resolved before fences. A fence walk may then cross the
+  // position of a removed barrier and find a cover or boundary beyond it.
+  // That needs no cross phase invariant because every removal justifies
+  // itself against the IR as it stands when its phase runs. Surviving
+  // barriers still report MemAll to fence walks and defeat removal.
   for (CallInst *&B : Barriers) {
     auto IsCover = [B](const Instruction &I) {
       return &I != B && isWorkgroupBarrier(I);
