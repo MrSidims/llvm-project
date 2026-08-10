@@ -17,7 +17,10 @@
 /// fence can synchronize only through an atomic load sequenced before it and
 /// a pure release fence only through an atomic store sequenced after it, so
 /// on that side only atomic and volatile accesses and calls that may contain
-/// them defeat removal. A workgroup barrier is removable in the same way
+/// them defeat removal. A covering fence may itself carry memory model
+/// relaxation annotations when its known synchronize-as tags form a
+/// superset of the tags on the candidate so it orders at least the address
+/// spaces the candidate would. A workgroup barrier is removable in the same way
 /// with respect to other workgroup barriers. In kernels the function entry
 /// and exits act as covers for fences because under the HSA memory model the
 /// dispatch packet performs a system scope acquire at launch and a system
@@ -39,6 +42,7 @@
 #include "GCNSubtarget.h"
 #include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -48,6 +52,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
+#include "llvm/IR/MemoryModelRelaxationAnnotations.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/AMDGPUAddrSpace.h"
 #include "llvm/Support/AtomicOrdering.h"
@@ -124,6 +129,30 @@ static unsigned classifyAS(unsigned AS) {
   default:
     return MemAll;
   }
+}
+
+// An untagged fence synchronizes every address space so it covers any
+// candidate. A tagged fence is a valid cover only when every tag on both
+// fences is a known synchronize-as tag and the candidate tags are a subset
+// of the cover tags. The memory legalizer ignores unknown suffixes under
+// its known prefix so a fence carrying any unknown tag may synchronize
+// more than its known tags suggest and is never trusted as a cover.
+static bool mmraCovers(const FenceInst *Cover, const FenceInst *Cand) {
+  MMRAMetadata CoverTags(*Cover);
+  if (CoverTags.empty())
+    return true;
+  MMRAMetadata CandTags(*Cand);
+  if (CandTags.empty())
+    return false;
+  auto IsKnown = [](const MMRAMetadata::TagT &Tag) {
+    return Tag.first == "amdgpu-synchronize-as" &&
+           (Tag.second == "local" || Tag.second == "global");
+  };
+  if (!all_of(CoverTags, IsKnown) || !all_of(CandTags, IsKnown))
+    return false;
+  return all_of(CandTags, [&](const MMRAMetadata::TagT &Tag) {
+    return CoverTags.hasTag(Tag.first, Tag.second);
+  });
 }
 
 // Union of address space kinds an instruction may access that other threads
@@ -408,13 +437,19 @@ bool BarrierOptimizer::run() {
     }
   }
 
-  auto MakeFenceCover = [this](const FenceInst *Self,
-                               const ScopeInfo &SelfScope) {
-    return [this, Self, SelfScope](const Instruction &I) {
+  // Narrowing walks stop at a cover on the promise that accesses beyond it
+  // are ordered by the cover at the candidate scope in every address space
+  // so only untagged covers qualify there.
+  auto MakeFenceCover = [this](const FenceInst *Self, const ScopeInfo &SelfScope,
+                               bool AllowTaggedCovers) {
+    return [this, Self, SelfScope, AllowTaggedCovers](const Instruction &I) {
       if (&I == Self)
         return false;
       auto *FI = dyn_cast<FenceInst>(&I);
-      if (!FI || FI->getMetadata(LLVMContext::MD_mmra))
+      if (!FI)
+        return false;
+      if (AllowTaggedCovers ? !mmraCovers(FI, Self)
+                            : FI->hasMetadata(LLVMContext::MD_mmra))
         return false;
       std::optional<ScopeInfo> SI = getScope(FI->getSyncScopeID());
       if (!SI || SI->Rank < SelfScope.Rank ||
@@ -428,7 +463,7 @@ bool BarrierOptimizer::run() {
     std::optional<ScopeInfo> Scope = getScope(FI->getSyncScopeID());
     if (!Scope)
       continue;
-    auto IsCover = MakeFenceCover(FI, *Scope);
+    auto IsCover = MakeFenceCover(FI, *Scope, /*AllowTaggedCovers=*/true);
     AtomicOrdering Ord = FI->getOrdering();
     Relevance BackRel =
         isReleaseOrStronger(Ord) ? Relevance::All : Relevance::AtomicReads;
@@ -450,7 +485,7 @@ bool BarrierOptimizer::run() {
     std::optional<ScopeInfo> Scope = getScope(FI->getSyncScopeID());
     if (!Scope || Scope->Rank < RankAgent)
       continue;
-    auto IsCover = MakeFenceCover(FI, *Scope);
+    auto IsCover = MakeFenceCover(FI, *Scope, /*AllowTaggedCovers=*/false);
     std::optional<unsigned> Back =
         scanBackward(FI, IsCover, /*BarrierBlocks=*/false,
                      /*BoundaryCovers=*/true, Relevance::All);

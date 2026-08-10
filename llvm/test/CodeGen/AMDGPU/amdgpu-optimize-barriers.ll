@@ -307,7 +307,8 @@ define amdgpu_kernel void @private_between(ptr addrspace(1) %p) {
 
 ; The one as fence is removed because the preceding full fence covers it.
 ; The mmra fence is removed because the following plain fence covers it.
-; Both plain fences survive since an mmra fence is never a cover.
+; Both plain fences survive since a fence with an unknown mmra tag is
+; never a cover.
 define amdgpu_kernel void @oneas_and_mmra(ptr addrspace(1) %p) {
 ; CHECK-LABEL: @oneas_and_mmra(
 ; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
@@ -841,4 +842,135 @@ define amdgpu_kernel void @seqcst_no_refinement(ptr addrspace(1) %p) {
   ret void
 }
 
+; Triton tags every fence around a barrier with a local synchronize-as tag.
+; The second triplet covers the first completely. The leading barrier is
+; covered by the trailing one, the first release by the second because a
+; local tag covers a local tag, and the first acquire has no prior atomic
+; load to pair with.
+define amdgpu_kernel void @mmra_triton_triplets() {
+; CHECK-LABEL: @mmra_triton_triplets(
+; CHECK-NEXT:    store i32 1, ptr addrspace(3) @lds, align 4
+; CHECK-NEXT:    fence syncscope("workgroup") release, !mmra [[META0:![0-9]+]]
+; CHECK-NEXT:    call void @llvm.amdgcn.s.barrier()
+; CHECK-NEXT:    fence syncscope("workgroup") acquire, !mmra [[META0]]
+; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(3) @lds, align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(3) @lds
+  fence syncscope("workgroup") release, !mmra !1
+  call void @llvm.amdgcn.s.barrier()
+  fence syncscope("workgroup") acquire, !mmra !1
+  fence syncscope("workgroup") release, !mmra !1
+  call void @llvm.amdgcn.s.barrier()
+  fence syncscope("workgroup") acquire, !mmra !1
+  %v = load i32, ptr addrspace(3) @lds
+  ret void
+}
+
+; A local tagged release is covered by a following local tagged release of
+; equal strength.
+define amdgpu_kernel void @mmra_local_covers_local(ptr addrspace(3) %p) {
+; CHECK-LABEL: @mmra_local_covers_local(
+; CHECK-NEXT:    store i32 1, ptr addrspace(3) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("workgroup") release, !mmra [[META0]]
+; CHECK-NEXT:    store atomic i32 1, ptr addrspace(3) [[P]] monotonic, align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(3) %p
+  fence syncscope("workgroup") release, !mmra !1
+  fence syncscope("workgroup") release, !mmra !1
+  store atomic i32 1, ptr addrspace(3) %p monotonic, align 4
+  ret void
+}
+
+; Fences tagged for different address spaces order disjoint accesses so
+; neither covers the other.
+define amdgpu_kernel void @mmra_global_not_cover_local(ptr addrspace(3) %p, ptr addrspace(1) %q) {
+; CHECK-LABEL: @mmra_global_not_cover_local(
+; CHECK-NEXT:    store i32 1, ptr addrspace(3) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("workgroup") release, !mmra [[META0]]
+; CHECK-NEXT:    fence syncscope("workgroup") release, !mmra [[META1:![0-9]+]]
+; CHECK-NEXT:    store atomic i32 1, ptr addrspace(1) [[Q:%.*]] monotonic, align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(3) %p
+  fence syncscope("workgroup") release, !mmra !1
+  fence syncscope("workgroup") release, !mmra !2
+  store atomic i32 1, ptr addrspace(1) %q monotonic, align 4
+  ret void
+}
+
+; A tagged fence never covers an untagged one which orders every address
+; space. The untagged fence does cover the tagged one.
+define amdgpu_kernel void @mmra_tagged_not_cover_untagged(ptr addrspace(1) %p) {
+; CHECK-LABEL: @mmra_tagged_not_cover_untagged(
+; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("workgroup") release
+; CHECK-NEXT:    store atomic i32 1, ptr addrspace(1) [[P]] monotonic, align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(1) %p
+  fence syncscope("workgroup") release
+  fence syncscope("workgroup") release, !mmra !3
+  store atomic i32 1, ptr addrspace(1) %p monotonic, align 4
+  ret void
+}
+
+; A fence tagged for both address spaces covers one tagged for a subset.
+define amdgpu_kernel void @mmra_superset_covers_subset(ptr addrspace(3) %p, ptr addrspace(1) %q) {
+; CHECK-LABEL: @mmra_superset_covers_subset(
+; CHECK-NEXT:    store i32 1, ptr addrspace(3) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("workgroup") release, !mmra [[META2:![0-9]+]]
+; CHECK-NEXT:    store atomic i32 1, ptr addrspace(1) [[Q:%.*]] monotonic, align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(3) %p
+  fence syncscope("workgroup") release, !mmra !1
+  fence syncscope("workgroup") release, !mmra !3
+  store atomic i32 1, ptr addrspace(1) %q monotonic, align 4
+  ret void
+}
+
+; The memory legalizer ignores unknown suffixes so a fence carrying one may
+; synchronize more than its tags say and is never trusted as a cover. A
+; candidate carrying one is never covered by a tagged fence either.
+define amdgpu_kernel void @mmra_unknown_suffix_not_cover(ptr addrspace(3) %p) {
+; CHECK-LABEL: @mmra_unknown_suffix_not_cover(
+; CHECK-NEXT:    store i32 1, ptr addrspace(3) [[P:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("workgroup") release, !mmra [[META0]]
+; CHECK-NEXT:    fence syncscope("workgroup") release, !mmra [[META3:![0-9]+]]
+; CHECK-NEXT:    store atomic i32 1, ptr addrspace(3) [[P]] monotonic, align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(3) %p
+  fence syncscope("workgroup") release, !mmra !1
+  fence syncscope("workgroup") release, !mmra !4
+  store atomic i32 1, ptr addrspace(3) %p monotonic, align 4
+  ret void
+}
+
+; A tagged fence must not stop a narrowing walk. The global store beyond it
+; relies on the candidate keeping agent scope and the tagged fence orders
+; LDS only.
+define amdgpu_kernel void @no_narrow_past_tagged_cover(ptr addrspace(1) %q) {
+; CHECK-LABEL: @no_narrow_past_tagged_cover(
+; CHECK-NEXT:    store i32 1, ptr addrspace(1) [[Q:%.*]], align 4
+; CHECK-NEXT:    fence syncscope("agent") release, !mmra [[META0]]
+; CHECK-NEXT:    store atomic i32 1, ptr addrspace(3) @lds monotonic, align 4
+; CHECK-NEXT:    fence syncscope("agent") seq_cst
+; CHECK-NEXT:    [[V:%.*]] = load i32, ptr addrspace(3) @lds, align 4
+; CHECK-NEXT:    ret void
+;
+  store i32 1, ptr addrspace(1) %q
+  fence syncscope("agent") release, !mmra !1
+  store atomic i32 1, ptr addrspace(3) @lds monotonic, align 4
+  fence syncscope("agent") seq_cst
+  %v = load i32, ptr addrspace(3) @lds
+  ret void
+}
+
 !0 = !{!"amdgpu-as", !"local"}
+!1 = !{!"amdgpu-synchronize-as", !"local"}
+!2 = !{!"amdgpu-synchronize-as", !"global"}
+!3 = !{!1, !2}
+!4 = !{!"amdgpu-synchronize-as", !"bogus"}
