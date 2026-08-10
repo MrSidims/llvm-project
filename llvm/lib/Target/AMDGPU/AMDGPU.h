@@ -605,6 +605,19 @@ struct AMDGPUUniformIntrinsicCombinePass
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
+void initializeAMDGPUOptimizeBarriersLegacyPass(PassRegistry &);
+extern char &AMDGPUOptimizeBarriersLegacyPassID;
+FunctionPass *createAMDGPUOptimizeBarriersLegacyPass();
+
+class AMDGPUOptimizeBarriersPass
+    : public PassInfoMixin<AMDGPUOptimizeBarriersPass> {
+  const TargetMachine &TM;
+
+public:
+  AMDGPUOptimizeBarriersPass(const TargetMachine &TM) : TM(TM) {}
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
+
 namespace AMDGPU {
 enum TargetIndex {
   TI_CONSTDATA_START,

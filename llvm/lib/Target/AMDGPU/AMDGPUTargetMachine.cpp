@@ -653,6 +653,11 @@ static cl::opt<bool> EnableUniformIntrinsicCombine(
     cl::desc("Enable/Disable the Uniform Intrinsic Combine Pass"),
     cl::init(true), cl::Hidden);
 
+static cl::opt<bool> EnableOptimizeBarriers(
+    "amdgpu-enable-optimize-barriers",
+    cl::desc("Remove redundant barriers and fences and narrow fence scopes"),
+    cl::init(false), cl::Hidden);
+
 extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeAMDGPUTarget() {
   // Register the target
   RegisterTargetMachine<R600TargetMachine> X(getTheR600Target());
@@ -744,6 +749,7 @@ extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeAMDGPUTarget() {
   initializeAMDGPUWaitSGPRHazardsLegacyPass(*PR);
   initializeAMDGPUPreloadKernelArgumentsLegacyPass(*PR);
   initializeAMDGPUUniformIntrinsicCombineLegacyPass(*PR);
+  initializeAMDGPUOptimizeBarriersLegacyPass(*PR);
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
@@ -1673,6 +1679,8 @@ void AMDGPUPassConfig::addCodeGenPrepare() {
     // passes can run on the more optimized control flow this pass creates in
     // many cases.
     addPass(createAMDGPULowerBufferFatPointersPass());
+    if (EnableOptimizeBarriers && TM->getOptLevel() > CodeGenOptLevel::None)
+      addPass(createAMDGPUOptimizeBarriersLegacyPass());
     addPass(createAMDGPULowerIntrinsicsLegacyPass());
   }
 
@@ -2454,6 +2462,10 @@ void AMDGPUCodeGenPassBuilder::addCodeGenPrepare(
   flushFPMsToMPM(PMW);
   requireCGSCCOrder(PMW);
 
+  if (EnableOptimizeBarriers && TM.getOptLevel() > CodeGenOptLevel::None) {
+    addFunctionPass(AMDGPUOptimizeBarriersPass(TM), PMW);
+    flushFPMsToMPM(PMW);
+  }
   addModulePass(AMDGPULowerIntrinsicsPass(TM), PMW);
 
   // LowerSwitch pass may introduce unreachable blocks that can cause unexpected
