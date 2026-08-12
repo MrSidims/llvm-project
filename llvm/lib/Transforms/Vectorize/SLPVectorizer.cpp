@@ -14380,18 +14380,55 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
   InstructionsCompatibilityAnalysis Analysis(DT, DL, TTI, TLI);
   SmallVector<BoUpSLP::ValueList> Operands = Analysis.buildOperands(S, VL);
 
-  InstructionsState OpS = getSameOpcode(Operands.front(), TLI);
-  if (!OpS.valid())
+  // The fmul may sit on either side of the add/sub. In a left-associated
+  // accumulation chain (acc = acc + a * b, the shape an ordered reduction gets
+  // unrolled into) it is always operand 1, so only checking operand 0 misses
+  // every fma in the chain but the very first one.
+  //
+  // Only look past operand 0 for chains that do not allow reassociation. When
+  // reassociation is allowed the multiplies can be gathered into a vector fmul
+  // feeding a vector reduction (i.e. per-lane vector fmas), which is normally
+  // better than the scalar fma chain this check protects. An ordered chain has
+  // no such alternative: vectorizing its multiplies can only produce a packed
+  // fmul plus a scalar add tree, which strictly loses the fma.
+  bool AllowReassoc = any_of(VL, [](Value *V) {
+    auto *FPCI = dyn_cast<FPMathOperator>(V);
+    return FPCI && FPCI->getFastMathFlags().allowReassoc();
+  });
+  auto GetFMulOperandIdx = [&]() -> std::optional<unsigned> {
+    for (unsigned Idx : seq<unsigned>(0, AllowReassoc ? 1 : Operands.size())) {
+      InstructionsState CandS = getSameOpcode(Operands[Idx], TLI);
+      if (!CandS.valid() || CandS.isAltShuffle() ||
+          CandS.getOpcode() != Instruction::FMul)
+        continue;
+      if (!CheckForContractable(Operands[Idx]))
+        continue;
+      return Idx;
+    }
+    return std::nullopt;
+  };
+  std::optional<unsigned> FMulIdx = GetFMulOperandIdx();
+  if (!FMulIdx)
     return InstructionCost::getInvalid();
-
-  if (OpS.isAltShuffle() || OpS.getOpcode() != Instruction::FMul)
-    return InstructionCost::getInvalid();
-  if (!CheckForContractable(Operands.front()))
-    return InstructionCost::getInvalid();
+  InstructionsState OpS = getSameOpcode(Operands[*FMulIdx], TLI);
   // Compare the costs.
   InstructionCost FMulPlusFAddCost = 0;
   InstructionCost FMACost = 0;
   constexpr TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
+  // Cost of an fmul that is *not* fused with its fadd/fsub user. Some targets
+  // (e.g. AMDGPU) make a contractable fmul free when its single user is a
+  // contractable fadd/fsub, i.e. they already model the fusion. Asking for the
+  // cost with a context instruction here would apply that same discount to the
+  // unfused side of the comparison below, cancelling it out and making the
+  // fmuladd never look profitable. Query without a context instruction so the
+  // unfused mul is priced as an actual multiply.
+  auto GetUnfusedFMulCost = [&](Instruction *I) {
+    TTI::OperandValueInfo Op1Info = TTI::getOperandInfo(I->getOperand(0));
+    TTI::OperandValueInfo Op2Info = TTI::getOperandInfo(I->getOperand(1));
+    return TTI.getArithmeticInstrCost(Instruction::FMul, I->getType(), CostKind,
+                                      Op1Info, Op2Info,
+                                      {I->getOperand(0), I->getOperand(1)});
+  };
   FastMathFlags FMF;
   FMF.set();
   for (Value *V : VL) {
@@ -14404,7 +14441,7 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
     FMulPlusFAddCost += TTI.getInstructionCost(I, CostKind);
   }
   unsigned NumOps = 0;
-  for (auto [V, Op] : zip(VL, Operands.front())) {
+  for (auto [V, Op] : zip(VL, Operands[*FMulIdx])) {
     if (S.isCopyableElement(V))
       continue;
     auto *I = dyn_cast<Instruction>(Op);
@@ -14418,7 +14455,9 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
     ++NumOps;
     if (auto *FPCI = dyn_cast<FPMathOperator>(I))
       FMF &= FPCI->getFastMathFlags();
-    FMulPlusFAddCost += TTI.getInstructionCost(I, CostKind);
+    FMulPlusFAddCost += I->getOpcode() == Instruction::FMul
+                            ? GetUnfusedFMulCost(I)
+                            : TTI.getInstructionCost(I, CostKind);
   }
   Type *Ty = VL.front()->getType();
   IntrinsicCostAttributes ICA(Intrinsic::fmuladd, Ty, {Ty, Ty, Ty}, FMF);
