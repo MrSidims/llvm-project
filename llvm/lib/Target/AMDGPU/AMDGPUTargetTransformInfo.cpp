@@ -287,11 +287,10 @@ GCNTTIImpl::GCNTTIImpl(const AMDGPUTargetMachine *TM, const Function &F)
     : BaseT(TM, F.getDataLayout()),
       ST(static_cast<const GCNSubtarget *>(TM->getSubtargetImpl(F))),
       TLI(ST->getTargetLowering()), CommonTTI(TM, F),
-      IsGraphics(AMDGPU::isGraphics(F.getCallingConv())) {
-  SIModeRegisterDefaults Mode(F, *ST);
-  HasFP32Denormals = Mode.FP32Denormals != DenormalMode::getPreserveSign();
-  HasFP64FP16Denormals =
-      Mode.FP64FP16Denormals != DenormalMode::getPreserveSign();
+      IsGraphics(AMDGPU::isGraphics(F.getCallingConv())),
+      FPEnv(F.getDenormalFPEnv()) {
+  HasFP32Denormals = FPEnv.F32Mode != DenormalMode::getPreserveSign();
+  HasFP64FP16Denormals = FPEnv.DefaultMode != DenormalMode::getPreserveSign();
 }
 
 bool GCNTTIImpl::hasBranchDivergence(const Function *F) const {
@@ -528,6 +527,47 @@ bool GCNTTIImpl::getTgtMemIntrinsic(IntrinsicInst *Inst,
   }
 }
 
+bool GCNTTIImpl::canFuseFMulWithFAddSub(const Instruction *FMul,
+                                        const Instruction *FAddSub) const {
+  if (FAddSub->getOpcode() != Instruction::FAdd &&
+      FAddSub->getOpcode() != Instruction::FSub)
+    return false;
+
+  auto IsFMAFaster = [this](EVT VT) {
+    return TLI->isFMAFasterThanFMulAndFAdd(VT, FPEnv);
+  };
+
+  // The type the operation ends up with. A vector with no packed form is
+  // scalarized and then fused element by element. A packed fsub is expanded
+  // into a packed fadd and an fneg, so the fadd decides for both opcodes.
+  MVT LegalVT = getTypeLegalizationCost(FAddSub->getType()).second;
+  if (LegalVT.isVector() && !TLI->isOperationLegalOrCustom(ISD::FADD, LegalVT))
+    LegalVT = LegalVT.getScalarType();
+
+  // What follows mirrors the gating of visitFADDForFMACombine and
+  // visitFSUBForFMACombine.
+  //
+  // v_mad_f32/v_mac_f32 and their f16 counterpart are exact for the separate
+  // operations, so the fusion is performed regardless of the fast-math flags.
+  // Only the combine run after legalization forms them.
+  if (TLI->isFMADLegal(LegalVT, FPEnv))
+    return true;
+
+  // Anything else needs a real fma, which is only formed when it is at least
+  // as fast as the separate operations. The combine run before legalization
+  // sees the type as it is here and does not require the fma to be legal for
+  // it, the one run after sees the legalized type and does.
+  if (!IsFMAFaster(TLI->getValueType(FAddSub->getDataLayout(),
+                                     FAddSub->getType())) &&
+      !(TLI->isOperationLegalOrCustom(ISD::FMA, LegalVT) &&
+        IsFMAFaster(LegalVT)))
+    return false;
+
+  const TargetOptions &Options = TLI->getTargetMachine().Options;
+  return Options.AllowFPOpFusion == FPOpFusion::Fast ||
+         (FAddSub->hasAllowContract() && FMul->hasAllowContract());
+}
+
 InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
     TTI::OperandValueInfo Op1Info, TTI::OperandValueInfo Op2Info,
@@ -591,21 +631,9 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     // fmul(b,c) supposing the fadd|fsub will get estimated cost for the whole
     // fused operation.
     if (CxtI && CxtI->hasOneUse())
-      if (const auto *FAdd = dyn_cast<BinaryOperator>(*CxtI->user_begin())) {
-        const int OPC = TLI->InstructionOpcodeToISD(FAdd->getOpcode());
-        if (OPC == ISD::FADD || OPC == ISD::FSUB) {
-          if (ST->hasMadMacF32Insts() && SLT == MVT::f32 && !HasFP32Denormals)
-            return TargetTransformInfo::TCC_Free;
-          if (ST->has16BitInsts() && SLT == MVT::f16 && !HasFP64FP16Denormals)
-            return TargetTransformInfo::TCC_Free;
-
-          // Estimate all types may be fused with contract/unsafe flags
-          const TargetOptions &Options = TLI->getTargetMachine().Options;
-          if (Options.AllowFPOpFusion == FPOpFusion::Fast ||
-              (FAdd->hasAllowContract() && CxtI->hasAllowContract()))
-            return TargetTransformInfo::TCC_Free;
-        }
-      }
+      if (const auto *FAdd = dyn_cast<BinaryOperator>(*CxtI->user_begin()))
+        if (canFuseFMulWithFAddSub(CxtI, FAdd))
+          return TargetTransformInfo::TCC_Free;
     [[fallthrough]];
   case ISD::FADD:
   case ISD::FSUB:
@@ -1486,6 +1514,38 @@ InstructionCost GCNTTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
 bool GCNTTIImpl::isProfitableToSinkOperands(Instruction *I,
                                             SmallVectorImpl<Use *> &Ops) const {
   using namespace PatternMatch;
+
+  // fadd/fsub (fmul a, b), c -> fma/mad a, b, c.
+  //
+  // FMA formation happens in DAGCombiner, which never looks outside of a single
+  // basic block, and AMDGPU has no MachineCombiner patterns to form it later.
+  // An fmul left in a different block from its fadd/fsub user is therefore
+  // never fused, even though getArithmeticInstrCost prices it as if it were.
+  //
+  // The generic sinking pass run in addPreISel already covers the plain
+  // dominator case, but it refuses to sink into a loop, which is exactly where
+  // LICM strands a loop-invariant fmul whose fadd user is in the loop body.
+  //
+  // Only the operand instruction selection will actually fuse is a candidate.
+  // Both visitFADDForFMACombine and visitFSUBForFMACombine try the first
+  // operand and fall back to the second, and they fuse at most one of them, so
+  // sinking the other would move a multiply that stays a multiply. Requiring a
+  // single use keeps this a move rather than a duplication, as CodeGenPrepare
+  // clones the operand and erases the now-dead original.
+  if (I->getOpcode() == Instruction::FAdd ||
+      I->getOpcode() == Instruction::FSub) {
+    for (Use &Op : I->operands()) {
+      auto *FMul = dyn_cast<Instruction>(Op.get());
+      if (!FMul || FMul->getOpcode() != Instruction::FMul ||
+          !FMul->hasOneUse() || !canFuseFMulWithFAddSub(FMul, I))
+        continue;
+      // This is the operand that will be fused. If it is already local there is
+      // nothing to do, and no later operand is a candidate either.
+      if (FMul->getParent() != I->getParent())
+        Ops.push_back(&Op);
+      break;
+    }
+  }
 
   for (auto &Op : I->operands()) {
     // Ensure we are not already sinking this operand.
