@@ -5892,7 +5892,7 @@ void SelectionDAGLegalize::PromoteNode(SDNode *Node) {
     Results.push_back(Tmp1);
     Results.push_back(Tmp1.getValue(1));
     break;
-  case ISD::FMA:
+  case ISD::FMA: {
     // Promote scalar operations to vector using SCALAR_TO_VECTOR
     if (!OVT.isVector() && NVT.isVector() &&
         NVT.getVectorElementType() == OVT) {
@@ -5908,11 +5908,18 @@ void SelectionDAGLegalize::PromoteNode(SDNode *Node) {
     Tmp1 = DAG.getNode(ISD::FP_EXTEND, dl, NVT, Node->getOperand(0));
     Tmp2 = DAG.getNode(ISD::FP_EXTEND, dl, NVT, Node->getOperand(1));
     Tmp3 = DAG.getNode(ISD::FP_EXTEND, dl, NVT, Node->getOperand(2));
-    Results.push_back(
-        DAG.getNode(ISD::FP_ROUND, dl, OVT,
-                    DAG.getNode(Node->getOpcode(), dl, NVT, Tmp1, Tmp2, Tmp3),
-                    DAG.getIntPtrConstant(0, dl, /*isTarget=*/true)));
+    // Widening an fma splits its single rounding into two, one to NVT and one
+    // back to OVT.  Neither the wider fma nor the round back exists in the
+    // source, so a target that can round only once is free to say so and get
+    // closer to what the narrow fma asked for.
+    SDNodeFlags Flags = Node->getFlags();
+    Flags.setAllowContract(true);
+    Results.push_back(DAG.getNode(
+        ISD::FP_ROUND, dl, OVT,
+        DAG.getNode(Node->getOpcode(), dl, NVT, Tmp1, Tmp2, Tmp3, Flags),
+        DAG.getIntPtrConstant(0, dl, /*isTarget=*/true), Flags));
     break;
+  }
   case ISD::STRICT_FMA:
     Tmp1 = DAG.getNode(ISD::STRICT_FP_EXTEND, dl, {NVT, MVT::Other},
                        {Node->getOperand(0), Node->getOperand(1)});

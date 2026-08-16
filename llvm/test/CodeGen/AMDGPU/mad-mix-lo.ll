@@ -53,8 +53,8 @@ define half @mixlo_simple(float %src0, float %src1, float %src2) #0 {
 ; GISEL-CI-NEXT:    v_mac_f32_e32 v2, v0, v1
 ; GISEL-CI-NEXT:    v_cvt_f16_f32_e32 v0, v2
 ; GISEL-CI-NEXT:    s_setpc_b64 s[30:31]
-  %result = call float @llvm.fmuladd.f32(float %src0, float %src1, float %src2)
-  %cvt.result = fptrunc float %result to half
+  %result = call contract float @llvm.fmuladd.f32(float %src0, float %src1, float %src2)
+  %cvt.result = fptrunc contract float %result to half
   ret half %cvt.result
 }
 
@@ -99,8 +99,8 @@ define half @mixlo_simpl_no_flush(float %src0, float %src1, float %src2) {
 ; GISEL-CI-NEXT:    v_fma_f32 v0, v0, v1, v2
 ; GISEL-CI-NEXT:    v_cvt_f16_f32_e32 v0, v0
 ; GISEL-CI-NEXT:    s_setpc_b64 s[30:31]
-  %result = call float @llvm.fmuladd.f32(float %src0, float %src1, float %src2)
-  %cvt.result = fptrunc float %result to half
+  %result = call contract float @llvm.fmuladd.f32(float %src0, float %src1, float %src2)
+  %cvt.result = fptrunc contract float %result to half
   ret half %cvt.result
 }
 
@@ -155,8 +155,8 @@ define half @v_mad_mixlo_f16_f16lo_f16lo_f16lo(half %src0, half %src1, half %src
   %src0.ext = fpext half %src0 to float
   %src1.ext = fpext half %src1 to float
   %src2.ext = fpext half %src2 to float
-  %result = tail call float @llvm.fmuladd.f32(float %src0.ext, float %src1.ext, float %src2.ext)
-  %cvt.result = fptrunc float %result to half
+  %result = tail call contract float @llvm.fmuladd.f32(float %src0.ext, float %src1.ext, float %src2.ext)
+  %cvt.result = fptrunc contract float %result to half
   ret half %cvt.result
 }
 
@@ -216,8 +216,8 @@ define half @v_mad_mixlo_f16_f16lo_f16lo_f16lo_no_flush(half %src0, half %src1, 
   %src0.ext = fpext half %src0 to float
   %src1.ext = fpext half %src1 to float
   %src2.ext = fpext half %src2 to float
-  %result = tail call float @llvm.fmuladd.f32(float %src0.ext, float %src1.ext, float %src2.ext)
-  %cvt.result = fptrunc float %result to half
+  %result = tail call contract float @llvm.fmuladd.f32(float %src0.ext, float %src1.ext, float %src2.ext)
+  %cvt.result = fptrunc contract float %result to half
   ret half %cvt.result
 }
 
@@ -268,8 +268,8 @@ define half @v_mad_mixlo_f16_f16lo_f16lo_f32(half %src0, half %src1, float %src2
 ; GISEL-CI-NEXT:    s_setpc_b64 s[30:31]
   %src0.ext = fpext half %src0 to float
   %src1.ext = fpext half %src1 to float
-  %result = tail call float @llvm.fmuladd.f32(float %src0.ext, float %src1.ext, float %src2)
-  %cvt.result = fptrunc float %result to half
+  %result = tail call contract float @llvm.fmuladd.f32(float %src0.ext, float %src1.ext, float %src2)
+  %cvt.result = fptrunc contract float %result to half
   ret half %cvt.result
 }
 
@@ -332,8 +332,8 @@ define half @v_mad_mixlo_f16_f16lo_f16lo_f32_clamp_post_cvt(half %src0, half %sr
 ; GISEL-CI-NEXT:    s_setpc_b64 s[30:31]
   %src0.ext = fpext half %src0 to float
   %src1.ext = fpext half %src1 to float
-  %result = tail call float @llvm.fmuladd.f32(float %src0.ext, float %src1.ext, float %src2)
-  %cvt.result = fptrunc float %result to half
+  %result = tail call contract float @llvm.fmuladd.f32(float %src0.ext, float %src1.ext, float %src2)
+  %cvt.result = fptrunc contract float %result to half
   %max = call half @llvm.maxnum.f16(half %cvt.result, half 0.0)
   %clamp = call half @llvm.minnum.f16(half %max, half 1.0)
   ret half %clamp
@@ -406,10 +406,10 @@ define half @v_mad_mixlo_f16_f16lo_f16lo_f32_clamp_pre_cvt(half %src0, half %src
 ; GISEL-CI-NEXT:    s_setpc_b64 s[30:31]
   %src0.ext = fpext half %src0 to float
   %src1.ext = fpext half %src1 to float
-  %result = tail call float @llvm.fmuladd.f32(float %src0.ext, float %src1.ext, float %src2)
+  %result = tail call contract float @llvm.fmuladd.f32(float %src0.ext, float %src1.ext, float %src2)
   %max = call float @llvm.maxnum.f32(float %result, float 0.0)
   %clamp = call float @llvm.minnum.f32(float %max, float 1.0)
-  %cvt.result = fptrunc float %clamp to half
+  %cvt.result = fptrunc contract float %clamp to half
   ret half %cvt.result
 }
 
@@ -538,8 +538,8 @@ define <2 x half> @v_mad_mix_v2f32(<2 x half> %src0, <2 x half> %src1, <2 x half
   %src0.ext = fpext <2 x half> %src0 to <2 x float>
   %src1.ext = fpext <2 x half> %src1 to <2 x float>
   %src2.ext = fpext <2 x half> %src2 to <2 x float>
-  %result = tail call <2 x float> @llvm.fmuladd.v2f32(<2 x float> %src0.ext, <2 x float> %src1.ext, <2 x float> %src2.ext)
-  %cvt.result = fptrunc <2 x float> %result to <2 x half>
+  %result = tail call contract <2 x float> @llvm.fmuladd.v2f32(<2 x float> %src0.ext, <2 x float> %src1.ext, <2 x float> %src2.ext)
+  %cvt.result = fptrunc contract <2 x float> %result to <2 x half>
   ret <2 x half> %cvt.result
 }
 
@@ -716,8 +716,8 @@ define <3 x half> @v_mad_mix_v3f32(<3 x half> %src0, <3 x half> %src1, <3 x half
   %src0.ext = fpext <3 x half> %src0 to <3 x float>
   %src1.ext = fpext <3 x half> %src1 to <3 x float>
   %src2.ext = fpext <3 x half> %src2 to <3 x float>
-  %result = tail call <3 x float> @llvm.fmuladd.v3f32(<3 x float> %src0.ext, <3 x float> %src1.ext, <3 x float> %src2.ext)
-  %cvt.result = fptrunc <3 x float> %result to <3 x half>
+  %result = tail call contract <3 x float> @llvm.fmuladd.v3f32(<3 x float> %src0.ext, <3 x float> %src1.ext, <3 x float> %src2.ext)
+  %cvt.result = fptrunc contract <3 x float> %result to <3 x half>
   ret <3 x half> %cvt.result
 }
 
@@ -934,8 +934,8 @@ define <4 x half> @v_mad_mix_v4f32(<4 x half> %src0, <4 x half> %src1, <4 x half
   %src0.ext = fpext <4 x half> %src0 to <4 x float>
   %src1.ext = fpext <4 x half> %src1 to <4 x float>
   %src2.ext = fpext <4 x half> %src2 to <4 x float>
-  %result = tail call <4 x float> @llvm.fmuladd.v4f32(<4 x float> %src0.ext, <4 x float> %src1.ext, <4 x float> %src2.ext)
-  %cvt.result = fptrunc <4 x float> %result to <4 x half>
+  %result = tail call contract <4 x float> @llvm.fmuladd.v4f32(<4 x float> %src0.ext, <4 x float> %src1.ext, <4 x float> %src2.ext)
+  %cvt.result = fptrunc contract <4 x float> %result to <4 x half>
   ret <4 x half> %cvt.result
 }
 
@@ -1087,8 +1087,8 @@ define <2 x half> @v_mad_mix_v2f32_clamp_postcvt(<2 x half> %src0, <2 x half> %s
   %src0.ext = fpext <2 x half> %src0 to <2 x float>
   %src1.ext = fpext <2 x half> %src1 to <2 x float>
   %src2.ext = fpext <2 x half> %src2 to <2 x float>
-  %result = tail call <2 x float> @llvm.fmuladd.v2f32(<2 x float> %src0.ext, <2 x float> %src1.ext, <2 x float> %src2.ext)
-  %cvt.result = fptrunc <2 x float> %result to <2 x half>
+  %result = tail call contract <2 x float> @llvm.fmuladd.v2f32(<2 x float> %src0.ext, <2 x float> %src1.ext, <2 x float> %src2.ext)
+  %cvt.result = fptrunc contract <2 x float> %result to <2 x half>
   %max = call <2 x half> @llvm.maxnum.v2f16(<2 x half> %cvt.result, <2 x half> zeroinitializer)
   %clamp = call <2 x half> @llvm.minnum.v2f16(<2 x half> %max, <2 x half> <half 1.0, half 1.0>)
   ret <2 x half> %clamp
@@ -1321,8 +1321,8 @@ define <3 x half> @v_mad_mix_v3f32_clamp_postcvt(<3 x half> %src0, <3 x half> %s
   %src0.ext = fpext <3 x half> %src0 to <3 x float>
   %src1.ext = fpext <3 x half> %src1 to <3 x float>
   %src2.ext = fpext <3 x half> %src2 to <3 x float>
-  %result = tail call <3 x float> @llvm.fmuladd.v3f32(<3 x float> %src0.ext, <3 x float> %src1.ext, <3 x float> %src2.ext)
-  %cvt.result = fptrunc <3 x float> %result to <3 x half>
+  %result = tail call contract <3 x float> @llvm.fmuladd.v3f32(<3 x float> %src0.ext, <3 x float> %src1.ext, <3 x float> %src2.ext)
+  %cvt.result = fptrunc contract <3 x float> %result to <3 x half>
   %max = call <3 x half> @llvm.maxnum.v3f16(<3 x half> %cvt.result, <3 x half> zeroinitializer)
   %clamp = call <3 x half> @llvm.minnum.v3f16(<3 x half> %max, <3 x half> <half 1.0, half 1.0, half 1.0>)
   ret <3 x half> %clamp
@@ -1577,8 +1577,8 @@ define <4 x half> @v_mad_mix_v4f32_clamp_postcvt(<4 x half> %src0, <4 x half> %s
   %src0.ext = fpext <4 x half> %src0 to <4 x float>
   %src1.ext = fpext <4 x half> %src1 to <4 x float>
   %src2.ext = fpext <4 x half> %src2 to <4 x float>
-  %result = tail call <4 x float> @llvm.fmuladd.v4f32(<4 x float> %src0.ext, <4 x float> %src1.ext, <4 x float> %src2.ext)
-  %cvt.result = fptrunc <4 x float> %result to <4 x half>
+  %result = tail call contract <4 x float> @llvm.fmuladd.v4f32(<4 x float> %src0.ext, <4 x float> %src1.ext, <4 x float> %src2.ext)
+  %cvt.result = fptrunc contract <4 x float> %result to <4 x half>
   %max = call <4 x half> @llvm.maxnum.v4f16(<4 x half> %cvt.result, <4 x half> zeroinitializer)
   %clamp = call <4 x half> @llvm.minnum.v4f16(<4 x half> %max, <4 x half> <half 1.0, half 1.0, half 1.0, half 1.0>)
   ret <4 x half> %clamp
@@ -1753,8 +1753,8 @@ define <2 x half> @v_mad_mix_v2f32_clamp_postcvt_lo(<2 x half> %src0, <2 x half>
   %src0.ext = fpext <2 x half> %src0 to <2 x float>
   %src1.ext = fpext <2 x half> %src1 to <2 x float>
   %src2.ext = fpext <2 x half> %src2 to <2 x float>
-  %result = tail call <2 x float> @llvm.fmuladd.v2f32(<2 x float> %src0.ext, <2 x float> %src1.ext, <2 x float> %src2.ext)
-  %cvt.result = fptrunc <2 x float> %result to <2 x half>
+  %result = tail call contract <2 x float> @llvm.fmuladd.v2f32(<2 x float> %src0.ext, <2 x float> %src1.ext, <2 x float> %src2.ext)
+  %cvt.result = fptrunc contract <2 x float> %result to <2 x half>
   %cvt.lo = extractelement <2 x half> %cvt.result, i32 0
   %max.lo = call half @llvm.maxnum.f16(half %cvt.lo, half 0.0)
   %clamp.lo = call half @llvm.minnum.f16(half %max.lo, half 1.0)
@@ -1932,8 +1932,8 @@ define <2 x half> @v_mad_mix_v2f32_clamp_postcvt_hi(<2 x half> %src0, <2 x half>
   %src0.ext = fpext <2 x half> %src0 to <2 x float>
   %src1.ext = fpext <2 x half> %src1 to <2 x float>
   %src2.ext = fpext <2 x half> %src2 to <2 x float>
-  %result = tail call <2 x float> @llvm.fmuladd.v2f32(<2 x float> %src0.ext, <2 x float> %src1.ext, <2 x float> %src2.ext)
-  %cvt.result = fptrunc <2 x float> %result to <2 x half>
+  %result = tail call contract <2 x float> @llvm.fmuladd.v2f32(<2 x float> %src0.ext, <2 x float> %src1.ext, <2 x float> %src2.ext)
+  %cvt.result = fptrunc contract <2 x float> %result to <2 x half>
   %cvt.hi = extractelement <2 x half> %cvt.result, i32 1
   %max.hi = call half @llvm.maxnum.f16(half %cvt.hi, half 0.0)
   %clamp.hi = call half @llvm.minnum.f16(half %max.hi, half 1.0)
@@ -2096,10 +2096,10 @@ define <2 x half> @v_mad_mix_v2f32_clamp_precvt(<2 x half> %src0, <2 x half> %sr
   %src0.ext = fpext <2 x half> %src0 to <2 x float>
   %src1.ext = fpext <2 x half> %src1 to <2 x float>
   %src2.ext = fpext <2 x half> %src2 to <2 x float>
-  %result = tail call <2 x float> @llvm.fmuladd.v2f32(<2 x float> %src0.ext, <2 x float> %src1.ext, <2 x float> %src2.ext)
+  %result = tail call contract <2 x float> @llvm.fmuladd.v2f32(<2 x float> %src0.ext, <2 x float> %src1.ext, <2 x float> %src2.ext)
   %max = call <2 x float> @llvm.maxnum.v2f32(<2 x float> %result, <2 x float> zeroinitializer)
   %clamp = call <2 x float> @llvm.minnum.v2f32(<2 x float> %max, <2 x float> <float 1.0, float 1.0>)
-  %cvt.result = fptrunc <2 x float> %clamp to <2 x half>
+  %cvt.result = fptrunc contract <2 x float> %clamp to <2 x half>
   ret <2 x half> %cvt.result
 }
 
@@ -2300,10 +2300,10 @@ define <3 x half> @v_mad_mix_v3f32_clamp_precvt(<3 x half> %src0, <3 x half> %sr
   %src0.ext = fpext <3 x half> %src0 to <3 x float>
   %src1.ext = fpext <3 x half> %src1 to <3 x float>
   %src2.ext = fpext <3 x half> %src2 to <3 x float>
-  %result = tail call <3 x float> @llvm.fmuladd.v3f32(<3 x float> %src0.ext, <3 x float> %src1.ext, <3 x float> %src2.ext)
+  %result = tail call contract <3 x float> @llvm.fmuladd.v3f32(<3 x float> %src0.ext, <3 x float> %src1.ext, <3 x float> %src2.ext)
   %max = call <3 x float> @llvm.maxnum.v3f32(<3 x float> %result, <3 x float> zeroinitializer)
   %clamp = call <3 x float> @llvm.minnum.v3f32(<3 x float> %max, <3 x float> <float 1.0, float 1.0, float 1.0>)
-  %cvt.result = fptrunc <3 x float> %clamp to <3 x half>
+  %cvt.result = fptrunc contract <3 x float> %clamp to <3 x half>
   ret <3 x half> %cvt.result
 }
 
@@ -2552,10 +2552,10 @@ define <4 x half> @v_mad_mix_v4f32_clamp_precvt(<4 x half> %src0, <4 x half> %sr
   %src0.ext = fpext <4 x half> %src0 to <4 x float>
   %src1.ext = fpext <4 x half> %src1 to <4 x float>
   %src2.ext = fpext <4 x half> %src2 to <4 x float>
-  %result = tail call <4 x float> @llvm.fmuladd.v4f32(<4 x float> %src0.ext, <4 x float> %src1.ext, <4 x float> %src2.ext)
+  %result = tail call contract <4 x float> @llvm.fmuladd.v4f32(<4 x float> %src0.ext, <4 x float> %src1.ext, <4 x float> %src2.ext)
   %max = call <4 x float> @llvm.maxnum.v4f32(<4 x float> %result, <4 x float> zeroinitializer)
   %clamp = call <4 x float> @llvm.minnum.v4f32(<4 x float> %max, <4 x float> <float 1.0, float 1.0, float 1.0, float 1.0>)
-  %cvt.result = fptrunc <4 x float> %clamp to <4 x half>
+  %cvt.result = fptrunc contract <4 x float> %clamp to <4 x half>
   ret <4 x half> %cvt.result
 }
 
@@ -2627,8 +2627,8 @@ define i32 @mixlo_zext(float %src0, float %src1, float %src2) #0 {
 ; GISEL-CI-NEXT:    v_cvt_f16_f32_e32 v0, v2
 ; GISEL-CI-NEXT:    v_and_b32_e32 v0, 0xffff, v0
 ; GISEL-CI-NEXT:    s_setpc_b64 s[30:31]
-  %result = call float @llvm.fmuladd.f32(float %src0, float %src1, float %src2)
-  %cvt.result = fptrunc float %result to half
+  %result = call contract float @llvm.fmuladd.f32(float %src0, float %src1, float %src2)
+  %cvt.result = fptrunc contract float %result to half
   %cvt.result.i16 = bitcast half %cvt.result to i16
   %cvt.result.i32 = zext i16 %cvt.result.i16 to i32
   ret i32 %cvt.result.i32
@@ -2674,8 +2674,8 @@ define half @mixlo_fptrunc(float %a, float %b) #0 {
 ; GISEL-CI-NEXT:    v_cvt_f16_f32_e32 v0, v0
 ; GISEL-CI-NEXT:    s_setpc_b64 s[30:31]
 .entry:
-  %mul = fmul float %a, %b
-  %trunc = fptrunc float %mul to half
+  %mul = fmul contract float %a, %b
+  %trunc = fptrunc contract float %mul to half
   ret half %trunc
 }
 
@@ -2720,8 +2720,8 @@ define half @mixlo_fptrunc_no_flush(float %a, float %b) {
 ; GISEL-CI-NEXT:    v_cvt_f16_f32_e32 v0, v0
 ; GISEL-CI-NEXT:    s_setpc_b64 s[30:31]
 .entry:
-  %mul = fmul float %a, %b
-  %trunc = fptrunc float %mul to half
+  %mul = fmul contract float %a, %b
+  %trunc = fptrunc contract float %mul to half
   ret half %trunc
 }
 
@@ -2766,8 +2766,8 @@ define half @mixlo_fptrunc_abs_src_mod(float %a, float %b) #0 {
 ; GISEL-CI-NEXT:    s_setpc_b64 s[30:31]
 .entry:
   %a.fabs = call float @llvm.fabs.f32(float %a)
-  %mul = fmul float %a.fabs, %b
-  %trunc = fptrunc float %mul to half
+  %mul = fmul contract float %a.fabs, %b
+  %trunc = fptrunc contract float %mul to half
   ret half %trunc
 }
 
@@ -2811,9 +2811,9 @@ define half @mixlo_fptrunc_neg_src_mod(float %a, float %b) #0 {
 ; GISEL-CI-NEXT:    v_cvt_f16_f32_e32 v0, v0
 ; GISEL-CI-NEXT:    s_setpc_b64 s[30:31]
 .entry:
-  %a.fneg = fneg float %a
-  %mul = fmul float %a.fneg, %b
-  %trunc = fptrunc float %mul to half
+  %a.fneg = fneg contract float %a
+  %mul = fmul contract float %a.fneg, %b
+  %trunc = fptrunc contract float %mul to half
   ret half %trunc
 }
 
