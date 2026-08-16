@@ -1122,6 +1122,10 @@ public:
     return 128;
   }
 
+  virtual bool consecutiveLoadsCoalesce(unsigned AddrSpace) const {
+    return false;
+  }
+
   virtual bool isLegalToVectorizeLoad(LoadInst *LI) const { return true; }
 
   virtual bool isLegalToVectorizeStore(StoreInst *SI) const { return true; }

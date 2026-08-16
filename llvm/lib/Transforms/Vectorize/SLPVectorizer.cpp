@@ -722,6 +722,13 @@ public:
   /// holding live values over call sites.
   InstructionCost getSpillCost();
 
+  /// \returns the load saving credited to vectorized load bundles that never
+  /// materializes on targets whose consecutive scalar loads coalesce into the
+  /// same wide access. Only clean bundles with no reordering, reuse or
+  /// bit-width reduction are cancelled.
+  InstructionCost
+  getCoalescedLoadPhantomSavings(TTI::TargetCostKind CostKind) const;
+
   /// Calculates the cost of the subtrees, trims non-profitable ones and returns
   /// final cost.
   InstructionCost
@@ -17467,10 +17474,14 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
       FastMathFlags FMF;
       FMF.set();
       for (Value *V : E->Scalars) {
-        if (auto *FPCI = dyn_cast<FPMathOperator>(V)) {
-          FMF &= FPCI->getFastMathFlags();
-          if (auto *FPCIOp = dyn_cast<FPMathOperator>(FPCI->getOperand(0)))
-            FMF &= FPCIOp->getFastMathFlags();
+        auto *FPCI = dyn_cast<FPMathOperator>(V);
+        if (!FPCI)
+          continue;
+        FMF &= FPCI->getFastMathFlags();
+        for (unsigned I = 0, N = FPCI->getNumOperands(); I != N; ++I) {
+          auto *FMulOp = dyn_cast<FPMathOperator>(FPCI->getOperand(I));
+          if (FMulOp && FMulOp->getOpcode() == Instruction::FMul)
+            FMF &= FMulOp->getFastMathFlags();
         }
       }
       IntrinsicCostAttributes ICA(Intrinsic::fmuladd, VecTy,
@@ -18574,6 +18585,39 @@ bool BoUpSLP::isTreeNotExtendable() const {
     Res = true;
   }
   return Res;
+}
+
+InstructionCost BoUpSLP::getCoalescedLoadPhantomSavings(
+    TTI::TargetCostKind CostKind) const {
+  InstructionCost Savings = 0;
+  for (const std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
+    const TreeEntry &TE = *TEPtr;
+    if (!TE.hasState() || TE.isGather() ||
+        TE.getOpcode() != Instruction::Load ||
+        TE.State != TreeEntry::Vectorize || TE.getInterleaveFactor())
+      continue;
+    if (!TE.ReuseShuffleIndices.empty() || !TE.ReorderIndices.empty() ||
+        MinBWs.contains(&TE))
+      continue;
+    if (!all_of(TE.Scalars, [](Value *V) { return isa<LoadInst>(V); }))
+      continue;
+    auto *LI0 = cast<LoadInst>(TE.getMainOp());
+    if (!TTI->consecutiveLoadsCoalesce(LI0->getPointerAddressSpace()))
+      continue;
+    InstructionCost ScalarLdCost = 0;
+    for (Value *V : TE.Scalars) {
+      auto *LI = cast<LoadInst>(V);
+      ScalarLdCost += TTI->getMemoryOpCost(
+          Instruction::Load, LI->getType(), LI->getAlign(),
+          LI->getPointerAddressSpace(), CostKind, TTI::OperandValueInfo(), LI);
+    }
+    Type *VecTy = getWidenedType(LI0->getType(), TE.Scalars.size());
+    InstructionCost VecLdCost = TTI->getMemoryOpCost(
+        Instruction::Load, VecTy, LI0->getAlign(),
+        LI0->getPointerAddressSpace(), CostKind, TTI::OperandValueInfo());
+    Savings += ScalarLdCost - VecLdCost;
+  }
+  return Savings;
 }
 
 InstructionCost BoUpSLP::getSpillCost() {
@@ -31223,6 +31267,7 @@ public:
               if (FusionSaving.isValid() && FusionSaving > 0)
                 ReductionCost += FusionSaving;
             }
+            ReductionCost += V.getCoalescedLoadPhantomSavings(CostKind);
           }
         } else {
           ReductionCost =

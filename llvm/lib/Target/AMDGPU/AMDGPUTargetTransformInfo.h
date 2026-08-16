@@ -141,6 +141,7 @@ public:
                                 unsigned ChainSizeInBytes,
                                 VectorType *VecTy) const override;
   unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const override;
+  bool consecutiveLoadsCoalesce(unsigned AddrSpace) const override;
 
   bool isLegalToVectorizeMemChain(unsigned ChainSizeInBytes, Align Alignment,
                                   unsigned AddrSpace) const;

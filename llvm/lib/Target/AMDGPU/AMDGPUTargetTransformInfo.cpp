@@ -390,6 +390,10 @@ unsigned GCNTTIImpl::getLoadStoreVecRegBitWidth(unsigned AddrSpace) const {
   return 128;
 }
 
+bool GCNTTIImpl::consecutiveLoadsCoalesce(unsigned AddrSpace) const {
+  return getLoadStoreVecRegBitWidth(AddrSpace) >= 64;
+}
+
 bool GCNTTIImpl::isLegalToVectorizeMemChain(unsigned ChainSizeInBytes,
                                             Align Alignment,
                                             unsigned AddrSpace) const {

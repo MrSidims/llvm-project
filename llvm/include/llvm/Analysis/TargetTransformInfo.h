@@ -1906,6 +1906,10 @@ public:
   /// load/store in the given address space.
   LLVM_ABI unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const;
 
+  /// \returns True if the backend coalesces consecutive scalar loads in the
+  /// given address space into one wider access.
+  LLVM_ABI bool consecutiveLoadsCoalesce(unsigned AddrSpace) const;
+
   /// \returns True if the load instruction is legal to vectorize.
   LLVM_ABI bool isLegalToVectorizeLoad(LoadInst *LI) const;
 
