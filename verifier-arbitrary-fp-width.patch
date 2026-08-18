@@ -1,0 +1,204 @@
+diff --git a/llvm/docs/LangRef.md b/llvm/docs/LangRef.md
+index aecc425538d6..f7e3ca8db80e 100644
+--- a/llvm/docs/LangRef.md
++++ b/llvm/docs/LangRef.md
+@@ -21334,6 +21334,11 @@ type and first argument.
+   - FP6 formats: `"Float6E3M2FN"`, `"Float6E2M3FN"`
+   - FP4 formats: `"Float4E2M1FN"`
+ 
++  The bit width of the integer return type must equal the bit width of the
++  selected format, for example `i8` for an FP8 format, `i6` for an FP6 format,
++  and `i4` for an FP4 format. For vector operands this applies to the integer
++  element type.
++
+ `rounding mode`
+ :   A metadata string specifying the rounding mode. The permitted strings match those
+   accepted by `llvm.fptrunc.round` (for example,
+@@ -21362,7 +21367,8 @@ saturation behavior. The conversion is performed in two steps: first, the value
+ rounded according to the specified rounding mode to fit the target format's precision;
+ then, if the rounded result exceeds the target format's representable range, saturation
+ is applied according to the `saturation` parameter. The result is returned as an
+-integer (e.g., `i8` for FP8, `i6` for FP6) containing the encoded arbitrary FP bits.
++integer whose bit width equals the format's bit width (`i8` for FP8, `i6` for FP6,
++`i4` for FP4) containing the encoded arbitrary FP bits.
+ 
+ **Handling of special values:**
+ 
+@@ -21412,7 +21418,10 @@ overloaded on both its return type and first argument.
+ ##### Arguments:
+ 
+ `value`
+-:   An integer value containing the arbitrary FP bits (e.g., `i8` for FP8, `i6` for FP6).
++:   An integer value containing the arbitrary FP bits. Its bit width must equal the
++  bit width of the format selected by `interpretation`, for example `i8` for an FP8
++  format, `i6` for an FP6 format, and `i4` for an FP4 format. For vector operands
++  this applies to the integer element type.
+ 
+ `interpretation`
+ :   A metadata string describing the source arbitrary FP format. Supported format names include:
+diff --git a/llvm/include/llvm/ADT/APFloat.h b/llvm/include/llvm/ADT/APFloat.h
+index 49141c6de80b..0aac343ba263 100644
+--- a/llvm/include/llvm/ADT/APFloat.h
++++ b/llvm/include/llvm/ADT/APFloat.h
+@@ -414,6 +414,12 @@ public:
+   /// llvm.convert.from.arbitrary.fp intrinsics.
+   LLVM_ABI static bool isValidArbitraryFPFormat(StringRef Format);
+ 
++  /// Returns the size in bits of a valid arbitrary floating-point format
++  /// string, or 0 if the string is not a valid format. Covers every format
++  /// accepted by isValidArbitraryFPFormat, not only those getArbitraryFPSemantics
++  /// can currently lower.
++  LLVM_ABI static unsigned getArbitraryFPFormatSizeInBits(StringRef Format);
++
+   /// Returns the fltSemantics for a given arbitrary FP format string,
+   /// or nullptr if invalid.
+   LLVM_ABI static const fltSemantics *getArbitraryFPSemantics(StringRef Format);
+diff --git a/llvm/lib/IR/Verifier.cpp b/llvm/lib/IR/Verifier.cpp
+index dd5140c61dc6..e8e171d9a23f 100644
+--- a/llvm/lib/IR/Verifier.cpp
++++ b/llvm/lib/IR/Verifier.cpp
+@@ -6100,6 +6100,13 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
+     Check(APFloatBase::isValidArbitraryFPFormat(Interp),
+           "unsupported interpretation metadata string", Call);
+ 
++    // The integer type width must equal the arbitrary FP format width.
++    if (unsigned FormatBits =
++            APFloatBase::getArbitraryFPFormatSizeInBits(Interp))
++      Check(IntTy->getScalarSizeInBits() == FormatBits,
++            "integer type bit width must equal the arbitrary FP format width",
++            Call);
++
+     // Check rounding mode metadata (argoperand 2).
+     auto *RoundingMAV = dyn_cast<MetadataAsValue>(Call.getArgOperand(2));
+     Check(RoundingMAV, "missing rounding mode metadata operand", Call);
+@@ -6142,6 +6149,13 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
+     // Valid interpretation strings: mini-float format names.
+     Check(APFloatBase::isValidArbitraryFPFormat(Interp),
+           "unsupported interpretation metadata string", Call);
++
++    // The integer type width must equal the arbitrary FP format width.
++    if (unsigned FormatBits =
++            APFloatBase::getArbitraryFPFormatSizeInBits(Interp))
++      Check(IntTy->getScalarSizeInBits() == FormatBits,
++            "integer type bit width must equal the arbitrary FP format width",
++            Call);
+     break;
+   }
+ #define BEGIN_REGISTER_VP_INTRINSIC(VPID, ...) case Intrinsic::VPID:
+diff --git a/llvm/lib/Support/APFloat.cpp b/llvm/lib/Support/APFloat.cpp
+index 94a981016d95..74f7803c43e6 100644
+--- a/llvm/lib/Support/APFloat.cpp
++++ b/llvm/lib/Support/APFloat.cpp
+@@ -6017,12 +6017,24 @@ float APFloat::convertToFloat() const {
+   return Temp.getIEEE().convertToFloat();
+ }
+ 
++unsigned APFloatBase::getArbitraryFPFormatSizeInBits(StringRef Format) {
++  return StringSwitch<unsigned>(Format)
++      .Case("Float8E5M2", getSizeInBits(semFloat8E5M2))
++      .Case("Float8E5M2FNUZ", getSizeInBits(semFloat8E5M2FNUZ))
++      .Case("Float8E4M3", getSizeInBits(semFloat8E4M3))
++      .Case("Float8E4M3FN", getSizeInBits(semFloat8E4M3FN))
++      .Case("Float8E4M3FNUZ", getSizeInBits(semFloat8E4M3FNUZ))
++      .Case("Float8E4M3B11FNUZ", getSizeInBits(semFloat8E4M3B11FNUZ))
++      .Case("Float8E3M4", getSizeInBits(semFloat8E3M4))
++      .Case("Float8E8M0FNU", getSizeInBits(semFloat8E8M0FNU))
++      .Case("Float6E3M2FN", getSizeInBits(semFloat6E3M2FN))
++      .Case("Float6E2M3FN", getSizeInBits(semFloat6E2M3FN))
++      .Case("Float4E2M1FN", getSizeInBits(semFloat4E2M1FN))
++      .Default(0);
++}
++
+ bool APFloatBase::isValidArbitraryFPFormat(StringRef Format) {
+-  static constexpr StringLiteral ValidFormats[] = {
+-      "Float8E5M2",     "Float8E5M2FNUZ",    "Float8E4M3",  "Float8E4M3FN",
+-      "Float8E4M3FNUZ", "Float8E4M3B11FNUZ", "Float8E3M4",  "Float8E8M0FNU",
+-      "Float6E3M2FN",   "Float6E2M3FN",      "Float4E2M1FN"};
+-  return llvm::is_contained(ValidFormats, Format);
++  return getArbitraryFPFormatSizeInBits(Format) != 0;
+ }
+ 
+ const fltSemantics *APFloatBase::getArbitraryFPSemantics(StringRef Format) {
+diff --git a/llvm/test/Verifier/arbitrary-fp-convert.ll b/llvm/test/Verifier/arbitrary-fp-convert.ll
+index dd9c95040fd4..a23d29e1104e 100644
+--- a/llvm/test/Verifier/arbitrary-fp-convert.ll
++++ b/llvm/test/Verifier/arbitrary-fp-convert.ll
+@@ -12,6 +12,9 @@
+ ; RUN: not opt -S -passes=verify %t/vec-ptr-to-arbitrary-fp.ll 2>&1 | FileCheck %s --check-prefix=VEC-PTR-TO-FP
+ ; RUN: not opt -S -passes=verify %t/vec-to-scalar-mismatch.ll 2>&1 | FileCheck %s --check-prefix=VEC-SCALAR-MISMATCH
+ ; RUN: not opt -S -passes=verify %t/vec-size-mismatch.ll 2>&1 | FileCheck %s --check-prefix=VEC-SIZE-MISMATCH
++; RUN: not opt -S -passes=verify %t/width-to-mismatch.ll 2>&1 | FileCheck %s --check-prefix=WIDTH-TO-MISMATCH
++; RUN: not opt -S -passes=verify %t/width-from-mismatch.ll 2>&1 | FileCheck %s --check-prefix=WIDTH-FROM-MISMATCH
++; RUN: not opt -S -passes=verify %t/width-vec-mismatch.ll 2>&1 | FileCheck %s --check-prefix=WIDTH-VEC-MISMATCH
+ 
+ ;--- bad-interpretation-empty.ll
+ ; BAD-INTERP-EMPTY: interpretation metadata string must not be empty
+@@ -122,3 +125,36 @@ define <4 x i8> @bad_vec_size_mismatch(<2 x float> %v) {
+       <2 x float> %v, metadata !"Float8E4M3", metadata !"round.tonearest", i1 false)
+   ret <4 x i8> %r
+ }
++
++;--- width-to-mismatch.ll
++; WIDTH-TO-MISMATCH: integer type bit width must equal the arbitrary FP format width
++
++declare i8 @llvm.convert.to.arbitrary.fp.i8.f16(half, metadata, metadata, i1)
++
++define i8 @bad_width_to(half %v) {
++  %r = call i8 @llvm.convert.to.arbitrary.fp.i8.f16(
++      half %v, metadata !"Float4E2M1FN", metadata !"round.tonearest", i1 false)
++  ret i8 %r
++}
++
++;--- width-from-mismatch.ll
++; WIDTH-FROM-MISMATCH: integer type bit width must equal the arbitrary FP format width
++
++declare float @llvm.convert.from.arbitrary.fp.f32.i8(i8, metadata)
++
++define float @bad_width_from(i8 %v) {
++  %r = call float @llvm.convert.from.arbitrary.fp.f32.i8(
++      i8 %v, metadata !"Float4E2M1FN")
++  ret float %r
++}
++
++;--- width-vec-mismatch.ll
++; WIDTH-VEC-MISMATCH: integer type bit width must equal the arbitrary FP format width
++
++declare <4 x i8> @llvm.convert.to.arbitrary.fp.v4i8.v4f16(<4 x half>, metadata, metadata, i1)
++
++define <4 x i8> @bad_width_vec(<4 x half> %v) {
++  %r = call <4 x i8> @llvm.convert.to.arbitrary.fp.v4i8.v4f16(
++      <4 x half> %v, metadata !"Float4E2M1FN", metadata !"round.tonearest", i1 false)
++  ret <4 x i8> %r
++}
+diff --git a/llvm/unittests/ADT/APFloatTest.cpp b/llvm/unittests/ADT/APFloatTest.cpp
+index bdf36b906f5b..456a7a5ffefb 100644
+--- a/llvm/unittests/ADT/APFloatTest.cpp
++++ b/llvm/unittests/ADT/APFloatTest.cpp
+@@ -10402,6 +10402,27 @@ TEST(APFloatTest, isValidArbitraryFPFormat) {
+   EXPECT_FALSE(APFloat::isValidArbitraryFPFormat("unknown"));
+ }
+ 
++TEST(APFloatTest, getArbitraryFPFormatSizeInBits) {
++  // Every valid format reports the bit width of its semantics.
++  EXPECT_EQ(8u, APFloat::getArbitraryFPFormatSizeInBits("Float8E5M2"));
++  EXPECT_EQ(8u, APFloat::getArbitraryFPFormatSizeInBits("Float8E5M2FNUZ"));
++  EXPECT_EQ(8u, APFloat::getArbitraryFPFormatSizeInBits("Float8E4M3"));
++  EXPECT_EQ(8u, APFloat::getArbitraryFPFormatSizeInBits("Float8E4M3FN"));
++  EXPECT_EQ(8u, APFloat::getArbitraryFPFormatSizeInBits("Float8E4M3FNUZ"));
++  EXPECT_EQ(8u, APFloat::getArbitraryFPFormatSizeInBits("Float8E4M3B11FNUZ"));
++  EXPECT_EQ(8u, APFloat::getArbitraryFPFormatSizeInBits("Float8E3M4"));
++  EXPECT_EQ(8u, APFloat::getArbitraryFPFormatSizeInBits("Float8E8M0FNU"));
++  EXPECT_EQ(6u, APFloat::getArbitraryFPFormatSizeInBits("Float6E3M2FN"));
++  EXPECT_EQ(6u, APFloat::getArbitraryFPFormatSizeInBits("Float6E2M3FN"));
++  EXPECT_EQ(4u, APFloat::getArbitraryFPFormatSizeInBits("Float4E2M1FN"));
++
++  // Invalid formats report zero.
++  EXPECT_EQ(0u, APFloat::getArbitraryFPFormatSizeInBits(""));
++  EXPECT_EQ(0u, APFloat::getArbitraryFPFormatSizeInBits("Float8"));
++  EXPECT_EQ(0u, APFloat::getArbitraryFPFormatSizeInBits("float4e2m1fn"));
++  EXPECT_EQ(0u, APFloat::getArbitraryFPFormatSizeInBits("unknown"));
++}
++
+ TEST(APFloatTest, DecimalStringPreservesInexactStatus) {
+   APFloat F(APFloat::IEEEsingle());
+ 
