@@ -2836,6 +2836,47 @@ The AMDGPU backend supports the following LLVM IR attributes.
                                                       one, default is false. The -amdgpu-rewrite-mfma-spill-balance option
                                                       overrides this attribute when it is given explicitly.
 
+     "amdgpu-igrouplp-small-gemm-rounds"              Number of interleaved DS and MFMA scheduling group pairs the small gemm iglp
+                                                      strategy asks for per MFMA in the region, default is 3. The
+                                                      -amdgpu-igrouplp-small-gemm-rounds option overrides this attribute when it
+                                                      is given explicitly.
+
+     "amdgpu-igrouplp-small-gemm-ds-size"             Size of every DS scheduling group the small gemm iglp strategy asks for,
+                                                      default is 2. The -amdgpu-igrouplp-small-gemm-ds-size option overrides this
+                                                      attribute when it is given explicitly.
+
+     "amdgpu-igrouplp-small-gemm-mfma-size"           Size of every MFMA scheduling group the small gemm iglp strategy asks for,
+                                                      default is 1. The -amdgpu-igrouplp-small-gemm-mfma-size option overrides
+                                                      this attribute when it is given explicitly.
+
+     "amdgpu-igrouplp-exp-small-mfma-enablement"      Number of MFMAs a single TRANS has to enable for a region to be treated as a
+                                                      small exp interleave pipeline, default is 2. The
+                                                      -amdgpu-igrouplp-exp-small-mfma-enablement option overrides this attribute
+                                                      when it is given explicitly.
+
+     "amdgpu-igrouplp-exp-small-exp-requirement"      Number of TRANS a single MFMA has to require for a region to be treated as a
+                                                      small exp interleave pipeline, default is 4. The
+                                                      -amdgpu-igrouplp-exp-small-exp-requirement option overrides this attribute
+                                                      when it is given explicitly.
+
+     "amdgpu-igrouplp-exp-small-trans-count"          Number of TRANS a region has to hold to be treated as a small exp interleave
+                                                      pipeline, default is 32. The -amdgpu-igrouplp-exp-small-trans-count option
+                                                      overrides this attribute when it is given explicitly.
+
+     "amdgpu-igrouplp-exp-large-mfma-enablement"      Number of MFMAs a single TRANS has to enable for a region to be treated as a
+                                                      large exp interleave pipeline, default is 4. The
+                                                      -amdgpu-igrouplp-exp-large-mfma-enablement option overrides this attribute
+                                                      when it is given explicitly.
+
+     "amdgpu-igrouplp-exp-large-exp-requirement"      Number of TRANS a single MFMA has to require for a region to be treated as a
+                                                      large exp interleave pipeline, default is 4. The
+                                                      -amdgpu-igrouplp-exp-large-exp-requirement option overrides this attribute
+                                                      when it is given explicitly.
+
+     "amdgpu-igrouplp-exp-large-trans-count"          Number of TRANS a region has to hold to be treated as a large exp interleave
+                                                      pipeline, default is 64. The -amdgpu-igrouplp-exp-large-trans-count option
+                                                      overrides this attribute when it is given explicitly.
+
      "amdgpu-dynamic-vgpr-block-size"                 Represents the size of a VGPR block in the "Dynamic VGPR" hardware mode,
                                                       introduced in GFX12.
                                                       A value of 0 (default) means that dynamic VGPRs are not enabled.

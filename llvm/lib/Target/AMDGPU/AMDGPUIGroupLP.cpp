@@ -16,6 +16,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPUIGroupLP.h"
+#include "AMDGPUTunableValue.h"
+#include "GCNSchedStrategy.h"
 #include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "SIInstrInfo.h"
 #include "SIMachineFunctionInfo.h"
@@ -62,6 +64,51 @@ static cl::opt<bool> UseCostHeur(
              "attempting to put the later nodes in the later sched groups. "
              "Experimentally, results are mixed, so this should be set on a "
              "case-by-case basis."));
+
+static cl::opt<unsigned> SmallGemmRounds(
+    "amdgpu-igrouplp-small-gemm-rounds", cl::Hidden, cl::init(3),
+    cl::desc("Number of interleaved DS and MFMA scheduling group pairs the "
+             "small gemm strategy asks for per MFMA in the region"));
+
+static cl::opt<unsigned> SmallGemmDSSize(
+    "amdgpu-igrouplp-small-gemm-ds-size", cl::Hidden, cl::init(2),
+    cl::desc("Size of every DS scheduling group the small gemm strategy asks "
+             "for"));
+
+static cl::opt<unsigned> SmallGemmMFMASize(
+    "amdgpu-igrouplp-small-gemm-mfma-size", cl::Hidden, cl::init(1),
+    cl::desc("Size of every MFMA scheduling group the small gemm strategy asks "
+             "for"));
+
+static cl::opt<unsigned> ExpInterleaveSmallMFMAEnablement(
+    "amdgpu-igrouplp-exp-small-mfma-enablement", cl::Hidden, cl::init(2),
+    cl::desc("Number of MFMAs a single TRANS has to enable for a region to be "
+             "treated as a small exp interleave pipeline"));
+
+static cl::opt<unsigned> ExpInterleaveSmallExpRequirement(
+    "amdgpu-igrouplp-exp-small-exp-requirement", cl::Hidden, cl::init(4),
+    cl::desc("Number of TRANS a single MFMA has to require for a region to be "
+             "treated as a small exp interleave pipeline"));
+
+static cl::opt<unsigned> ExpInterleaveSmallTransCount(
+    "amdgpu-igrouplp-exp-small-trans-count", cl::Hidden, cl::init(32),
+    cl::desc("Number of TRANS a region has to hold to be treated as a small "
+             "exp interleave pipeline"));
+
+static cl::opt<unsigned> ExpInterleaveLargeMFMAEnablement(
+    "amdgpu-igrouplp-exp-large-mfma-enablement", cl::Hidden, cl::init(4),
+    cl::desc("Number of MFMAs a single TRANS has to enable for a region to be "
+             "treated as a large exp interleave pipeline"));
+
+static cl::opt<unsigned> ExpInterleaveLargeExpRequirement(
+    "amdgpu-igrouplp-exp-large-exp-requirement", cl::Hidden, cl::init(4),
+    cl::desc("Number of TRANS a single MFMA has to require for a region to be "
+             "treated as a large exp interleave pipeline"));
+
+static cl::opt<unsigned> ExpInterleaveLargeTransCount(
+    "amdgpu-igrouplp-exp-large-trans-count", cl::Hidden, cl::init(64),
+    cl::desc("Number of TRANS a region has to hold to be treated as a large "
+             "exp interleave pipeline"));
 
 // Components of the mask that determines which instruction types may be may be
 // classified into a SchedGroup.
@@ -1019,15 +1066,23 @@ bool MFMASmallGemmOpt::applyIGLPStrategy(
     if (TII->isMFMAorWMMA(I))
       ++MFMACount;
 
+  const Function &F = DAG->MF.getFunction();
+  unsigned Rounds = getTunableValue(F, SmallGemmRounds);
+  unsigned DSSize = getTunableValue(F, SmallGemmDSSize);
+  unsigned MFMASize = getTunableValue(F, SmallGemmMFMASize);
+
+  LLVM_DEBUG(dbgs() << "Small gemm: Rounds = " << Rounds << ", DSSize = "
+                    << DSSize << ", MFMASize = " << MFMASize << '\n');
+
   const unsigned PipelineSyncID = 0;
   SchedGroup *SG = nullptr;
-  for (unsigned I = 0; I < MFMACount * 3; ++I) {
+  for (unsigned I = 0; I < MFMACount * Rounds; ++I) {
     SG = &SyncedSchedGroups[PipelineSyncID].emplace_back(
-        SchedGroupMask::DS, 2, PipelineSyncID, DAG, TII);
+        SchedGroupMask::DS, DSSize, PipelineSyncID, DAG, TII);
     SG->findCandidateSUnits(SyncedInstrs[SG->getSyncID()]);
 
     SG = &SyncedSchedGroups[PipelineSyncID].emplace_back(
-        SchedGroupMask::MFMA, 1, PipelineSyncID, DAG, TII);
+        SchedGroupMask::MFMA, MFMASize, PipelineSyncID, DAG, TII);
     SG->findCandidateSUnits(SyncedInstrs[SG->getSyncID()]);
   }
 
@@ -1673,10 +1728,31 @@ bool MFMAExpInterleaveOpt::applyIGLPStrategy(
     DenseMap<int, SmallVector<SchedGroup, 4>> &SyncedSchedGroups,
     AMDGPU::SchedulingPhase Phase) {
 
-  bool IsSmallKernelType =
-      MFMAEnablement == 2 && ExpRequirement == 4 && TransPipeCount == 32;
-  bool IsLargeKernelType =
-      MFMAEnablement == 4 && ExpRequirement == 4 && TransPipeCount == 64;
+  const Function &F = DAG->MF.getFunction();
+  unsigned SmallMFMAEnablement =
+      getTunableValue(F, ExpInterleaveSmallMFMAEnablement);
+  unsigned SmallExpRequirement =
+      getTunableValue(F, ExpInterleaveSmallExpRequirement);
+  unsigned SmallTransCount = getTunableValue(F, ExpInterleaveSmallTransCount);
+  unsigned LargeMFMAEnablement =
+      getTunableValue(F, ExpInterleaveLargeMFMAEnablement);
+  unsigned LargeExpRequirement =
+      getTunableValue(F, ExpInterleaveLargeExpRequirement);
+  unsigned LargeTransCount = getTunableValue(F, ExpInterleaveLargeTransCount);
+
+  LLVM_DEBUG(dbgs() << "Exp interleave: measured " << MFMAEnablement << '/'
+                    << ExpRequirement << '/' << TransPipeCount << ", small "
+                    << SmallMFMAEnablement << '/' << SmallExpRequirement << '/'
+                    << SmallTransCount << ", large " << LargeMFMAEnablement
+                    << '/' << LargeExpRequirement << '/' << LargeTransCount
+                    << '\n');
+
+  bool IsSmallKernelType = MFMAEnablement == SmallMFMAEnablement &&
+                           ExpRequirement == SmallExpRequirement &&
+                           TransPipeCount == SmallTransCount;
+  bool IsLargeKernelType = MFMAEnablement == LargeMFMAEnablement &&
+                           ExpRequirement == LargeExpRequirement &&
+                           TransPipeCount == LargeTransCount;
 
   if (!(IsSmallKernelType || IsLargeKernelType))
     return false;
