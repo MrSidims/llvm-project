@@ -127,10 +127,13 @@ public:
   unsigned ErrorMargin = 3;
 
   // Bias for SGPR limits under a high register pressure.
-  const unsigned HighRPSGPRBias = 7;
+  unsigned HighRPSGPRBias = 7;
 
   // Bias for VGPR limits under a high register pressure.
-  const unsigned HighRPVGPRBias = 7;
+  unsigned HighRPVGPRBias = 7;
+
+  // FIXME: Better heuristics to determine whether to prefer SGPRs or VGPRs.
+  unsigned MaxVGPRPressureInc = 16;
 
   unsigned SGPRCriticalLimit;
 

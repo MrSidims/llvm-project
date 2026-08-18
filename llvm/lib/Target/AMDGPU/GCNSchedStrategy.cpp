@@ -131,6 +131,40 @@ static cl::opt<unsigned, false, VGPRThresholdParser> VGPRThresholdPercentOpt(
              " default calculation, 1-100 = use percentage), default: 0"),
     cl::init(0));
 
+static cl::opt<unsigned> SchedRPErrorMargin(
+    "amdgpu-sched-rp-error-margin", cl::Hidden,
+    cl::desc("Margin subtracted from the scheduler's VGPR and SGPR excess and "
+             "critical register pressure limits"),
+    cl::init(3));
+
+static cl::opt<unsigned> SchedHighRPSGPRBias(
+    "amdgpu-sched-high-rp-sgpr-bias", cl::Hidden,
+    cl::desc("Extra SGPR limit bias applied by the unclustered high register "
+             "pressure scheduling stage"),
+    cl::init(7));
+
+static cl::opt<unsigned> SchedHighRPVGPRBias(
+    "amdgpu-sched-high-rp-vgpr-bias", cl::Hidden,
+    cl::desc("Extra VGPR limit bias applied by the unclustered high register "
+             "pressure scheduling stage"),
+    cl::init(7));
+
+static cl::opt<unsigned> SchedMaxVGPRPressureInc(
+    "amdgpu-sched-max-vgpr-pressure-inc", cl::Hidden,
+    cl::desc("VGPR pressure headroom below the excess limit at which the "
+             "scheduler reports VGPR instead of SGPR excess pressure"),
+    cl::init(16));
+
+/// Returns the value of \p Opt for function \p F. An explicitly given command
+/// line option always wins, otherwise a function attribute named after the
+/// option supplies the value, and failing that the option default is used.
+static unsigned getTunableValue(const Function &F,
+                                const cl::opt<unsigned> &Opt) {
+  if (Opt.getNumOccurrences())
+    return Opt;
+  return F.getFnAttributeAsParsedInteger(Opt.ArgStr, Opt);
+}
+
 const unsigned ScheduleMetrics::ScaleFactor = 100;
 
 GCNSchedStrategy::GCNSchedStrategy(const MachineSchedContext *C)
@@ -138,6 +172,12 @@ GCNSchedStrategy::GCNSchedStrategy(const MachineSchedContext *C)
       DownwardTracker(*C->LIS), UpwardTracker(*C->LIS), HasHighPressure(false) {
   if (GCNTrackers.getNumOccurrences() > 0)
     GCNTrackersOverride = GCNTrackers;
+
+  const Function &F = C->MF->getFunction();
+  ErrorMargin = getTunableValue(F, SchedRPErrorMargin);
+  HighRPSGPRBias = getTunableValue(F, SchedHighRPSGPRBias);
+  HighRPVGPRBias = getTunableValue(F, SchedHighRPVGPRBias);
+  MaxVGPRPressureInc = getTunableValue(F, SchedMaxVGPRPressureInc);
 }
 
 void GCNSchedStrategy::initialize(ScheduleDAGMI *DAG) {
@@ -203,6 +243,10 @@ void GCNSchedStrategy::initialize(ScheduleDAGMI *DAG) {
   // Subtract error margin and bias from register limits and avoid overflow.
   SGPRCriticalLimit -= std::min(SGPRLimitBias + ErrorMargin, SGPRCriticalLimit);
   SGPRExcessLimit -= std::min(SGPRLimitBias + ErrorMargin, SGPRExcessLimit);
+  LLVM_DEBUG(dbgs() << "ErrorMargin = " << ErrorMargin
+                    << ", MaxVGPRPressureInc = " << MaxVGPRPressureInc
+                    << ", SGPRLimitBias = " << SGPRLimitBias
+                    << ", VGPRLimitBias = " << VGPRLimitBias << '\n');
   LLVM_DEBUG(dbgs() << "VGPRCriticalLimit = " << VGPRCriticalLimit
                     << ", VGPRExcessLimit = " << VGPRExcessLimit
                     << ", SGPRCriticalLimit = " << SGPRCriticalLimit
@@ -386,8 +430,6 @@ void GCNSchedStrategy::initCandidate(SchedCandidate &Cand, SUnit *SU,
   // when we report excess/critical register pressure, we do it either
   // only for VGPRs or only for SGPRs.
 
-  // FIXME: Better heuristics to determine whether to prefer SGPRs or VGPRs.
-  const unsigned MaxVGPRPressureInc = 16;
   bool ShouldTrackVGPRs = VGPRPressure + MaxVGPRPressureInc >= VGPRExcessLimit;
   bool ShouldTrackSGPRs = !ShouldTrackVGPRs && SGPRPressure >= SGPRExcessLimit;
 
@@ -2194,10 +2236,10 @@ bool UnclusteredHighRPStage::shouldRevertScheduling(unsigned WavesAfter) {
   unsigned WavesBefore = std::min(
       S.getTargetOccupancy(),
       PressureBefore.getOccupancy(ST, DAG.MFI.getDynamicVGPRBlockSize()));
+  unsigned MetricBias = getTunableValue(MF.getFunction(), ScheduleMetricBias);
   unsigned Profit =
       ((WavesAfter * ScheduleMetrics::ScaleFactor) / WavesBefore *
-       ((OldMetric + ScheduleMetricBias) * ScheduleMetrics::ScaleFactor) /
-       NewMetric) /
+       ((OldMetric + MetricBias) * ScheduleMetrics::ScaleFactor) / NewMetric) /
       ScheduleMetrics::ScaleFactor;
   LLVM_DEBUG(dbgs() << "\tMetric before " << MBefore << "\tMetric after "
                     << MAfter << "Profit: " << Profit << "\n");

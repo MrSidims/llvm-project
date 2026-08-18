@@ -2708,6 +2708,32 @@ The AMDGPU backend supports the following LLVM IR attributes.
 
      "amdgpu-promote-alloca-to-vector-vgpr-ratio"     Ratio of VGPRs to budget for promoting alloca to vectors.
 
+     "amdgpu-sched-rp-error-margin"                   Margin subtracted from the machine scheduler's VGPR and SGPR excess
+                                                      and critical register pressure limits, default is 3. The
+                                                      -amdgpu-sched-rp-error-margin option overrides this attribute when it
+                                                      is given explicitly.
+
+     "amdgpu-sched-high-rp-sgpr-bias"                 Extra SGPR limit bias applied by the unclustered high register
+                                                      pressure scheduling stage, default is 7. The
+                                                      -amdgpu-sched-high-rp-sgpr-bias option overrides this attribute when
+                                                      it is given explicitly.
+
+     "amdgpu-sched-high-rp-vgpr-bias"                 Extra VGPR limit bias applied by the unclustered high register
+                                                      pressure scheduling stage, default is 7. The
+                                                      -amdgpu-sched-high-rp-vgpr-bias option overrides this attribute when
+                                                      it is given explicitly.
+
+     "amdgpu-sched-max-vgpr-pressure-inc"             VGPR pressure headroom below the excess limit at which the machine
+                                                      scheduler reports VGPR instead of SGPR excess pressure, default is
+                                                      16. The -amdgpu-sched-max-vgpr-pressure-inc option overrides this
+                                                      attribute when it is given explicitly.
+
+     "amdgpu-schedule-metric-bias"                    Weight added to occupancy versus latency in the profit formula of the
+                                                      unclustered high register pressure scheduling stage, default is 10.
+                                                      Set it to 100 to chase occupancy only. The
+                                                      -amdgpu-schedule-metric-bias option overrides this attribute when it
+                                                      is given explicitly.
+
      "amdgpu-dynamic-vgpr-block-size"                 Represents the size of a VGPR block in the "Dynamic VGPR" hardware mode,
                                                       introduced in GFX12.
                                                       A value of 0 (default) means that dynamic VGPRs are not enabled.
