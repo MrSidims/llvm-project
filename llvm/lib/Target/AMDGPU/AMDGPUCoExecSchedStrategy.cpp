@@ -311,7 +311,8 @@ void CandidateHeuristics::sortHWUIResources() {
     if (A.getTotalCycles() != B.getTotalCycles())
       return A.getTotalCycles() > B.getTotalCycles();
 
-    // In ties -- prefer the resource with more instructions
+    // On a tie the resource with fewer instructions blocks for longer per
+    // instruction, so prefer it
     if (A.size() != B.size())
       return A.size() < B.size();
 
