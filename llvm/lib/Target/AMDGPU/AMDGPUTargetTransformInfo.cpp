@@ -87,6 +87,12 @@ static cl::opt<unsigned> MemcpyLoopUnrollOpt(
              "memset as a loop"),
     cl::init(16), cl::Hidden);
 
+static cl::opt<unsigned> NumberOfRegistersOpt(
+    "amdgpu-num-registers", cl::Hidden, cl::init(4),
+    cl::desc("Number of registers the vectorizer and the unroller may fill. "
+             "For measurement only, this is deliberately far below the real "
+             "register file size"));
+
 static cl::opt<unsigned> MaxInterleaveFactorOpt(
     "amdgpu-max-interleave-factor", cl::Hidden, cl::init(8),
     cl::desc("Maximum interleave factor the loop vectorizer may use for a "
@@ -332,7 +338,7 @@ unsigned GCNTTIImpl::getNumberOfRegisters(unsigned RCID) const {
 
   // This is really the number of registers to fill when vectorizing /
   // interleaving loops, so we lie to avoid trying to use all registers.
-  return 4;
+  return NumberOfRegistersOpt;
 }
 
 TypeSize
