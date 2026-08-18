@@ -17640,8 +17640,30 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
       }
       TTI::OperandValueInfo Op1Info = TTI::getOperandInfo(Op1);
       TTI::OperandValueInfo Op2Info = TTI::getOperandInfo(Op2);
+      // Pass the scalar as the context instruction for an fmul so that a
+      // target which folds it into a following fadd/fsub can report it as
+      // free. Without this the scalar side of the comparison is priced as an
+      // unfused fmul that the scalar code would never emit, and vectorizing
+      // looks cheaper than it is precisely because it destroys the fusion.
+      // Only do this when the fusion really is lost. If the add/sub is
+      // vectorized with the same vector factor the vector form can fuse as
+      // well, and the pair is priced by the add/sub node instead; discounting
+      // here too would make the scalar side look free on both counts.
+      const Instruction *CxtI = nullptr;
+      if (ShuffleOrOp == Instruction::FMul) {
+        if (auto *I = dyn_cast<Instruction>(UniqueValues[Idx]);
+            I && I->hasOneUse()) {
+          if (none_of(getTreeEntries(*I->user_begin()),
+                      [&](const TreeEntry *UserTE) {
+                        return UserTE->getVectorFactor() ==
+                               E->getVectorFactor();
+                      }))
+            CxtI = I;
+        }
+      }
       InstructionCost ScalarCost = TTI->getArithmeticInstrCost(
-          ShuffleOrOp, OrigScalarTy, CostKind, Op1Info, Op2Info, Operands);
+          ShuffleOrOp, OrigScalarTy, CostKind, Op1Info, Op2Info, Operands,
+          CxtI);
       if (auto *I = dyn_cast<Instruction>(UniqueValues[Idx]);
           I && (ShuffleOrOp == Instruction::FAdd ||
                 ShuffleOrOp == Instruction::FSub)) {
