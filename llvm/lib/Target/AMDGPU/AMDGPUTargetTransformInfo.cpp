@@ -17,6 +17,7 @@
 #include "AMDGPUTargetTransformInfo.h"
 #include "AMDGPUSubtarget.h"
 #include "AMDGPUTargetMachine.h"
+#include "AMDGPUTunableValue.h"
 #include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "SIModeRegisterDefaults.h"
 #include "llvm/ADT/SmallBitVector.h"
@@ -85,6 +86,20 @@ static cl::opt<unsigned> MemcpyLoopUnroll(
              "operations when lowering statically-sized memcpy, memmove, or"
              "memset as a loop"),
     cl::init(16), cl::Hidden);
+
+static cl::opt<unsigned> InlineThresholdMultiplierOpt(
+    "amdgpu-inline-threshold-multiplier", cl::Hidden, cl::init(11),
+    cl::desc("Factor applied to the generic inline cost threshold"));
+
+static cl::opt<unsigned> InlineSGPRsUntilSpillOpt(
+    "amdgpu-inline-sgprs-until-spill", cl::Hidden, cl::init(26),
+    cl::desc("Number of SGPR call arguments assumed to be passed in registers "
+             "before the inline cost starts charging for stack traffic"));
+
+static cl::opt<unsigned> InlineVGPRsUntilSpillOpt(
+    "amdgpu-inline-vgprs-until-spill", cl::Hidden, cl::init(32),
+    cl::desc("Number of VGPR call arguments assumed to be passed in registers "
+             "before the inline cost starts charging for stack traffic"));
 
 static bool dependsOnLocalPhi(const Loop *L, const Value *Cond,
                               unsigned Depth = 0) {
@@ -292,6 +307,9 @@ GCNTTIImpl::GCNTTIImpl(const AMDGPUTargetMachine *TM, const Function &F)
   HasFP32Denormals = Mode.FP32Denormals != DenormalMode::getPreserveSign();
   HasFP64FP16Denormals =
       Mode.FP64FP16Denormals != DenormalMode::getPreserveSign();
+  InlineThresholdMultiplier = getTunableValue(F, InlineThresholdMultiplierOpt);
+  InlineSGPRsUntilSpill = getTunableValue(F, InlineSGPRsUntilSpillOpt);
+  InlineVGPRsUntilSpill = getTunableValue(F, InlineVGPRsUntilSpillOpt);
 }
 
 bool GCNTTIImpl::hasBranchDivergence(const Function *F) const {
@@ -1590,10 +1608,9 @@ bool GCNTTIImpl::areInlineCompatible(const Function *Caller,
 
 static unsigned adjustInliningThresholdUsingCallee(const CallBase *CB,
                                                    const SITargetLowering *TLI,
-                                                   const GCNTTIImpl *TTIImpl) {
-  const int NrOfSGPRUntilSpill = 26;
-  const int NrOfVGPRUntilSpill = 32;
-
+                                                   const GCNTTIImpl *TTIImpl,
+                                                   int NrOfSGPRUntilSpill,
+                                                   int NrOfVGPRUntilSpill) {
   const DataLayout &DL = TTIImpl->getDataLayout();
 
   unsigned adjustThreshold = 0;
@@ -1668,7 +1685,8 @@ int GCNTTIImpl::getInliningLastCallToStaticBonus() const {
 }
 
 unsigned GCNTTIImpl::adjustInliningThreshold(const CallBase *CB) const {
-  unsigned Threshold = adjustInliningThresholdUsingCallee(CB, TLI, this);
+  unsigned Threshold = adjustInliningThresholdUsingCallee(
+      CB, TLI, this, InlineSGPRsUntilSpill, InlineVGPRsUntilSpill);
 
   // Private object passed as arguments may end up in scratch usage if the call
   // is not inlined. Increase the inline threshold to promote inlining.

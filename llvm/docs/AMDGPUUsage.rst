@@ -2734,6 +2734,23 @@ The AMDGPU backend supports the following LLVM IR attributes.
                                                       -amdgpu-schedule-metric-bias option overrides this attribute when it
                                                       is given explicitly.
 
+     "amdgpu-inline-threshold-multiplier"             Factor applied to the generic inline cost threshold, default is 11.
+                                                      It is read from the callee of a call site. The
+                                                      -amdgpu-inline-threshold-multiplier option overrides this attribute
+                                                      when it is given explicitly.
+
+     "amdgpu-inline-sgprs-until-spill"                Number of SGPR call arguments the inline cost assumes are passed in
+                                                      registers before it starts charging for stack traffic, default is 26.
+                                                      It is read from the callee of a call site. The
+                                                      -amdgpu-inline-sgprs-until-spill option overrides this attribute when
+                                                      it is given explicitly.
+
+     "amdgpu-inline-vgprs-until-spill"                Number of VGPR call arguments the inline cost assumes are passed in
+                                                      registers before it starts charging for stack traffic, default is 32.
+                                                      It is read from the callee of a call site. The
+                                                      -amdgpu-inline-vgprs-until-spill option overrides this attribute when
+                                                      it is given explicitly.
+
      "amdgpu-dynamic-vgpr-block-size"                 Represents the size of a VGPR block in the "Dynamic VGPR" hardware mode,
                                                       introduced in GFX12.
                                                       A value of 0 (default) means that dynamic VGPRs are not enabled.

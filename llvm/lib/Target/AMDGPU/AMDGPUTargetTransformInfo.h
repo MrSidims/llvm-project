@@ -72,6 +72,9 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
   bool IsGraphics;
   bool HasFP32Denormals;
   bool HasFP64FP16Denormals;
+  unsigned InlineThresholdMultiplier;
+  unsigned InlineSGPRsUntilSpill;
+  unsigned InlineVGPRsUntilSpill;
   static constexpr bool InlinerVectorBonusPercent = 0;
 
   static const FeatureBitset InlineFeatureIgnoreList;
@@ -259,7 +262,9 @@ public:
                            const Function *Callee) const override;
 
   int getInliningLastCallToStaticBonus() const override;
-  unsigned getInliningThresholdMultiplier() const override { return 11; }
+  unsigned getInliningThresholdMultiplier() const override {
+    return InlineThresholdMultiplier;
+  }
   unsigned adjustInliningThreshold(const CallBase *CB) const override;
   unsigned getCallerAllocaCost(const CallBase *CB,
                                const AllocaInst *AI) const override;

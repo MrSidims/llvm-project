@@ -25,6 +25,7 @@
 
 #include "GCNSchedStrategy.h"
 #include "AMDGPUIGroupLP.h"
+#include "AMDGPUTunableValue.h"
 #include "GCNHazardRecognizer.h"
 #include "GCNRegPressure.h"
 #include "SIMachineFunctionInfo.h"
@@ -154,16 +155,6 @@ static cl::opt<unsigned> SchedMaxVGPRPressureInc(
     cl::desc("VGPR pressure headroom below the excess limit at which the "
              "scheduler reports VGPR instead of SGPR excess pressure"),
     cl::init(16));
-
-/// Returns the value of \p Opt for function \p F. An explicitly given command
-/// line option always wins, otherwise a function attribute named after the
-/// option supplies the value, and failing that the option default is used.
-static unsigned getTunableValue(const Function &F,
-                                const cl::opt<unsigned> &Opt) {
-  if (Opt.getNumOccurrences())
-    return Opt;
-  return F.getFnAttributeAsParsedInteger(Opt.ArgStr, Opt);
-}
 
 const unsigned ScheduleMetrics::ScaleFactor = 100;
 
