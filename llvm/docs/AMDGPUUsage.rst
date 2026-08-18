@@ -2816,6 +2816,26 @@ The AMDGPU backend supports the following LLVM IR attributes.
                                                       is 0. The -amdgpu-coexec-stall-slack option overrides this attribute
                                                       when it is given explicitly.
 
+     "amdgpu-rewrite-mfma-max-waves"                  Largest minimum waves per EU at which the mfma rewrite scheduling
+                                                      stage still runs, default is 1. Setting it to 0 turns the stage off.
+                                                      The -amdgpu-rewrite-mfma-max-waves option overrides this attribute
+                                                      when it is given explicitly.
+
+     "amdgpu-rewrite-mfma-archvgpr-trigger-percent"   Percent of the addressable ArchVGPR count a region must exceed for the
+                                                      mfma rewrite scheduling stage to consider it, default is 100. The
+                                                      -amdgpu-rewrite-mfma-archvgpr-trigger-percent option overrides this
+                                                      attribute when it is given explicitly.
+
+     "amdgpu-rewrite-mfma-spill-multiplier"           Number of instructions the mfma rewrite scheduling stage charges for
+                                                      each excess register it spills, default is 2. The
+                                                      -amdgpu-rewrite-mfma-spill-multiplier option overrides this attribute
+                                                      when it is given explicitly.
+
+     "amdgpu-rewrite-mfma-spill-balance"              Lets the mfma rewrite scheduling stage weigh regions that spill more
+                                                      against regions that spill less instead of bailing out on the first
+                                                      one, default is false. The -amdgpu-rewrite-mfma-spill-balance option
+                                                      overrides this attribute when it is given explicitly.
+
      "amdgpu-dynamic-vgpr-block-size"                 Represents the size of a VGPR block in the "Dynamic VGPR" hardware mode,
                                                       introduced in GFX12.
                                                       A value of 0 (default) means that dynamic VGPRs are not enabled.

@@ -105,6 +105,31 @@ static cl::opt<bool> DisableRewriteMFMAFormSchedStage(
     "amdgpu-disable-rewrite-mfma-form-sched-stage", cl::Hidden,
     cl::desc("Disable rewrite mfma rewrite scheduling stage"), cl::init(true));
 
+static cl::opt<unsigned> RewriteMFMAMaxWaves(
+    "amdgpu-rewrite-mfma-max-waves", cl::Hidden,
+    cl::desc("Largest minimum waves per EU at which the mfma rewrite "
+             "scheduling stage still runs"),
+    cl::init(1));
+
+static cl::opt<unsigned> RewriteMFMAArchVGPRTriggerPercent(
+    "amdgpu-rewrite-mfma-archvgpr-trigger-percent", cl::Hidden,
+    cl::desc("Percent of the addressable ArchVGPR count a region must exceed "
+             "for the mfma rewrite scheduling stage to consider it"),
+    cl::init(100));
+
+static cl::opt<unsigned> RewriteMFMASpillMultiplier(
+    "amdgpu-rewrite-mfma-spill-multiplier", cl::Hidden,
+    cl::desc("Number of instructions the mfma rewrite scheduling stage charges "
+             "for each excess register it spills"),
+    cl::init(2));
+
+static cl::opt<bool> RewriteMFMASpillBalance(
+    "amdgpu-rewrite-mfma-spill-balance", cl::Hidden,
+    cl::desc("Let the mfma rewrite scheduling stage weigh regions that spill "
+             "more against regions that spill less instead of bailing out on "
+             "the first one"),
+    cl::init(false));
+
 namespace {
 
 struct VGPRThresholdParser : public cl::parser<unsigned> {
@@ -1410,19 +1435,41 @@ void RewriteMFMAFormStage::findReachingUses(
   }
 }
 
+RewriteMFMAFormStage::RewriteMFMAFormStage(GCNSchedStageID StageID,
+                                           GCNScheduleDAGMILive &DAG)
+    : GCNSchedStage(StageID, DAG) {
+  const Function &F = MF.getFunction();
+  MaxWaves = getTunableValue(F, RewriteMFMAMaxWaves);
+  ArchVGPRTriggerPercent =
+      getTunableValue(F, RewriteMFMAArchVGPRTriggerPercent);
+  SpillMultiplier = getTunableValue(F, RewriteMFMASpillMultiplier);
+  SpillBalance = getTunableValue(F, RewriteMFMASpillBalance);
+}
+
 bool RewriteMFMAFormStage::initGCNSchedStage() {
   // We only need to run this pass if the architecture supports AGPRs.
   // Additionally, we don't use AGPRs at occupancy levels above 1 so there
   // is no need for this pass in that case, either.
   const GCNSubtarget &ST = MF.getSubtarget<GCNSubtarget>();
-  if (!ST.hasGFX90AInsts() || MFI.getMinWavesPerEU() > 1)
+
+  LLVM_DEBUG(dbgs() << "Rewrite MFMA form: MaxWaves = " << MaxWaves
+                    << ", ArchVGPRTriggerPercent = " << ArchVGPRTriggerPercent
+                    << ", SpillMultiplier = " << SpillMultiplier
+                    << ", SpillBalance = " << SpillBalance << '\n');
+
+  if (!ST.hasGFX90AInsts() || MFI.getMinWavesPerEU() > MaxWaves)
     return false;
+
+  uint64_t ArchVGPRTrigger =
+      ((uint64_t)ST.getAddressableNumArchVGPRs() * ArchVGPRTriggerPercent +
+       99) /
+      100;
 
   RegionsWithExcessArchVGPR.resize(DAG.Regions.size());
   RegionsWithExcessArchVGPR.reset();
   for (unsigned Region = 0; Region < DAG.Regions.size(); Region++) {
     GCNRegPressure PressureBefore = DAG.Pressure[Region];
-    if (PressureBefore.getArchVGPRNum() > ST.getAddressableNumArchVGPRs())
+    if (PressureBefore.getArchVGPRNum() > ArchVGPRTrigger)
       RegionsWithExcessArchVGPR[Region] = true;
   }
 
@@ -2535,6 +2582,7 @@ int64_t RewriteMFMAFormStage::getRewriteCost(
   MachineBlockFrequencyInfo *MBFI = DAG.MBFI;
 
   int64_t BestSpillCost = 0;
+  int64_t WorseSpillCost = 0;
   int64_t Cost = 0;
   uint64_t EntryFreq = MBFI->getEntryFreq().getFrequency();
 
@@ -2572,7 +2620,8 @@ int64_t RewriteMFMAFormStage::getRewriteCost(
 
     // This assumes perfect spilling / splitting -- using one spill / copy
     // instruction and one restoreFrom / copy for each excess register,
-    int64_t SpillCost = ((int)SpillCostAfter - (int)SpillCostBefore) * 2;
+    int64_t SpillCost =
+        ((int)SpillCostAfter - (int)SpillCostBefore) * SpillMultiplier;
 
     // Also account for the block frequency.
     if (RelativeFreqIsDenom)
@@ -2580,10 +2629,15 @@ int64_t RewriteMFMAFormStage::getRewriteCost(
     else
       SpillCost *= (int64_t)RelativeFreq;
 
-    // If we have increased spilling in any block, just bail.
+    // If we have increased spilling in any block, just bail. Unless we were
+    // asked to weigh it against the blocks that spill less.
     if (SpillCost > 0) {
-      resetRewriteCandsToVGPR(RewriteCands);
-      return SpillCost;
+      if (!SpillBalance) {
+        resetRewriteCandsToVGPR(RewriteCands);
+        return SpillCost;
+      }
+      WorseSpillCost += SpillCost;
+      continue;
     }
 
     if (SpillCost < BestSpillCost)
@@ -2592,8 +2646,8 @@ int64_t RewriteMFMAFormStage::getRewriteCost(
 
   // Set the cost to the largest decrease in spill cost in order to not double
   // count spill reductions.
-  Cost = BestSpillCost;
-  assert(Cost <= 0);
+  Cost = BestSpillCost + WorseSpillCost;
+  assert(SpillBalance || Cost <= 0);
 
   unsigned CopyCost = 0;
 

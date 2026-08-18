@@ -446,6 +446,11 @@ private:
   const SIInstrInfo *TII;
   const SIRegisterInfo *SRI;
 
+  unsigned MaxWaves = 1;
+  unsigned ArchVGPRTriggerPercent = 100;
+  int64_t SpillMultiplier = 2;
+  bool SpillBalance = false;
+
   /// Per-candidate cache of the src2 "needs VGPR" decision, computed once
   /// and reused on-demand.
   DenseMap<const MachineInstr *, bool> Src2NeedsVGPRCache;
@@ -498,8 +503,7 @@ private:
 public:
   bool initGCNSchedStage() override;
 
-  RewriteMFMAFormStage(GCNSchedStageID StageID, GCNScheduleDAGMILive &DAG)
-      : GCNSchedStage(StageID, DAG) {}
+  RewriteMFMAFormStage(GCNSchedStageID StageID, GCNScheduleDAGMILive &DAG);
 };
 
 class UnclusteredHighRPStage : public GCNSchedStage {
