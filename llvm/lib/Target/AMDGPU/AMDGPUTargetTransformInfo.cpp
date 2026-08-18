@@ -80,7 +80,7 @@ static cl::opt<size_t> InlineMaxBB(
              " (compile time constraint)"));
 
 // This default unroll factor is based on microbenchmarks on gfx1030.
-static cl::opt<unsigned> MemcpyLoopUnroll(
+static cl::opt<unsigned> MemcpyLoopUnrollOpt(
     "amdgpu-memcpy-loop-unroll",
     cl::desc("Unroll factor (affecting 4x32-bit operations) to use for memory "
              "operations when lowering statically-sized memcpy, memmove, or"
@@ -148,8 +148,9 @@ void AMDGPUTTIImpl::getUnrollingPreferences(
 
   // Maximum alloca size than can fit registers. Reserve 16 registers.
   const unsigned MaxAlloca = (256 - 16) * 4;
-  unsigned ThresholdPrivate = UnrollThresholdPrivate;
-  unsigned ThresholdLocal = UnrollThresholdLocal;
+  unsigned ThresholdPrivate = getTunableValue(F, UnrollThresholdPrivate);
+  unsigned ThresholdLocal = getTunableValue(F, UnrollThresholdLocal);
+  unsigned ThresholdIf = getTunableValue(F, UnrollThresholdIf);
 
   // If this loop has the amdgpu.loop.unroll.threshold metadata we will use the
   // provided threshold value as the default for Threshold
@@ -193,7 +194,7 @@ void AMDGPUTTIImpl::getUnrollingPreferences(
               (L->contains(Succ1) && L->isLoopExiting(Succ1)))
             continue;
           if (dependsOnLocalPhi(L, Br->getCondition())) {
-            UP.Threshold += UnrollThresholdIf;
+            UP.Threshold += ThresholdIf;
             LLVM_DEBUG(dbgs() << "Set unroll threshold " << UP.Threshold
                               << " for loop:\n"
                               << *L << " due to " << *Br << '\n');
@@ -307,6 +308,7 @@ GCNTTIImpl::GCNTTIImpl(const AMDGPUTargetMachine *TM, const Function &F)
   HasFP32Denormals = Mode.FP32Denormals != DenormalMode::getPreserveSign();
   HasFP64FP16Denormals =
       Mode.FP64FP16Denormals != DenormalMode::getPreserveSign();
+  MemcpyLoopUnroll = getTunableValue(F, MemcpyLoopUnrollOpt);
   InlineThresholdMultiplier = getTunableValue(F, InlineThresholdMultiplierOpt);
   InlineSGPRsUntilSpill = getTunableValue(F, InlineSGPRsUntilSpillOpt);
   InlineVGPRsUntilSpill = getTunableValue(F, InlineVGPRsUntilSpillOpt);
