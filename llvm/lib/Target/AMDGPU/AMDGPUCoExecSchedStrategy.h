@@ -206,6 +206,15 @@ protected:
   AMDGPU::AMDGPUSchedReason LastAMDGPUReason = AMDGPU::AMDGPUSchedReason::None;
   CandidateHeuristics Heurs;
 
+  unsigned StallWeightReady = 1;
+  unsigned StallWeightStruct = 1;
+  unsigned StallWeightLatency = 1;
+  unsigned StallSlack = 0;
+  bool StallCombineSum = false;
+
+  unsigned combineEffectiveStall(unsigned Ready, unsigned Structural,
+                                 unsigned Latency) const;
+
 #ifndef NDEBUG
   void dumpPickSummary(SUnit *SU, bool IsTopNode, SchedCandidate &Cand);
 #endif

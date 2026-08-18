@@ -13,13 +13,59 @@
 
 #include "AMDGPUCoExecSchedStrategy.h"
 #include "AMDGPUIGroupLP.h"
+#include "AMDGPUTunableValue.h"
 #include "GCNHazardRecognizer.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::AMDGPU;
 
 #define DEBUG_TYPE "machine-scheduler"
+
+static cl::opt<unsigned> CoExecStallWeightReady(
+    "amdgpu-coexec-stall-weight-ready", cl::Hidden,
+    cl::desc("Weight given to the operand readiness component of a candidate's "
+             "effective stall in the coexec scheduler"),
+    cl::init(1));
+
+static cl::opt<unsigned> CoExecStallWeightStruct(
+    "amdgpu-coexec-stall-weight-struct", cl::Hidden,
+    cl::desc("Weight given to the busy hardware unit component of a "
+             "candidate's effective stall in the coexec scheduler"),
+    cl::init(1));
+
+static cl::opt<unsigned> CoExecStallWeightLatency(
+    "amdgpu-coexec-stall-weight-latency", cl::Hidden,
+    cl::desc("Weight given to the critical path latency component of a "
+             "candidate's effective stall in the coexec scheduler"),
+    cl::init(1));
+
+static cl::opt<unsigned> CoExecStallSlack(
+    "amdgpu-coexec-stall-slack", cl::Hidden,
+    cl::desc("Effective stall difference the coexec scheduler treats as a tie, "
+             "leaving the choice to the critical resource heuristics"),
+    cl::init(0));
+
+namespace {
+enum class StallCombineMode { Max, Sum };
+} // namespace
+
+static cl::opt<StallCombineMode> CoExecStallCombine(
+    "amdgpu-coexec-stall-combine", cl::Hidden,
+    cl::desc("How the coexec scheduler combines the weighted stall components"),
+    cl::init(StallCombineMode::Max),
+    cl::values(clEnumValN(StallCombineMode::Max, "max",
+                          "Take the largest weighted component"),
+               clEnumValN(StallCombineMode::Sum, "sum",
+                          "Take the sum of the weighted components")));
+
+static bool getTunableStallCombineSum(const Function &F) {
+  if (CoExecStallCombine.getNumOccurrences())
+    return CoExecStallCombine == StallCombineMode::Sum;
+  return F.getFnAttribute(CoExecStallCombine.ArgStr).getValueAsString() ==
+         "sum";
+}
 
 namespace {
 
@@ -416,6 +462,21 @@ AMDGPUCoExecSchedStrategy::AMDGPUCoExecSchedStrategy(
   SchedStages.push_back(GCNSchedStageID::PreRARematerialize);
   // Use more accurate GCN pressure trackers.
   UseGCNTrackers = true;
+
+  const Function &F = C->MF->getFunction();
+  StallWeightReady = getTunableValue(F, CoExecStallWeightReady);
+  StallWeightStruct = getTunableValue(F, CoExecStallWeightStruct);
+  StallWeightLatency = getTunableValue(F, CoExecStallWeightLatency);
+  StallSlack = getTunableValue(F, CoExecStallSlack);
+  StallCombineSum = getTunableStallCombineSum(F);
+}
+
+unsigned AMDGPUCoExecSchedStrategy::combineEffectiveStall(
+    unsigned Ready, unsigned Structural, unsigned Latency) const {
+  unsigned R = Ready * StallWeightReady;
+  unsigned S = Structural * StallWeightStruct;
+  unsigned L = Latency * StallWeightLatency;
+  return StallCombineSum ? R + S + L : std::max({R, S, L});
 }
 
 void AMDGPUCoExecSchedStrategy::initPolicy(MachineBasicBlock::iterator Begin,
@@ -438,6 +499,12 @@ void AMDGPUCoExecSchedStrategy::initialize(ScheduleDAGMI *DAG) {
 
   GCNSchedStrategy::initialize(DAG);
   Heurs.initialize(DAG, SchedModel, TRI);
+
+  LLVM_DEBUG(dbgs() << "Stall weights: ready = " << StallWeightReady
+                    << ", struct = " << StallWeightStruct
+                    << ", latency = " << StallWeightLatency
+                    << ", combine = " << (StallCombineSum ? "sum" : "max")
+                    << ", slack = " << StallSlack << '\n');
 
   // Replace the default hazard recognizer with our PreRA one so that pre-RA
   // scheduling accounts for WMMA co-execution slot constraints. This must
@@ -698,7 +765,8 @@ bool AMDGPUCoExecSchedStrategy::tryEffectiveStall(SchedCandidate &Cand,
     Costs.Ready = ReadyCycle > CurrCycle ? ReadyCycle - CurrCycle : 0;
     Costs.Structural = getStructuralStallCycles(Zone, SU);
     Costs.Latency = Zone.getLatencyStallCycles(SU);
-    Costs.Effective = std::max({Costs.Ready, Costs.Structural, Costs.Latency});
+    Costs.Effective =
+        combineEffectiveStall(Costs.Ready, Costs.Structural, Costs.Latency);
     return Costs;
   };
 
@@ -713,6 +781,14 @@ bool AMDGPUCoExecSchedStrategy::tryEffectiveStall(SchedCandidate &Cand,
            << ", struct=" << CandCosts.Structural
            << ", lat=" << CandCosts.Latency << ")\n";
   });
+
+  if (StallSlack) {
+    unsigned Diff = TryCosts.Effective > CandCosts.Effective
+                        ? TryCosts.Effective - CandCosts.Effective
+                        : CandCosts.Effective - TryCosts.Effective;
+    if (Diff <= StallSlack)
+      return false;
+  }
 
   return tryLess(TryCosts.Effective, CandCosts.Effective, TryCand, Cand, Stall);
 }

@@ -2791,6 +2791,31 @@ The AMDGPU backend supports the following LLVM IR attributes.
                                                       -amdgpu-inline-vgprs-until-spill option overrides this attribute when
                                                       it is given explicitly.
 
+     "amdgpu-coexec-stall-weight-ready"               Weight given to the operand readiness component of a candidate's
+                                                      effective stall in the coexec scheduling strategy, default is 1. The
+                                                      -amdgpu-coexec-stall-weight-ready option overrides this attribute
+                                                      when it is given explicitly.
+
+     "amdgpu-coexec-stall-weight-struct"              Weight given to the busy hardware unit component of a candidate's
+                                                      effective stall in the coexec scheduling strategy, default is 1. The
+                                                      -amdgpu-coexec-stall-weight-struct option overrides this attribute
+                                                      when it is given explicitly.
+
+     "amdgpu-coexec-stall-weight-latency"             Weight given to the critical path latency component of a candidate's
+                                                      effective stall in the coexec scheduling strategy, default is 1. The
+                                                      -amdgpu-coexec-stall-weight-latency option overrides this attribute
+                                                      when it is given explicitly.
+
+     "amdgpu-coexec-stall-combine"                    How the coexec scheduling strategy combines the weighted stall
+                                                      components, either "max" (default) for the largest one or "sum" for
+                                                      their sum. The -amdgpu-coexec-stall-combine option overrides this
+                                                      attribute when it is given explicitly.
+
+     "amdgpu-coexec-stall-slack"                      Effective stall difference the coexec scheduling strategy treats as a
+                                                      tie, leaving the choice to the critical resource heuristics, default
+                                                      is 0. The -amdgpu-coexec-stall-slack option overrides this attribute
+                                                      when it is given explicitly.
+
      "amdgpu-dynamic-vgpr-block-size"                 Represents the size of a VGPR block in the "Dynamic VGPR" hardware mode,
                                                       introduced in GFX12.
                                                       A value of 0 (default) means that dynamic VGPRs are not enabled.
