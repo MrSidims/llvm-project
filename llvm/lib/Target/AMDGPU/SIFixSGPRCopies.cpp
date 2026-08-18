@@ -67,6 +67,7 @@
 #include "SIFixSGPRCopies.h"
 #include "AMDGPU.h"
 #include "AMDGPULaneMaskUtils.h"
+#include "AMDGPUTunableValue.h"
 #include "GCNSubtarget.h"
 #include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "llvm/CodeGen/MachineDominators.h"
@@ -76,6 +77,24 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "si-fix-sgpr-copies"
+
+static cl::opt<unsigned> V2SCopyScoreThreshold(
+    "amdgpu-v2s-copy-score-threshold", cl::Hidden, cl::init(3),
+    cl::desc("Score below which a VGPR to SGPR copy and its scalar chain are "
+             "moved to the vector unit"));
+
+static cl::opt<unsigned> V2SCopySVCopyPenalty(
+    "amdgpu-v2s-copy-sv-copy-penalty", cl::Hidden, cl::init(1),
+    cl::desc("Weight of one SGPR to VGPR copy in the VGPR to SGPR copy score"));
+
+static cl::opt<unsigned> V2SCopySiblingPenalty(
+    "amdgpu-v2s-copy-sibling-penalty", cl::Hidden, cl::init(1),
+    cl::desc("Weight of one sibling copy in the VGPR to SGPR copy score"));
+
+static cl::opt<unsigned> V2SCopyReadfirstlanePenalty(
+    "amdgpu-v2s-copy-readfirstlane-penalty", cl::Hidden, cl::init(1),
+    cl::desc("Weight of one v_readfirstlane_b32 in the VGPR to SGPR copy "
+             "score"));
 
 static cl::opt<bool> EnableM0Merge(
   "amdgpu-enable-merge-m0",
@@ -131,6 +150,10 @@ class SIFixSGPRCopies {
   MapVector<unsigned, V2SCopyInfo> V2SCopies;
   DenseMap<MachineInstr *, SetVector<unsigned>> SiblingPenalty;
   DenseSet<MachineInstr *> PHISources;
+  unsigned ScoreThreshold;
+  unsigned SVCopyPenalty;
+  unsigned SiblingCopyPenalty;
+  unsigned ReadfirstlanePenalty;
 
 public:
   MachineRegisterInfo *MRI;
@@ -636,6 +659,12 @@ bool SIFixSGPRCopies::run(MachineFunction &MF) {
   TRI = ST.getRegisterInfo();
   TII = ST.getInstrInfo();
 
+  const Function &F = MF.getFunction();
+  ScoreThreshold = getTunableValue(F, V2SCopyScoreThreshold);
+  SVCopyPenalty = getTunableValue(F, V2SCopySVCopyPenalty);
+  SiblingCopyPenalty = getTunableValue(F, V2SCopySiblingPenalty);
+  ReadfirstlanePenalty = getTunableValue(F, V2SCopyReadfirstlanePenalty);
+
   // Instructions to re-legalize after changing register classes
   SmallVector<MachineInstr *, 8> Relegalize;
 
@@ -1063,11 +1092,12 @@ bool SIFixSGPRCopies::needToBeConvertedToVALU(V2SCopyInfo *Info) {
   }
   Info->SiblingPenalty = SrcRegs.size();
 
-  unsigned Penalty =
-      Info->NumSVCopies + Info->SiblingPenalty + Info->NumReadfirstlanes;
+  unsigned Penalty = Info->NumSVCopies * SVCopyPenalty +
+                     Info->SiblingPenalty * SiblingCopyPenalty +
+                     Info->NumReadfirstlanes * ReadfirstlanePenalty;
   unsigned Profit = Info->SChain.size();
   Info->Score = Penalty > Profit ? 0 : Profit - Penalty;
-  Info->NeedToBeConvertedToVALU = Info->Score < 3;
+  Info->NeedToBeConvertedToVALU = Info->Score < ScoreThreshold;
   return Info->NeedToBeConvertedToVALU;
 }
 
