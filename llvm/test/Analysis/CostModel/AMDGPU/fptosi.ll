@@ -12,17 +12,17 @@
 
 define i32 @fptosi_double_i64(i32 %arg) {
 ; ALL-LABEL: 'fptosi_double_i64'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = fptosi double undef to i64
-; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = fptosi <2 x double> undef to <2 x i64>
-; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = fptosi <4 x double> undef to <4 x i64>
-; ALL-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = fptosi <8 x double> undef to <8 x i64>
+; ALL-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %I64 = fptosi double undef to i64
+; ALL-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %V2I64 = fptosi <2 x double> undef to <2 x i64>
+; ALL-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V4I64 = fptosi <4 x double> undef to <4 x i64>
+; ALL-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %V8I64 = fptosi <8 x double> undef to <8 x i64>
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; ALL-SIZE-LABEL: 'fptosi_double_i64'
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = fptosi double undef to i64
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = fptosi <2 x double> undef to <2 x i64>
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = fptosi <4 x double> undef to <4 x i64>
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = fptosi <8 x double> undef to <8 x i64>
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %I64 = fptosi double undef to i64
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %V2I64 = fptosi <2 x double> undef to <2 x i64>
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V4I64 = fptosi <4 x double> undef to <4 x i64>
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %V8I64 = fptosi <8 x double> undef to <8 x i64>
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
   %I64 = fptosi double undef to i64
@@ -128,19 +128,19 @@ define i32 @fptosi_double_i8(i32 %arg) {
 
 define i32 @fptosi_float_i64(i32 %arg) {
 ; ALL-LABEL: 'fptosi_float_i64'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = fptosi float undef to i64
-; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = fptosi <2 x float> undef to <2 x i64>
-; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = fptosi <4 x float> undef to <4 x i64>
-; ALL-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = fptosi <8 x float> undef to <8 x i64>
-; ALL-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16I64 = fptosi <16 x float> undef to <16 x i64>
+; ALL-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %I64 = fptosi float undef to i64
+; ALL-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %V2I64 = fptosi <2 x float> undef to <2 x i64>
+; ALL-NEXT:  Cost Model: Found an estimated cost of 52 for instruction: %V4I64 = fptosi <4 x float> undef to <4 x i64>
+; ALL-NEXT:  Cost Model: Found an estimated cost of 104 for instruction: %V8I64 = fptosi <8 x float> undef to <8 x i64>
+; ALL-NEXT:  Cost Model: Found an estimated cost of 208 for instruction: %V16I64 = fptosi <16 x float> undef to <16 x i64>
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; ALL-SIZE-LABEL: 'fptosi_float_i64'
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I64 = fptosi float undef to i64
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I64 = fptosi <2 x float> undef to <2 x i64>
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I64 = fptosi <4 x float> undef to <4 x i64>
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8I64 = fptosi <8 x float> undef to <8 x i64>
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16I64 = fptosi <16 x float> undef to <16 x i64>
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %I64 = fptosi float undef to i64
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 26 for instruction: %V2I64 = fptosi <2 x float> undef to <2 x i64>
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 52 for instruction: %V4I64 = fptosi <4 x float> undef to <4 x i64>
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 104 for instruction: %V8I64 = fptosi <8 x float> undef to <8 x i64>
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 208 for instruction: %V16I64 = fptosi <16 x float> undef to <16 x i64>
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
   %I64 = fptosi float undef to i64

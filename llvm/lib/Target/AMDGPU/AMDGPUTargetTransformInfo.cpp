@@ -568,6 +568,98 @@ bool GCNTTIImpl::canFuseFMulWithFAddSub(const Instruction *FMul,
          (FAddSub->hasAllowContract() && FMul->hasAllowContract());
 }
 
+InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
+                                             Type *Src,
+                                             TTI::CastContextHint CCH,
+                                             TTI::TargetCostKind CostKind,
+                                             const Instruction *I) const {
+  const int ISD = TLI->InstructionOpcodeToISD(Opcode);
+
+  // Only the integer <-> floating point conversions are modelled here. The
+  // generic handling assumes every one of them is a single instruction, which
+  // is badly wrong for the ones that have no hardware support and are expanded
+  // by the legalizer instead.
+  switch (ISD) {
+  case ISD::SINT_TO_FP:
+  case ISD::UINT_TO_FP:
+  case ISD::FP_TO_SINT:
+  case ISD::FP_TO_UINT:
+    break;
+  default:
+    return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
+  }
+
+  // None of the conversions below has a packed form, so a vector is converted
+  // element by element once the type is legal.
+  unsigned NElts = 1;
+  if (auto *VT = dyn_cast<FixedVectorType>(Src))
+    NElts = VT->getNumElements();
+
+  const unsigned SrcBits = Src->getScalarSizeInBits();
+  const unsigned DstBits = Dst->getScalarSizeInBits();
+  const bool IsSigned = ISD == ISD::SINT_TO_FP || ISD == ISD::FP_TO_SINT;
+
+  auto Scale = [&](unsigned PerElt) -> InstructionCost {
+    return InstructionCost(PerElt) * NElts * getFullRateInstrCost();
+  };
+
+  if (ISD == ISD::SINT_TO_FP || ISD == ISD::UINT_TO_FP) {
+    // There is no 64 bit integer to float conversion. It is expanded into a
+    // normalisation sequence (ffbh / shift / or / ldexp) wrapped around a 32
+    // bit convert, and the f16 destination adds a second convert on top. The
+    // f64 destination is the cheap one: the mantissa is wide enough that the
+    // value can be assembled from its two halves directly.
+    if (SrcBits > 32) {
+      if (DstBits == 64)
+        return Scale(4);
+      if (DstBits == 32)
+        return Scale(IsSigned ? 12 : 8);
+      return Scale(IsSigned ? 13 : 9);
+    }
+
+    // A narrow source in a vector is the case the generic model gets wrong:
+    // <2 x i16> and <4 x i16> are legal types, so it prices the whole vector
+    // as one instruction even though the conversion is still performed lane by
+    // lane.
+    // i1 is not a narrow integer here, it is a condition, and is converted
+    // with a single select.
+    if (SrcBits >= 8 && SrcBits < 32 && isa<FixedVectorType>(Src) &&
+        DstBits <= 32) {
+      // v_cvt_f32_ubyte* reads a byte straight out of a 32 bit register, so an
+      // unsigned byte source needs no extension at all and the generic model
+      // is already pessimistic enough. A signed one has no such form: the
+      // legalizer materialises the sign extension through a 64 bit value,
+      // which costs more than the convert it feeds.
+      if (SrcBits < 16) {
+        if (!IsSigned)
+          return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
+        // The extension is a shift of the packed source, so once the source
+        // does not fit in a single 32 bit register the legalizer has to widen
+        // it to i64 and pays for the normalisation sequence that comes with
+        // the 64 bit conversion, once per 64 bit part.
+        InstructionCost Cost = Scale(2);
+        if (SrcBits * NElts > 32)
+          Cost += 6 * divideCeil(SrcBits * NElts, 64) * getFullRateInstrCost();
+        return Cost;
+      }
+      return Scale(1);
+    }
+
+    return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
+  }
+
+  // Float to 64 bit integer is expanded the same way.
+  if (DstBits > 32) {
+    if (SrcBits == 64)
+      return Scale(7);
+    if (SrcBits == 32)
+      return Scale(IsSigned ? 13 : 6);
+    return Scale(3);
+  }
+
+  return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
+}
+
 InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
     TTI::OperandValueInfo Op1Info, TTI::OperandValueInfo Op2Info,
