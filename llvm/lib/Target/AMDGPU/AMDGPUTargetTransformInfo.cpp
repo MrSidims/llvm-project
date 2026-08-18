@@ -87,6 +87,11 @@ static cl::opt<unsigned> MemcpyLoopUnrollOpt(
              "memset as a loop"),
     cl::init(16), cl::Hidden);
 
+static cl::opt<unsigned> MaxInterleaveFactorOpt(
+    "amdgpu-max-interleave-factor", cl::Hidden, cl::init(8),
+    cl::desc("Maximum interleave factor the loop vectorizer may use for a "
+             "vectorized loop"));
+
 static cl::opt<unsigned> InlineThresholdMultiplierOpt(
     "amdgpu-inline-threshold-multiplier", cl::Hidden, cl::init(11),
     cl::desc("Factor applied to the generic inline cost threshold"));
@@ -309,6 +314,7 @@ GCNTTIImpl::GCNTTIImpl(const AMDGPUTargetMachine *TM, const Function &F)
   HasFP64FP16Denormals =
       Mode.FP64FP16Denormals != DenormalMode::getPreserveSign();
   MemcpyLoopUnroll = getTunableValue(F, MemcpyLoopUnrollOpt);
+  MaxInterleaveFactor = getTunableValue(F, MaxInterleaveFactorOpt);
   InlineThresholdMultiplier = getTunableValue(F, InlineThresholdMultiplierOpt);
   InlineSGPRsUntilSpill = getTunableValue(F, InlineSGPRsUntilSpillOpt);
   InlineVGPRsUntilSpill = getTunableValue(F, InlineVGPRsUntilSpillOpt);
@@ -515,7 +521,7 @@ unsigned GCNTTIImpl::getMaxInterleaveFactor(ElementCount VF,
   if (VF.isScalar())
     return 1;
 
-  return 8;
+  return MaxInterleaveFactor;
 }
 
 bool GCNTTIImpl::getTgtMemIntrinsic(IntrinsicInst *Inst,

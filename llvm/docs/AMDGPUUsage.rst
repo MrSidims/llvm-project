@@ -2680,6 +2680,11 @@ The AMDGPU backend supports the following LLVM IR attributes.
                                                       -amdgpu-unroll-threshold-if option overrides this attribute when it
                                                       is given explicitly.
 
+     "amdgpu-max-interleave-factor"                   Maximum interleave factor the loop vectorizer may use for a vectorized
+                                                      loop, default is 8. A loop that is not vectorized is never
+                                                      interleaved. The -amdgpu-max-interleave-factor option overrides this
+                                                      attribute when it is given explicitly.
+
      "amdgpu-memcpy-loop-unroll"                      Unroll factor for the loop a statically sized memcpy, memmove or
                                                       memset is lowered to, in units of 4 dwords, default is 16. The
                                                       -amdgpu-memcpy-loop-unroll option overrides this attribute when it is

@@ -73,6 +73,7 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
   bool HasFP32Denormals;
   bool HasFP64FP16Denormals;
   unsigned MemcpyLoopUnroll;
+  unsigned MaxInterleaveFactor;
   unsigned InlineThresholdMultiplier;
   unsigned InlineSGPRsUntilSpill;
   unsigned InlineVGPRsUntilSpill;
