@@ -8301,6 +8301,7 @@ bool AMDGPULegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
     if (MRI.getType(SrcReg).getSizeInBits() != 16)
       return true;
     Register DstReg = MI.getOperand(0).getReg();
+    unsigned Flags = MI.getFlags();
     bool IsFPOp = IntrID == Intrinsic::amdgcn_wave_reduce_fmin ||
                   IntrID == Intrinsic::amdgcn_wave_reduce_fmax ||
                   IntrID == Intrinsic::amdgcn_wave_reduce_fadd ||
@@ -8309,7 +8310,7 @@ bool AMDGPULegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
                         IntrID == Intrinsic::amdgcn_wave_reduce_max ||
                         IntrID == Intrinsic::amdgcn_wave_reduce_add ||
                         IntrID == Intrinsic::amdgcn_wave_reduce_sub;
-    auto Ext = IsFPOp         ? B.buildFPExt(F32, SrcReg)
+    auto Ext = IsFPOp         ? B.buildFPExt(F32, SrcReg, Flags)
                : NeedsSignExt ? B.buildSExt(LLT::integer(32), SrcReg)
                               : B.buildZExt(LLT::integer(32), SrcReg);
     auto NewDst =
@@ -8317,9 +8318,10 @@ bool AMDGPULegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
     B.buildIntrinsic(IntrID, ArrayRef<Register>{NewDst},
                      /*hasSideEffects=*/false, /*isConvergent=*/true)
         .addUse(Ext.getReg(0))
-        .addImm(MI.getOperand(3).getImm()); // strategy
+        .addImm(MI.getOperand(3).getImm()) // strategy
+        .setMIFlags(Flags);
     if (IsFPOp)
-      B.buildFPTrunc(DstReg, NewDst);
+      B.buildFPTrunc(DstReg, NewDst, Flags);
     else
       B.buildTrunc(DstReg, NewDst);
     MI.eraseFromParent();
