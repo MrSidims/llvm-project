@@ -31067,6 +31067,21 @@ public:
 
         // Estimate cost.
         InstructionCost ReductionCost;
+        auto IsContractableFMul = [](Value *RdxVal) {
+          auto *FMul = dyn_cast<Instruction>(RdxVal);
+          return FMul && FMul->getOpcode() == Instruction::FMul &&
+                 FMul->hasOneUse() &&
+                 cast<FPMathOperator>(FMul)
+                     ->getFastMathFlags()
+                     .allowContract();
+        };
+        // Only a reduction that would lose an fma has a stake in whether the
+        // scalar loads coalesce, so leave the rest of them priced as before.
+        auto AddPhantomLoadSavings = [&](TTI::TargetCostKind CostKind) {
+          if (RdxKind == RecurKind::FAdd && RdxFMF.allowContract() &&
+              any_of(VL, IsContractableFMul))
+            ReductionCost += V.getCoalescedLoadPhantomSavings(CostKind);
+        };
         if (RK == ReductionOrdering::Ordered || V.isReducedBitcastRoot() ||
             V.isReducedCmpBitcastRoot()) {
           ReductionCost = 0;
@@ -31082,19 +31097,16 @@ public:
                 TTI->getArithmeticInstrCost(Instruction::FAdd, Ty, CostKind) -
                 TTI->getIntrinsicInstrCost(ICA, CostKind);
             if (FusionSaving.isValid() && FusionSaving > 0)
-              for (Value *RdxVal : VL) {
-                auto *FMul = dyn_cast<Instruction>(RdxVal);
-                if (FMul && FMul->getOpcode() == Instruction::FMul &&
-                    FMul->hasOneUse() &&
-                    cast<FPMathOperator>(FMul)->getFastMathFlags().allowContract())
+              for (Value *RdxVal : VL)
+                if (IsContractableFMul(RdxVal))
                   ReductionCost += FusionSaving;
-              }
-            ReductionCost += V.getCoalescedLoadPhantomSavings(CostKind);
+            AddPhantomLoadSavings(CostKind);
           }
         } else {
           ReductionCost =
               getReductionCost(TTI, VL, SameValuesCounter, IsCmpSelMinMax,
                                GroupRdxFMF, V, DT, DL, TLI);
+          AddPhantomLoadSavings(V.getCostKind());
         }
         // If the root is a select (min/max idiom), the insert point is the
         // compare condition of that select.
