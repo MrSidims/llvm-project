@@ -12926,20 +12926,24 @@ canConvertToFMA(ArrayRef<Value *> VL, const InstructionsState &S,
 /// more than the wide loads a vector node over the multiplication would
 /// fold its operands into. \p FMACost and \p UnfusedCost are what
 /// canConvertToFMA measured for the scalar pair, so the saving the veto buys
-/// is the difference between them.
+/// is the difference between them. \p VF is the width of the vector node
+/// being weighed, or zero to assume the widest one the target registers hold.
 static bool preferFMAOverVectorNode(const Value *FMul, InstructionCost FMACost,
                                     InstructionCost UnfusedCost,
                                     const TargetTransformInfo &TTI,
-                                    TTI::TargetCostKind CostKind) {
+                                    TTI::TargetCostKind CostKind,
+                                    unsigned VF = 0) {
   const auto *FMulI = dyn_cast<Instruction>(FMul);
   if (!FMulI)
     return true;
   Type *ScalarTy = FMulI->getType();
-  unsigned ScalarBits = ScalarTy->getPrimitiveSizeInBits();
-  unsigned RegBits =
-      TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-          .getFixedValue();
-  unsigned VF = ScalarBits ? RegBits / ScalarBits : 0;
+  if (VF == 0) {
+    unsigned ScalarBits = ScalarTy->getPrimitiveSizeInBits();
+    unsigned RegBits =
+        TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+            .getFixedValue();
+    VF = ScalarBits ? RegBits / ScalarBits : 0;
+  }
   if (VF < 2)
     return true;
   Type *VecTy = getWidenedType(ScalarTy, VF);
@@ -31902,9 +31906,13 @@ private:
                                            RdxOp->getOperand(1) == RdxVal
                                        ? 1
                                        : 0;
-                  InstructionCost FMACost = canConvertToFMA(
-                      RdxOp, RdxOpS, DT, DL, *TTI, TLI, CostKind, OpIdx);
-                  if (FMACost.isValid()) {
+                  InstructionCost UnfusedCost = InstructionCost::getInvalid();
+                  InstructionCost FMACost =
+                      canConvertToFMA(RdxOp, RdxOpS, DT, DL, *TTI, TLI,
+                                      CostKind, OpIdx, &UnfusedCost);
+                  if (FMACost.isValid() &&
+                      preferFMAOverVectorNode(RdxVal, FMACost, UnfusedCost,
+                                              *TTI, CostKind, ReduxWidth)) {
                     LLVM_DEBUG(dbgs() << "FMA cost: " << FMACost << "\n");
                     if (auto *I = dyn_cast<Instruction>(RdxVal)) {
                       // Also, exclude scalar fmul cost.
