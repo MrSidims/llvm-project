@@ -13409,8 +13409,9 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
   // Price both sides of the fmul+fadd pair as not fused. Passing a context
   // instruction would let targets that model the fusion discount the unfused
   // side of the comparison as well.
-  auto GetUnfusedFMulCost = [&](Instruction *I) {
-    assert(I->getOpcode() == Instruction::FMul && "Expected an fmul");
+  auto GetUnfusedCost = [&](Instruction *I) -> InstructionCost {
+    if (!I->isBinaryOp())
+      return TTI.getInstructionCost(I, CostKind);
     TTI::OperandValueInfo Op1Info = TTI::getOperandInfo(I->getOperand(0));
     TTI::OperandValueInfo Op2Info = TTI::getOperandInfo(I->getOperand(1));
     return TTI.getArithmeticInstrCost(I->getOpcode(), I->getType(), CostKind,
@@ -13457,16 +13458,25 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
       continue;
     auto *I = dyn_cast<Instruction>(Op);
     if (!I || !I->hasOneUse() || OpS.isCopyableElement(I)) {
+      // This lane does not fold into an fmuladd: both the add and its operand
+      // are computed in either scenario. Price them with the same rule on both
+      // sides of the comparison, so that they cancel out instead of penalizing
+      // the fmuladd alternative. The add matches what the loop above already
+      // added to FMulPlusFAddCost; the operand is missing from it entirely.
       if (auto *OpI = dyn_cast<Instruction>(V))
         FMACost += GetLinkCost(OpI);
-      if (I)
-        FMACost += TTI.getInstructionCost(I, CostKind);
+      if (I) {
+        InstructionCost OpCost = GetUnfusedCost(I);
+        FMACost += OpCost;
+        FMulPlusFAddCost += OpCost;
+      }
       continue;
     }
     ++NumOps;
     if (auto *FPCI = dyn_cast<FPMathOperator>(I))
       FMF &= FPCI->getFastMathFlags();
-    FMulPlusFAddCost += GetUnfusedFMulCost(I);
+    assert(I->getOpcode() == Instruction::FMul && "Expected an fmul");
+    FMulPlusFAddCost += GetUnfusedCost(I);
   }
   Type *Ty = VL.front()->getType();
   IntrinsicCostAttributes ICA(Intrinsic::fmuladd, Ty, {Ty, Ty, Ty}, FMF);
