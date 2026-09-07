@@ -13424,12 +13424,12 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
                                  S.isShiftOp() || S.isBitwiseLogicOp();
   // A dropped fneg link stands in for the sign-flipped combine its operand
   // joins and is costed as an fadd plus the fneg itself (both are removed).
-  auto GetLinkCost = [&](Instruction *I, bool IsCopyable = false) {
+  auto GetLinkCost = [&](Instruction *I) {
     if (S.getOpcode() != Instruction::FNeg) {
-      if (IsCopyable || !IsArithmeticState ||
+      if (!IsArithmeticState ||
           (I->getOpcode() != S.getOpcode() &&
            I->getOpcode() != S.getAltOpcode()))
-        return TTI.getInstructionCost(I, CostKind);
+        return GetUnfusedCost(I);
       TTI::OperandValueInfo Op1Info = TTI::getOperandInfo(I->getOperand(0));
       TTI::OperandValueInfo Op2Info = TTI::getOperandInfo(I->getOperand(1));
       return TTI.getArithmeticInstrCost(I->getOpcode(), I->getType(), CostKind,
@@ -13446,11 +13446,15 @@ static InstructionCost canConvertToFMA(ArrayRef<Value *> VL,
     auto *I = dyn_cast<Instruction>(V);
     if (!I)
       continue;
-    const bool IsCopyable = S.isCopyableElement(I);
-    if (!IsCopyable)
-      if (auto *FPCI = dyn_cast<FPMathOperator>(I))
-        FMF &= FPCI->getFastMathFlags();
-    FMulPlusFAddCost += GetLinkCost(I, IsCopyable);
+    // A copyable element is not an add: it is computed as a scalar whether or
+    // not the node becomes an fmuladd, so its cost is the same on both sides of
+    // the comparison. The loop below skips it as well, so leaving it out here
+    // keeps the two sums over the same set of instructions.
+    if (S.isCopyableElement(I))
+      continue;
+    if (auto *FPCI = dyn_cast<FPMathOperator>(I))
+      FMF &= FPCI->getFastMathFlags();
+    FMulPlusFAddCost += GetLinkCost(I);
   }
   unsigned NumOps = 0;
   for (auto [V, Op] : zip(VL, Operands.front())) {
