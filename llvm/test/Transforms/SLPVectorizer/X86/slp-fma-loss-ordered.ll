@@ -39,8 +39,9 @@ define double @mul_fun() {
   ret double %add3
 }
 
-; %mul1 keeps a second use, so fusion was never on the table for it, it must not
-; be penalized even on an fma-capable target.
+; %mul1 keeps a second use, so fusion was never on the table for it and it is
+; not priced as fused. Its three neighbours are, which leaves nothing to gain
+; from packing the pair, so the chain stays scalar on an fma-capable target.
 define double @mul_fun_multiuse(ptr %dst) {
 ; NOFMA-LABEL: @mul_fun_multiuse(
 ; NOFMA-NEXT:    [[CVT0:%.*]] = uitofp i16 3 to double
@@ -54,12 +55,9 @@ define double @mul_fun_multiuse(ptr %dst) {
 ;
 ; FMA-LABEL: @mul_fun_multiuse(
 ; FMA-NEXT:    [[CVT0:%.*]] = uitofp i16 3 to double
-; FMA-NEXT:    [[TMP1:%.*]] = insertelement <2 x double> poison, double [[CVT0]], i64 0
-; FMA-NEXT:    [[TMP2:%.*]] = shufflevector <2 x double> [[TMP1]], <2 x double> poison, <2 x i32> zeroinitializer
-; FMA-NEXT:    [[TMP3:%.*]] = fmul contract <2 x double> <double -4.300000e+01, double 7.000000e+00>, [[TMP2]]
-; FMA-NEXT:    [[TMP4:%.*]] = extractelement <2 x double> [[TMP3]], i64 1
+; FMA-NEXT:    [[TMP4:%.*]] = fmul contract double 7.000000e+00, [[CVT0]]
 ; FMA-NEXT:    [[ADD0:%.*]] = fadd contract double [[TMP4]], [[CVT0]]
-; FMA-NEXT:    [[TMP5:%.*]] = extractelement <2 x double> [[TMP3]], i64 0
+; FMA-NEXT:    [[TMP5:%.*]] = fmul contract double -4.300000e+01, [[CVT0]]
 ; FMA-NEXT:    store double [[TMP5]], ptr [[DST:%.*]], align 8
 ; FMA-NEXT:    [[ADD1:%.*]] = fadd contract double [[TMP5]], [[ADD0]]
 ; FMA-NEXT:    [[MUL2:%.*]] = fmul contract double 2.200000e-02, [[CVT0]]

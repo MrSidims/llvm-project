@@ -16678,6 +16678,38 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
   case Instruction::And:
   case Instruction::Or:
   case Instruction::Xor: {
+    // An fmul that folds into its fadd/fsub user costs nothing on its own in
+    // the scalar form. It stays a real multiply in the vector form whenever
+    // the user is left scalar or is packed as an alternate node, so pricing it
+    // here is what lets the model see the fusion the vector form gives up.
+    auto IsFoldedIntoFAddSubUser = [&, &TTI = *TTI](Instruction *FMul) {
+      if (!FMul->hasOneUse())
+        return false;
+      auto *FAddSub = dyn_cast<Instruction>(*FMul->user_begin());
+      if (!FAddSub || (FAddSub->getOpcode() != Instruction::FAdd &&
+                       FAddSub->getOpcode() != Instruction::FSub))
+        return false;
+      // A reassociable reduction operation does not survive vectorization as a
+      // scalar add, the whole chain collapses into a single reduction. Nothing
+      // is left to fuse the multiply into on either side, so the scalar pair
+      // must keep being priced as two operations.
+      if (UserIgnoreList && UserIgnoreList->contains(FAddSub) &&
+          FAddSub->hasAllowReassoc())
+        return false;
+      if (isVectorized(FAddSub) &&
+          none_of(getTreeEntries(FAddSub),
+                  [](const TreeEntry *TE) { return TE->isAltShuffle(); }))
+        return false;
+      unsigned FMulOpIdx = getFMulOperandIdx(FAddSub);
+      if (FAddSub->getOperand(FMulOpIdx) != FMul)
+        return false;
+      InstructionCost UnfusedCost = InstructionCost::getInvalid();
+      InstructionCost FMACost =
+          canConvertToFMA(FAddSub, getSameOpcode(FAddSub, *TLI), *DT, *DL, TTI,
+                          *TLI, CostKind, FMulOpIdx, &UnfusedCost);
+      return FMACost.isValid() &&
+             preferFMAOverVectorNode(FMul, FMACost, UnfusedCost, TTI, CostKind);
+    };
     auto GetScalarCost = [&](unsigned Idx) {
       if (isa<PoisonValue>(UniqueValues[Idx]))
         return InstructionCost(TTI::TCC_Free);
@@ -16700,13 +16732,17 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
       InstructionCost ScalarCost = TTI->getArithmeticInstrCost(
           ShuffleOrOp, OrigScalarTy, CostKind, Op1Info, Op2Info, Operands);
       if (auto *I = dyn_cast<Instruction>(UniqueValues[Idx]);
-          I && !E->isCopyableElement(I) &&
-          (ShuffleOrOp == Instruction::FAdd ||
-           ShuffleOrOp == Instruction::FSub)) {
-        InstructionCost IntrinsicCost =
-            GetFMulAddCost(E->getOperations(), I, getFMulOperandIdx(I));
-        if (IntrinsicCost.isValid())
-          ScalarCost = IntrinsicCost;
+          I && !E->isCopyableElement(I)) {
+        if (ShuffleOrOp == Instruction::FAdd ||
+            ShuffleOrOp == Instruction::FSub) {
+          InstructionCost IntrinsicCost =
+              GetFMulAddCost(E->getOperations(), I, getFMulOperandIdx(I));
+          if (IntrinsicCost.isValid())
+            ScalarCost = IntrinsicCost;
+        } else if (ShuffleOrOp == Instruction::FMul &&
+                   IsFoldedIntoFAddSubUser(I)) {
+          ScalarCost = TTI::TCC_Free;
+        }
       }
       return ScalarCost;
     };
