@@ -13422,6 +13422,9 @@ canConvertToFMA(ArrayRef<Value *> VL, const InstructionsState &S,
   assert(S.isAddSubOrFNegLikeOp() &&
          "Can only convert to FMA for add/sub or fneg chain links");
 
+  if (!TTI.isFMAFusionLegal(VL.front()->getType()))
+    return InstructionCost::getInvalid();
+
   auto CheckForContractable = [](ArrayRef<Value *> VL,
                                  const InstructionsState &S) {
     FastMathFlags FMF;

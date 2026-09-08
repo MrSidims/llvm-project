@@ -603,6 +603,10 @@ bool TargetTransformInfo::isTypeLegal(Type *Ty) const {
   return TTIImpl->isTypeLegal(Ty);
 }
 
+bool TargetTransformInfo::isFMAFusionLegal(Type *Ty) const {
+  return TTIImpl->isFMAFusionLegal(Ty);
+}
+
 unsigned TargetTransformInfo::getRegUsageForType(Type *Ty) const {
   return TTIImpl->getRegUsageForType(Ty);
 }

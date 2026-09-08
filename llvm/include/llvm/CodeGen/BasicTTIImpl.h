@@ -574,6 +574,15 @@ public:
     return getTLI()->isTypeLegal(VT);
   }
 
+  bool isFMAFusionLegal(Type *Ty) const override {
+    const TargetLoweringBase *TLI = getTLI();
+    EVT VT = TLI->getValueType(DL, Ty, /*AllowUnknown=*/true);
+    return TLI->isTypeLegal(VT) &&
+           TLI->isOperationLegalOrCustom(ISD::FMUL, VT) &&
+           TLI->isOperationLegalOrCustom(ISD::FADD, VT) &&
+           TLI->isOperationLegalOrCustom(ISD::FMA, VT);
+  }
+
   unsigned getRegUsageForType(Type *Ty) const override {
     EVT ETy = getTLI()->getValueType(DL, Ty);
     return getTLI()->getNumRegisters(Ty->getContext(), ETy);

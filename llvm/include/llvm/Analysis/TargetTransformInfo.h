@@ -1030,6 +1030,13 @@ public:
   /// Return true if this type is legal.
   LLVM_ABI bool isTypeLegal(Type *Ty) const;
 
+  /// Return true if fmul and fadd can be contracted without first promoting
+  /// their arithmetic type. This does not check fast-math flags or
+  /// profitability. In particular, a cheap fmuladd intrinsic on a promoted type
+  /// does not imply that separate fmul/fadd instructions (with intermediate
+  /// rounding) fuse.
+  LLVM_ABI bool isFMAFusionLegal(Type *Ty) const;
+
   /// Returns the estimated number of registers required to represent \p Ty.
   LLVM_ABI unsigned getRegUsageForType(Type *Ty) const;
 

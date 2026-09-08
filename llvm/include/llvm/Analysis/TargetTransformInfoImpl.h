@@ -467,6 +467,8 @@ public:
 
   virtual bool isTypeLegal(Type *Ty) const { return false; }
 
+  virtual bool isFMAFusionLegal(Type *Ty) const { return false; }
+
   virtual unsigned getRegUsageForType(Type *Ty) const { return 1; }
 
   virtual bool shouldBuildLookupTables() const { return true; }
