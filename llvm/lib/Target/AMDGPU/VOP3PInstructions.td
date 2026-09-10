@@ -300,20 +300,40 @@ multiclass MadFmaMixFP32Pats<SDPatternOperator fma_like,
               DSTCLAMP.NONE)>;
 }
 
+// An 'fma' node the target may contract
+def fma_contract : ContractablePatFrag<(ops node:$a, node:$b, node:$c),
+                                       (fma node:$a, node:$b, node:$c)>;
+
+// An 'fmad' node the target may contract
+def fmad_contract : ContractablePatFrag<(ops node:$a, node:$b, node:$c),
+                                        (fmad node:$a, node:$b, node:$c)>;
+
+// An 'fpround' node the target may contract
+def fpround_contract : ContractablePatFrag<(ops node:$src),
+                                           (fpround node:$src)>;
+
+// The V_{MAD,FMA}_MIX{LO,HI} instructions round once, straight to f16/bf16,
+// while the IR these patterns match rounds to f32 first. Dropping that
+// intermediate rounding is a contraction under C11 6.5p8, so both the
+// arithmetic and the fpround have to allow it. MadFmaMixFP32Pats keeps the f32
+// result and drops nothing, so it needs no such check.
 multiclass MadFmaMixFP16Pats<SDPatternOperator fma_like,
                              Instruction mixlo_inst,
                              Instruction mixhi_inst,
                              ValueType VT = f16,
                              ValueType vecVT = v2f16> {
   defvar VOP3PMadMixModsPat = !if (!eq(VT, bf16), VOP3PMadMixBF16Mods, VOP3PMadMixMods);
+  defvar VOP3PMadMixModsExtPat = !if (!eq(VT, bf16), VOP3PMadMixBF16ModsExt, VOP3PMadMixModsExt);
   def : GCNPat <
     (AMDGPUclamp (build_vector
-      (VT (fpround (fma_like (f32 (VOP3PMadMixModsPat VT:$lo_src0, i32:$lo_src0_modifiers)),
-                        (f32 (VOP3PMadMixModsPat VT:$lo_src1, i32:$lo_src1_modifiers)),
-                        (f32 (VOP3PMadMixModsPat VT:$lo_src2, i32:$lo_src2_modifiers))))),
-      (VT (fpround (fma_like (f32 (VOP3PMadMixModsPat VT:$hi_src0, i32:$hi_src0_modifiers)),
-                        (f32 (VOP3PMadMixModsPat VT:$hi_src1, i32:$hi_src1_modifiers)),
-                        (f32 (VOP3PMadMixModsPat VT:$hi_src2, i32:$hi_src2_modifiers))))))),
+      (VT (fpround_contract
+            (fma_like (f32 (VOP3PMadMixModsPat VT:$lo_src0, i32:$lo_src0_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$lo_src1, i32:$lo_src1_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$lo_src2, i32:$lo_src2_modifiers))))),
+      (VT (fpround_contract
+            (fma_like (f32 (VOP3PMadMixModsPat VT:$hi_src0, i32:$hi_src0_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$hi_src1, i32:$hi_src1_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$hi_src2, i32:$hi_src2_modifiers))))))),
     (vecVT (mixhi_inst $hi_src0_modifiers, $hi_src0,
                        $hi_src1_modifiers, $hi_src1,
                        $hi_src2_modifiers, $hi_src2,
@@ -326,8 +346,9 @@ multiclass MadFmaMixFP16Pats<SDPatternOperator fma_like,
   >;
 
   def : GCNPat <
-    (VT (fpround (fmul (f32 (VOP3PMadMixModsPat f32:$src0, i32:$src0_modifiers)),
-                       (f32 (VOP3PMadMixModsPat f32:$src1, i32:$src1_modifiers))))),
+    (VT (fpround_contract
+          (fmul_contract (f32 (VOP3PMadMixModsPat f32:$src0, i32:$src0_modifiers)),
+                         (f32 (VOP3PMadMixModsPat f32:$src1, i32:$src1_modifiers))))),
     (mixlo_inst $src0_modifiers, $src0,
                 $src1_modifiers, $src1,
                 (i32 SRCMODS.NEG), (i32 0),
@@ -336,8 +357,35 @@ multiclass MadFmaMixFP16Pats<SDPatternOperator fma_like,
   >;
 
   def : GCNPat <
-    (build_vector VT:$elt0, (VT (fpround (fmul (f32 (VOP3PMadMixModsPat f32:$src0, i32:$src0_modifiers)),
-                                          (f32 (VOP3PMadMixModsPat f32:$src1, i32:$src1_modifiers)))))),
+    (build_vector VT:$elt0,
+      (VT (fpround_contract
+            (fmul_contract (f32 (VOP3PMadMixModsPat f32:$src0, i32:$src0_modifiers)),
+                           (f32 (VOP3PMadMixModsPat f32:$src1, i32:$src1_modifiers)))))),
+    (vecVT (mixhi_inst $src0_modifiers, $src0,
+                       $src1_modifiers, $src1,
+                       (i32 SRCMODS.NEG), (i32 0),
+                       DSTCLAMP.NONE,
+                       VGPR_32:$elt0))
+  >;
+
+  // With both multiplicands f16/bf16 the f32 product is exact, so the fpround
+  // is the only rounding and no contract flag is needed.
+  def : GCNPat <
+    (VT (fpround
+          (fmul (f32 (VOP3PMadMixModsExtPat VT:$src0, i32:$src0_modifiers)),
+                (f32 (VOP3PMadMixModsExtPat VT:$src1, i32:$src1_modifiers))))),
+    (mixlo_inst $src0_modifiers, $src0,
+                $src1_modifiers, $src1,
+                (i32 SRCMODS.NEG), (i32 0),
+                DSTCLAMP.NONE,
+                (i32 (IMPLICIT_DEF)))
+  >;
+
+  def : GCNPat <
+    (build_vector VT:$elt0,
+      (VT (fpround
+            (fmul (f32 (VOP3PMadMixModsExtPat VT:$src0, i32:$src0_modifiers)),
+                  (f32 (VOP3PMadMixModsExtPat VT:$src1, i32:$src1_modifiers)))))),
     (vecVT (mixhi_inst $src0_modifiers, $src0,
                        $src1_modifiers, $src1,
                        (i32 SRCMODS.NEG), (i32 0),
@@ -346,9 +394,10 @@ multiclass MadFmaMixFP16Pats<SDPatternOperator fma_like,
   >;
 
   def : GCNPat <
-    (VT (fpround (fma_like (f32 (VOP3PMadMixModsPat VT:$src0, i32:$src0_modifiers)),
-                           (f32 (VOP3PMadMixModsPat VT:$src1, i32:$src1_modifiers)),
-                           (f32 (VOP3PMadMixModsPat VT:$src2, i32:$src2_modifiers))))),
+    (VT (fpround_contract
+          (fma_like (f32 (VOP3PMadMixModsPat VT:$src0, i32:$src0_modifiers)),
+                    (f32 (VOP3PMadMixModsPat VT:$src1, i32:$src1_modifiers)),
+                    (f32 (VOP3PMadMixModsPat VT:$src2, i32:$src2_modifiers))))),
     (mixlo_inst $src0_modifiers, $src0,
                 $src1_modifiers, $src1,
                 $src2_modifiers, $src2,
@@ -360,9 +409,11 @@ multiclass MadFmaMixFP16Pats<SDPatternOperator fma_like,
   // because dealing with the write to high half of the register is
   // difficult.
   def : GCNPat <
-    (build_vector VT:$elt0, (VT (fpround (fma_like (f32 (VOP3PMadMixModsPat VT:$src0, i32:$src0_modifiers)),
-                                                   (f32 (VOP3PMadMixModsPat VT:$src1, i32:$src1_modifiers)),
-                                                   (f32 (VOP3PMadMixModsPat VT:$src2, i32:$src2_modifiers)))))),
+    (build_vector VT:$elt0,
+      (VT (fpround_contract
+            (fma_like (f32 (VOP3PMadMixModsPat VT:$src0, i32:$src0_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$src1, i32:$src1_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$src2, i32:$src2_modifiers)))))),
     (vecVT (mixhi_inst $src0_modifiers, $src0,
                        $src1_modifiers, $src1,
                        $src2_modifiers, $src2,
@@ -373,9 +424,11 @@ multiclass MadFmaMixFP16Pats<SDPatternOperator fma_like,
   def : GCNPat <
     (build_vector
       VT:$elt0,
-      (AMDGPUclamp (VT (fpround (fma_like (f32 (VOP3PMadMixModsPat VT:$src0, i32:$src0_modifiers)),
-                                     (f32 (VOP3PMadMixModsPat VT:$src1, i32:$src1_modifiers)),
-                                     (f32 (VOP3PMadMixModsPat VT:$src2, i32:$src2_modifiers))))))),
+      (AMDGPUclamp
+        (VT (fpround_contract
+              (fma_like (f32 (VOP3PMadMixModsPat VT:$src0, i32:$src0_modifiers)),
+                        (f32 (VOP3PMadMixModsPat VT:$src1, i32:$src1_modifiers)),
+                        (f32 (VOP3PMadMixModsPat VT:$src2, i32:$src2_modifiers))))))),
     (vecVT (mixhi_inst $src0_modifiers, $src0,
                        $src1_modifiers, $src1,
                        $src2_modifiers, $src2,
@@ -389,9 +442,23 @@ multiclass MadFmaMixFP16Pats_t16<SDPatternOperator fma_like,
                                  ValueType VT = f16,
                                  ValueType vecVT = v2f16> {
   defvar VOP3PMadMixModsPat = !if (!eq(VT, bf16), VOP3PMadMixBF16Mods, VOP3PMadMixMods);
+  defvar VOP3PMadMixModsExtPat = !if (!eq(VT, bf16), VOP3PMadMixBF16ModsExt, VOP3PMadMixModsExt);
   def : GCNPat <
-    (VT (fpround (fmul (f32 (VOP3PMadMixModsPat f32:$src0, i32:$src0_modifiers)),
-                       (f32 (VOP3PMadMixModsPat f32:$src1, i32:$src1_modifiers))))),
+    (VT (fpround_contract
+          (fmul_contract (f32 (VOP3PMadMixModsPat f32:$src0, i32:$src0_modifiers)),
+                         (f32 (VOP3PMadMixModsPat f32:$src1, i32:$src1_modifiers))))),
+    (mix_inst_16 $src0_modifiers, $src0,
+                 $src1_modifiers, $src1,
+                 (i32 SRCMODS.NEG), (i32 0),
+                 DSTCLAMP.NONE)
+  >;
+
+  // With both multiplicands f16/bf16 the f32 product is exact, so the fpround
+  // is the only rounding and no contract flag is needed.
+  def : GCNPat <
+    (VT (fpround
+          (fmul (f32 (VOP3PMadMixModsExtPat VT:$src0, i32:$src0_modifiers)),
+                (f32 (VOP3PMadMixModsExtPat VT:$src1, i32:$src1_modifiers))))),
     (mix_inst_16 $src0_modifiers, $src0,
                  $src1_modifiers, $src1,
                  (i32 SRCMODS.NEG), (i32 0),
@@ -399,9 +466,10 @@ multiclass MadFmaMixFP16Pats_t16<SDPatternOperator fma_like,
   >;
 
   def : GCNPat <
-    (VT (fpround (fma_like (f32 (VOP3PMadMixModsPat VT:$src0, i32:$src0_modifiers)),
-                           (f32 (VOP3PMadMixModsPat VT:$src1, i32:$src1_modifiers)),
-                           (f32 (VOP3PMadMixModsPat VT:$src2, i32:$src2_modifiers))))),
+    (VT (fpround_contract
+          (fma_like (f32 (VOP3PMadMixModsPat VT:$src0, i32:$src0_modifiers)),
+                    (f32 (VOP3PMadMixModsPat VT:$src1, i32:$src1_modifiers)),
+                    (f32 (VOP3PMadMixModsPat VT:$src2, i32:$src2_modifiers))))),
     (mix_inst_16 $src0_modifiers, $src0,
                  $src1_modifiers, $src1,
                  $src2_modifiers, $src2,
@@ -410,9 +478,11 @@ multiclass MadFmaMixFP16Pats_t16<SDPatternOperator fma_like,
 
 
   def : GCNPat <
-    (AMDGPUclamp (VT (fpround (fma_like (f32 (VOP3PMadMixModsPat VT:$src0, i32:$src0_modifiers)),
-                                        (f32 (VOP3PMadMixModsPat VT:$src1, i32:$src1_modifiers)),
-                                        (f32 (VOP3PMadMixModsPat VT:$src2, i32:$src2_modifiers)))))),
+    (AMDGPUclamp
+      (VT (fpround_contract
+            (fma_like (f32 (VOP3PMadMixModsPat VT:$src0, i32:$src0_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$src1, i32:$src1_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$src2, i32:$src2_modifiers)))))),
     (mix_inst_16 $src0_modifiers, $src0,
                  $src1_modifiers, $src1,
                  $src2_modifiers, $src2,
@@ -421,12 +491,14 @@ multiclass MadFmaMixFP16Pats_t16<SDPatternOperator fma_like,
 
   def : GCNPat <
     (AMDGPUclamp (build_vector
-      (VT (fpround (fma_like (f32 (VOP3PMadMixModsPat VT:$lo_src0, i32:$lo_src0_modifiers)),
-                        (f32 (VOP3PMadMixModsPat VT:$lo_src1, i32:$lo_src1_modifiers)),
-                        (f32 (VOP3PMadMixModsPat VT:$lo_src2, i32:$lo_src2_modifiers))))),
-      (VT (fpround (fma_like (f32 (VOP3PMadMixModsPat VT:$hi_src0, i32:$hi_src0_modifiers)),
-                        (f32 (VOP3PMadMixModsPat VT:$hi_src1, i32:$hi_src1_modifiers)),
-                        (f32 (VOP3PMadMixModsPat VT:$hi_src2, i32:$hi_src2_modifiers))))))),
+      (VT (fpround_contract
+            (fma_like (f32 (VOP3PMadMixModsPat VT:$lo_src0, i32:$lo_src0_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$lo_src1, i32:$lo_src1_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$lo_src2, i32:$lo_src2_modifiers))))),
+      (VT (fpround_contract
+            (fma_like (f32 (VOP3PMadMixModsPat VT:$hi_src0, i32:$hi_src0_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$hi_src1, i32:$hi_src1_modifiers)),
+                      (f32 (VOP3PMadMixModsPat VT:$hi_src2, i32:$hi_src2_modifiers))))))),
     (vecVT (REG_SEQUENCE VGPR_32, (mix_inst_16 $lo_src0_modifiers, $lo_src0,
                                         $lo_src1_modifiers, $lo_src1,
                                         $lo_src2_modifiers, $lo_src2,
@@ -502,7 +574,7 @@ defm V_MAD_MIXHI_F16 : VOP3_VOP3PInst<"v_mad_mixhi_f16", VOP3P_Mix_Profile<VOP_F
 }
 
 defm : MadFmaMixFP32Pats<fmad, V_MAD_MIX_F32>;
-defm : MadFmaMixFP16Pats<fmad, V_MAD_MIXLO_F16, V_MAD_MIXHI_F16>;
+defm : MadFmaMixFP16Pats<fmad_contract, V_MAD_MIXLO_F16, V_MAD_MIXHI_F16>;
 } // OtherPredicates = [NoFP32Denormals]
 } // End SubtargetPredicate = HasMadMixInsts
 
@@ -530,9 +602,9 @@ defm V_FMA_MIX_F16_t16 : VOP3_VOP3PInst_t16<"v_fma_mix_f16_t16", VOP3P_Mix_Profi
 defm : MadFmaMixFP32Pats<fma, V_FMA_MIX_F32>;
 
 let True16Predicate = NotUseRealTrue16Insts in
-defm : MadFmaMixFP16Pats<fma, V_FMA_MIXLO_F16, V_FMA_MIXHI_F16>;
+defm : MadFmaMixFP16Pats<fma_contract, V_FMA_MIXLO_F16, V_FMA_MIXHI_F16>;
 let True16Predicate = UseRealTrue16Insts in
-defm : MadFmaMixFP16Pats_t16<fma, V_FMA_MIX_F16_t16>;
+defm : MadFmaMixFP16Pats_t16<fma_contract, V_FMA_MIX_F16_t16>;
 }
 
 let SubtargetPredicate = HasFmaMixBF16Insts in {
@@ -555,9 +627,9 @@ defm V_FMA_MIX_BF16_t16 : VOP3_VOP3PInst_t16<"v_fma_mix_bf16_t16", VOP3P_Mix_Pro
 
 defm : MadFmaMixFP32Pats<fma, V_FMA_MIX_F32_BF16, bf16>;
 let True16Predicate = NotUseRealTrue16Insts in
-defm : MadFmaMixFP16Pats<fma, V_FMA_MIXLO_BF16, V_FMA_MIXHI_BF16, bf16, v2bf16>;
+defm : MadFmaMixFP16Pats<fma_contract, V_FMA_MIXLO_BF16, V_FMA_MIXHI_BF16, bf16, v2bf16>;
 let True16Predicate = UseRealTrue16Insts in
-defm : MadFmaMixFP16Pats_t16<fma, V_FMA_MIX_BF16_t16, bf16, v2bf16>;
+defm : MadFmaMixFP16Pats_t16<fma_contract, V_FMA_MIX_BF16_t16, bf16, v2bf16>;
 } // End SubtargetPredicate = HasFmaMixBF16Insts
 
 def PK_ADD_MINMAX_Profile : VOP3P_Profile<VOP_V2I16_V2I16_V2I16_V2I16, VOP3_PACKED> {

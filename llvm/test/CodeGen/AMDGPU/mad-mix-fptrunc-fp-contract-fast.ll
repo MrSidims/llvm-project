@@ -3,26 +3,31 @@
 ; RUN: llc -global-isel -mtriple=amdgpu9.00 -fp-contract=fast < %s | FileCheck -check-prefixes=GISEL-GFX900 %s
 ; RUN: llc -mtriple=amdgpu12.50 -mattr=-real-true16 -fp-contract=fast < %s | FileCheck -check-prefixes=GFX1250 %s
 
-; Nothing here carries contract, and -fp-contract=fast does not add it.
+; Nothing here carries contract, and -fp-contract=fast does not add it, so the
+; mix instruction is not selected and the fptrunc stays a separate v_cvt.
 
 define half @fp_contract_fast_fmul_to_f16(float %a, float %b) #0 {
 ; GFX900-LABEL: fp_contract_fast_fmul_to_f16:
 ; GFX900:       ; %bb.0:
 ; GFX900-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
-; GFX900-NEXT:    v_mad_mixlo_f16 v0, v0, v1, neg(0)
+; GFX900-NEXT:    v_mul_f32_e32 v0, v0, v1
+; GFX900-NEXT:    v_cvt_f16_f32_e32 v0, v0
 ; GFX900-NEXT:    s_setpc_b64 s[30:31]
 ;
 ; GISEL-GFX900-LABEL: fp_contract_fast_fmul_to_f16:
 ; GISEL-GFX900:       ; %bb.0:
 ; GISEL-GFX900-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
-; GISEL-GFX900-NEXT:    v_mad_mixlo_f16 v0, v0, v1, neg(0)
+; GISEL-GFX900-NEXT:    v_mul_f32_e32 v0, v0, v1
+; GISEL-GFX900-NEXT:    v_cvt_f16_f32_e32 v0, v0
 ; GISEL-GFX900-NEXT:    s_setpc_b64 s[30:31]
 ;
 ; GFX1250-LABEL: fp_contract_fast_fmul_to_f16:
 ; GFX1250:       ; %bb.0:
 ; GFX1250-NEXT:    s_wait_loadcnt_dscnt 0x0
 ; GFX1250-NEXT:    s_wait_kmcnt 0x0
-; GFX1250-NEXT:    v_fma_mixlo_f16 v0, v0, v1, neg(0)
+; GFX1250-NEXT:    v_mul_f32_e32 v0, v0, v1
+; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_1)
+; GFX1250-NEXT:    v_cvt_f16_f32_e32 v0, v0
 ; GFX1250-NEXT:    s_set_pc_i64 s[30:31]
   %mul = fmul float %a, %b
   %cvt = fptrunc float %mul to half
@@ -33,20 +38,24 @@ define half @fp_contract_fast_fmuladd_to_f16(float %a, float %b, float %c) #0 {
 ; GFX900-LABEL: fp_contract_fast_fmuladd_to_f16:
 ; GFX900:       ; %bb.0:
 ; GFX900-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
-; GFX900-NEXT:    v_mad_mixlo_f16 v0, v0, v1, v2
+; GFX900-NEXT:    v_mac_f32_e32 v2, v0, v1
+; GFX900-NEXT:    v_cvt_f16_f32_e32 v0, v2
 ; GFX900-NEXT:    s_setpc_b64 s[30:31]
 ;
 ; GISEL-GFX900-LABEL: fp_contract_fast_fmuladd_to_f16:
 ; GISEL-GFX900:       ; %bb.0:
 ; GISEL-GFX900-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
-; GISEL-GFX900-NEXT:    v_mad_mixlo_f16 v0, v0, v1, v2
+; GISEL-GFX900-NEXT:    v_mac_f32_e32 v2, v0, v1
+; GISEL-GFX900-NEXT:    v_cvt_f16_f32_e32 v0, v2
 ; GISEL-GFX900-NEXT:    s_setpc_b64 s[30:31]
 ;
 ; GFX1250-LABEL: fp_contract_fast_fmuladd_to_f16:
 ; GFX1250:       ; %bb.0:
 ; GFX1250-NEXT:    s_wait_loadcnt_dscnt 0x0
 ; GFX1250-NEXT:    s_wait_kmcnt 0x0
-; GFX1250-NEXT:    v_fma_mixlo_f16 v0, v0, v1, v2
+; GFX1250-NEXT:    v_fmac_f32_e32 v2, v0, v1
+; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_1)
+; GFX1250-NEXT:    v_cvt_f16_f32_e32 v0, v2
 ; GFX1250-NEXT:    s_set_pc_i64 s[30:31]
   %mad = call float @llvm.fmuladd.f32(float %a, float %b, float %c)
   %cvt = fptrunc float %mad to half
@@ -72,7 +81,9 @@ define half @fp_contract_fast_fma_to_f16(float %a, float %b, float %c) #0 {
 ; GFX1250:       ; %bb.0:
 ; GFX1250-NEXT:    s_wait_loadcnt_dscnt 0x0
 ; GFX1250-NEXT:    s_wait_kmcnt 0x0
-; GFX1250-NEXT:    v_fma_mixlo_f16 v0, v0, v1, v2
+; GFX1250-NEXT:    v_fmac_f32_e32 v2, v0, v1
+; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_1)
+; GFX1250-NEXT:    v_cvt_f16_f32_e32 v0, v2
 ; GFX1250-NEXT:    s_set_pc_i64 s[30:31]
   %fma = call float @llvm.fma.f32(float %a, float %b, float %c)
   %cvt = fptrunc float %fma to half
@@ -110,7 +121,9 @@ define bfloat @fp_contract_fast_fmul_to_bf16(float %a, float %b) #0 {
 ; GFX1250:       ; %bb.0:
 ; GFX1250-NEXT:    s_wait_loadcnt_dscnt 0x0
 ; GFX1250-NEXT:    s_wait_kmcnt 0x0
-; GFX1250-NEXT:    v_fma_mixlo_bf16 v0, v0, v1, neg(0)
+; GFX1250-NEXT:    v_mul_f32_e32 v0, v0, v1
+; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_1)
+; GFX1250-NEXT:    v_cvt_pk_bf16_f32 v0, v0, s0
 ; GFX1250-NEXT:    s_set_pc_i64 s[30:31]
   %mul = fmul float %a, %b
   %cvt = fptrunc float %mul to bfloat
