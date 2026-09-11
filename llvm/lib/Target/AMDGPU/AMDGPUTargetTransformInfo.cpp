@@ -1101,8 +1101,10 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       if (FPTy->isDoubleTy())
         return Scale(1 + (SrcBits < 16 && IsSigned && ST->has16BitInsts()), 1);
       // An unsigned byte is converted straight out of its register.
-      if (SrcBits < 16 && !IsSigned)
+      if (SrcBits == 8 && !IsSigned)
         return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
+      if (SrcBits < 16 && !IsSigned)
+        return Scale(2);
       unsigned PerElt = ST->hasSDWA() ? 1 : 2;
       if (SrcBits < 16 && ST->has16BitInsts())
         ++PerElt;

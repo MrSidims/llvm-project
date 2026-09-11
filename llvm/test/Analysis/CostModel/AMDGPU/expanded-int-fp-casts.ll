@@ -172,21 +172,9 @@ define void @narrow_to_bf16(<4 x i8> %a, <2 x i16> %b, <3 x i32> %c) {
 
 ; Unsigned lanes wider than a byte are zero extended before the conversion.
 define void @narrow_unsigned_lanes(<4 x i12> %a) {
-; GFX6-LABEL: 'narrow_unsigned_lanes'
-; GFX6:  Cost Model: Found an estimated cost of 1 for instruction: %u = uitofp <4 x i12> %a to <4 x float>
-; GFX6:  Cost Model: Found an estimated cost of 4 for instruction: %uh = uitofp <4 x i12> %a to <4 x half>
-;
-; GFX9-THROUGHPUT-LABEL: 'narrow_unsigned_lanes'
-; GFX9-THROUGHPUT:  Cost Model: Found an estimated cost of 1 for instruction: %u = uitofp <4 x i12> %a to <4 x float>
-; GFX9-THROUGHPUT:  Cost Model: Found an estimated cost of 10 for instruction: %uh = uitofp <4 x i12> %a to <4 x half>
-;
-; HALF-LABEL: 'narrow_unsigned_lanes'
-; HALF:  Cost Model: Found an estimated cost of 1 for instruction: %u = uitofp <4 x i12> %a to <4 x float>
-; HALF:  Cost Model: Found an estimated cost of 10 for instruction: %uh = uitofp <4 x i12> %a to <4 x half>
-;
-; FULL-LABEL: 'narrow_unsigned_lanes'
-; FULL:  Cost Model: Found an estimated cost of 1 for instruction: %u = uitofp <4 x i12> %a to <4 x float>
-; FULL:  Cost Model: Found an estimated cost of 10 for instruction: %uh = uitofp <4 x i12> %a to <4 x half>
+; ALL-LABEL: 'narrow_unsigned_lanes'
+; ALL:  Cost Model: Found an estimated cost of 8 for instruction: %u = uitofp <4 x i12> %a to <4 x float>
+; ALL:  Cost Model: Found an estimated cost of 8 for instruction: %uh = uitofp <4 x i12> %a to <4 x half>
 ;
   %u = uitofp <4 x i12> %a to <4 x float>
   %uh = uitofp <4 x i12> %a to <4 x half>
