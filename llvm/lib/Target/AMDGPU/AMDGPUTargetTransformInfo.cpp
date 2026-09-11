@@ -1085,11 +1085,12 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       return Scale(PerElt) + RoundCost;
     }
 
-    // There is no convert from a 64 bit integer.
+    // No instruction converts from a 64 bit integer.
     if (UsesInt64) {
-      if (FPTy->isDoubleTy())
+      if (FPTy->isDoubleTy()) {
         // Two conversions, ldexp and add, all using the FP64 rate.
         return Scale(ExtOps, 4);
+      }
       if (FPTy->isFloatTy())
         return Scale(ExtOps + (IsSigned ? 12 : 8));
       return Scale(ExtOps + (IsSigned ? 13 : 9));
@@ -1111,7 +1112,7 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
   }
 
-  // Nor is there a convert to a 64 bit integer.
+  // No instruction converts to a 64 bit integer.
   if (UsesInt64) {
     const bool IsSigned64 = IsSigned || DstBits < 64;
     if (FPTy->isDoubleTy()) {
@@ -1121,10 +1122,11 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     }
     if (FPTy->isFloatTy())
       return Scale(IsSigned64 ? 13 : 6);
-    if (FPTy->isBFloatTy())
+    if (FPTy->isBFloatTy()) {
       // Unlike half, bf16 does not fit in i32. Extend to f32 and use the full
-      // FP_TO_INT64 expansion.
+      // i64 expansion.
       return Scale(1 + (IsSigned64 ? 13 : 6));
+    }
     return Scale(3);
   }
 
