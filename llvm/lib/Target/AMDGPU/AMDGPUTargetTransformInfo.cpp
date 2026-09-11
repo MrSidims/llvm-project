@@ -1049,6 +1049,8 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
   const unsigned SrcBits = Src->getScalarSizeInBits();
   const unsigned DstBits = Dst->getScalarSizeInBits();
   const bool IsSigned = ISD == ISD::SINT_TO_FP || ISD == ISD::FP_TO_SINT;
+  const unsigned IntBits = IsIntToFP ? SrcBits : DstBits;
+  const bool UsesInt64 = IntBits > 32 && IntBits <= 64;
 
   auto Scale = [&](unsigned FullRateOps,
                    unsigned FP64Ops = 0) -> InstructionCost {
@@ -1057,44 +1059,51 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
   };
 
   if (IsIntToFP) {
+    const unsigned ExtOps = UsesInt64 && SrcBits < 64 ? (IsSigned ? 2 : 1) : 0;
     if (FPTy->isBFloatTy()) {
-      if (SrcBits != 8 && SrcBits != 16 && SrcBits != 32 && SrcBits != 64)
+      if (SrcBits != 8 && SrcBits != 16 && SrcBits != 32 && !UsesInt64)
         return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
 
-      // LowerINT_TO_FP16 converts each integer to f32 before rounding to bf16.
-      unsigned PerElt = SrcBits == 64 ? (IsSigned ? 12 : 8) : 1;
+      // Each integer is converted to f32 first.
+      unsigned PerElt = UsesInt64 ? ExtOps + (IsSigned ? 12 : 8) : 1;
       if (isa<FixedVectorType>(Src) && SrcBits < 32 &&
-          (IsSigned || SrcBits == 16))
-        PerElt = (ST->hasSDWA() ? 1 : 2) + (SrcBits == 8);
+          (IsSigned || SrcBits == 16)) {
+        PerElt =
+            (ST->hasSDWA() ? 1 : 2) + (SrcBits == 8 && ST->has16BitInsts());
+      }
 
-      // Native rounding can convert a pair. The expansion extracts the low
-      // significand bit, adds the rounding bias, preserves NaNs and shifts the
-      // result. Before gfx9 the two additions cannot use v_add3_u32.
+      // Native rounding can convert a pair. With 16 bit instructions the
+      // expansion extracts the low significand bit, adds the rounding bias,
+      // preserves NaNs and shifts the result. Without gfx9 instructions the two
+      // additions cannot use v_add3_u32.
       InstructionCost RoundCost =
           ST->hasBF16ConversionInsts()
               ? InstructionCost(divideCeil(NElts, 2)) * getFullRateInstrCost()
-              : Scale(ST->getGeneration() >= AMDGPUSubtarget::GFX9 ? 6 : 7);
+              : Scale(!ST->has16BitInsts() ? 1
+                      : ST->hasGFX9Insts() ? 6
+                                           : 7);
       return Scale(PerElt) + RoundCost;
     }
 
     // There is no convert from a 64 bit integer.
-    if (SrcBits == 64) {
+    if (UsesInt64) {
       if (FPTy->isDoubleTy())
         // Two conversions, ldexp and add, all using the FP64 rate.
-        return Scale(0, 4);
+        return Scale(ExtOps, 4);
       if (FPTy->isFloatTy())
-        return Scale(IsSigned ? 12 : 8);
-      return Scale(IsSigned ? 13 : 9);
+        return Scale(ExtOps + (IsSigned ? 12 : 8));
+      return Scale(ExtOps + (IsSigned ? 13 : 9));
     }
 
     // A narrow vector source is converted lane by lane.
-    if (SrcBits >= 8 && SrcBits < 32 && isa<FixedVectorType>(Src) &&
-        DstBits <= 32) {
+    if (SrcBits >= 8 && SrcBits < 32 && isa<FixedVectorType>(Src)) {
+      if (FPTy->isDoubleTy())
+        return Scale(1 + (SrcBits < 16 && IsSigned && ST->has16BitInsts()), 1);
       // An unsigned byte is converted straight out of its register.
       if (SrcBits < 16 && !IsSigned)
         return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
       unsigned PerElt = ST->hasSDWA() ? 1 : 2;
-      if (SrcBits < 16)
+      if (SrcBits < 16 && ST->has16BitInsts())
         ++PerElt;
       return Scale(PerElt);
     }
@@ -1103,18 +1112,19 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
   }
 
   // Nor is there a convert to a 64 bit integer.
-  if (DstBits == 64) {
+  if (UsesInt64) {
+    const bool IsSigned64 = IsSigned || DstBits < 64;
     if (FPTy->isDoubleTy()) {
       // With native trunc/floor there are six FP64 operations. The expanded
       // rounding sequence has seven, plus integer operations and constants.
       return ST->haveRoundOpsF64() ? Scale(1, 6) : Scale(22, 7);
     }
     if (FPTy->isFloatTy())
-      return Scale(IsSigned ? 13 : 6);
+      return Scale(IsSigned64 ? 13 : 6);
     if (FPTy->isBFloatTy())
       // Unlike half, bf16 does not fit in i32. Extend to f32 and use the full
       // FP_TO_INT64 expansion.
-      return Scale(1 + (IsSigned ? 13 : 6));
+      return Scale(1 + (IsSigned64 ? 13 : 6));
     return Scale(3);
   }
 
