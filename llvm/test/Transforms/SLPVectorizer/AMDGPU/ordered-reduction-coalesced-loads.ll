@@ -222,3 +222,69 @@ entry:
 }
 
 declare i64 @_Z13get_global_idj(i32 noundef)
+
+; The narrow integer lanes below make the scalar reduction cheap enough for
+; the split window path to reconsider it. The window has to see the same
+; coalesced loads and stay scalar too.
+
+define float @dot_i16_window(ptr addrspace(1) %a, ptr addrspace(1) %b, float %acc) {
+; CHECK-LABEL: define float @dot_i16_window(
+; CHECK-SAME: ptr addrspace(1) [[A:%.*]], ptr addrspace(1) [[B:%.*]], float [[ACC:%.*]]) #[[ATTR0]] {
+; CHECK-NEXT:  [[ENTRY:.*:]]
+; CHECK-NEXT:    [[A1:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[A]], i64 2
+; CHECK-NEXT:    [[A2:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[A]], i64 4
+; CHECK-NEXT:    [[A3:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[A]], i64 6
+; CHECK-NEXT:    [[B1:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[B]], i64 4
+; CHECK-NEXT:    [[B2:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[B]], i64 8
+; CHECK-NEXT:    [[B3:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[B]], i64 12
+; CHECK-NEXT:    [[I0:%.*]] = load i16, ptr addrspace(1) [[A]], align 2
+; CHECK-NEXT:    [[I1:%.*]] = load i16, ptr addrspace(1) [[A1]], align 2
+; CHECK-NEXT:    [[I2:%.*]] = load i16, ptr addrspace(1) [[A2]], align 2
+; CHECK-NEXT:    [[I3:%.*]] = load i16, ptr addrspace(1) [[A3]], align 2
+; CHECK-NEXT:    [[F0:%.*]] = sitofp i16 [[I0]] to float
+; CHECK-NEXT:    [[F1:%.*]] = sitofp i16 [[I1]] to float
+; CHECK-NEXT:    [[F2:%.*]] = sitofp i16 [[I2]] to float
+; CHECK-NEXT:    [[F3:%.*]] = sitofp i16 [[I3]] to float
+; CHECK-NEXT:    [[W0:%.*]] = load float, ptr addrspace(1) [[B]], align 4
+; CHECK-NEXT:    [[W1:%.*]] = load float, ptr addrspace(1) [[B1]], align 4
+; CHECK-NEXT:    [[W2:%.*]] = load float, ptr addrspace(1) [[B2]], align 4
+; CHECK-NEXT:    [[W3:%.*]] = load float, ptr addrspace(1) [[B3]], align 4
+; CHECK-NEXT:    [[M0:%.*]] = fmul contract float [[F0]], [[W0]]
+; CHECK-NEXT:    [[M1:%.*]] = fmul contract float [[F1]], [[W1]]
+; CHECK-NEXT:    [[M2:%.*]] = fmul contract float [[F2]], [[W2]]
+; CHECK-NEXT:    [[M3:%.*]] = fmul contract float [[F3]], [[W3]]
+; CHECK-NEXT:    [[S0:%.*]] = fadd contract float [[ACC]], [[M0]]
+; CHECK-NEXT:    [[S1:%.*]] = fadd contract float [[S0]], [[M1]]
+; CHECK-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[M2]]
+; CHECK-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[M3]]
+; CHECK-NEXT:    ret float [[S3]]
+;
+entry:
+  %a1 = getelementptr inbounds nuw i8, ptr addrspace(1) %a, i64 2
+  %a2 = getelementptr inbounds nuw i8, ptr addrspace(1) %a, i64 4
+  %a3 = getelementptr inbounds nuw i8, ptr addrspace(1) %a, i64 6
+  %b1 = getelementptr inbounds nuw i8, ptr addrspace(1) %b, i64 4
+  %b2 = getelementptr inbounds nuw i8, ptr addrspace(1) %b, i64 8
+  %b3 = getelementptr inbounds nuw i8, ptr addrspace(1) %b, i64 12
+  %i0 = load i16, ptr addrspace(1) %a, align 2
+  %i1 = load i16, ptr addrspace(1) %a1, align 2
+  %i2 = load i16, ptr addrspace(1) %a2, align 2
+  %i3 = load i16, ptr addrspace(1) %a3, align 2
+  %f0 = sitofp i16 %i0 to float
+  %f1 = sitofp i16 %i1 to float
+  %f2 = sitofp i16 %i2 to float
+  %f3 = sitofp i16 %i3 to float
+  %w0 = load float, ptr addrspace(1) %b, align 4
+  %w1 = load float, ptr addrspace(1) %b1, align 4
+  %w2 = load float, ptr addrspace(1) %b2, align 4
+  %w3 = load float, ptr addrspace(1) %b3, align 4
+  %m0 = fmul contract float %f0, %w0
+  %m1 = fmul contract float %f1, %w1
+  %m2 = fmul contract float %f2, %w2
+  %m3 = fmul contract float %f3, %w3
+  %s0 = fadd contract float %acc, %m0
+  %s1 = fadd contract float %s0, %m1
+  %s2 = fadd contract float %s1, %m2
+  %s3 = fadd contract float %s2, %m3
+  ret float %s3
+}

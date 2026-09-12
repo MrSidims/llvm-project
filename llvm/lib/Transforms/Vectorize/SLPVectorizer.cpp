@@ -12922,6 +12922,26 @@ canConvertToFMA(ArrayRef<Value *> VL, const InstructionsState &S,
                 const TTI::TargetCostKind CostKind, unsigned FMulOpIdx,
                 InstructionCost *UnfusedCost = nullptr);
 
+/// Checks if \p RdxVal is a one use fmul that may contract into its user.
+static bool isContractableOneUseFMul(Value *RdxVal) {
+  auto *FMul = dyn_cast<Instruction>(RdxVal);
+  return FMul && FMul->getOpcode() == Instruction::FMul && FMul->hasOneUse() &&
+         cast<FPMathOperator>(FMul)->getFastMathFlags().allowContract();
+}
+
+/// \returns the load saving an fadd reduction over \p VL would be credited
+/// for although its scalar loads coalesce anyway. Only a reduction that
+/// would lose an fma has a stake in it, so any other reduction gets zero.
+static InstructionCost
+getReductionPhantomLoadSavings(const BoUpSLP &R, RecurKind RdxKind,
+                               FastMathFlags RdxFMF, ArrayRef<Value *> VL,
+                               TTI::TargetCostKind CostKind) {
+  if (RdxKind != RecurKind::FAdd || !RdxFMF.allowContract() ||
+      none_of(VL, isContractableOneUseFMul))
+    return 0;
+  return R.getCoalescedLoadPhantomSavings(CostKind);
+}
+
 /// \returns true if contracting \p FMul into an fma with its user is worth
 /// more than the wide loads a vector node over the multiplication would
 /// fold its operands into. \p FMACost and \p UnfusedCost are what
@@ -31106,21 +31126,6 @@ public:
 
         // Estimate cost.
         InstructionCost ReductionCost;
-        auto IsContractableFMul = [](Value *RdxVal) {
-          auto *FMul = dyn_cast<Instruction>(RdxVal);
-          return FMul && FMul->getOpcode() == Instruction::FMul &&
-                 FMul->hasOneUse() &&
-                 cast<FPMathOperator>(FMul)
-                     ->getFastMathFlags()
-                     .allowContract();
-        };
-        // Only a reduction that would lose an fma has a stake in whether the
-        // scalar loads coalesce, so leave the rest of them priced as before.
-        auto AddPhantomLoadSavings = [&](TTI::TargetCostKind CostKind) {
-          if (RdxKind == RecurKind::FAdd && RdxFMF.allowContract() &&
-              any_of(VL, IsContractableFMul))
-            ReductionCost += V.getCoalescedLoadPhantomSavings(CostKind);
-        };
         if (RK == ReductionOrdering::Ordered || V.isReducedBitcastRoot() ||
             V.isReducedCmpBitcastRoot()) {
           ReductionCost = 0;
@@ -31137,15 +31142,17 @@ public:
                 TTI->getIntrinsicInstrCost(ICA, CostKind);
             if (FusionSaving.isValid() && FusionSaving > 0)
               for (Value *RdxVal : VL)
-                if (IsContractableFMul(RdxVal))
+                if (isContractableOneUseFMul(RdxVal))
                   ReductionCost += FusionSaving;
-            AddPhantomLoadSavings(CostKind);
+            ReductionCost += getReductionPhantomLoadSavings(V, RdxKind, RdxFMF,
+                                                            VL, CostKind);
           }
         } else {
           ReductionCost =
               getReductionCost(TTI, VL, SameValuesCounter, IsCmpSelMinMax,
                                GroupRdxFMF, V, DT, DL, TLI);
-          AddPhantomLoadSavings(V.getCostKind());
+          ReductionCost += getReductionPhantomLoadSavings(V, RdxKind, RdxFMF,
+                                                          VL, V.getCostKind());
         }
         // If the root is a select (min/max idiom), the insert point is the
         // compare condition of that select.
@@ -31677,6 +31684,8 @@ public:
       InstructionCost ReductionCost =
           getReductionCost(TTI, VL, EmptySameValuesCounter,
                            /*IsCmpSelMinMax=*/false, RdxFMF, V, DT, DL, TLI);
+      ReductionCost += getReductionPhantomLoadSavings(V, RdxKind, RdxFMF, VL,
+                                                      V.getCostKind());
       InstructionCost Cost =
           V.getTreeCost(TreeCost, VL, ReductionCost, RdxRootInst);
       LLVM_DEBUG(dbgs() << "SLP: Found cost = " << Cost
