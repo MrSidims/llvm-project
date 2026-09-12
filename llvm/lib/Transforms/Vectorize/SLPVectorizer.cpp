@@ -17722,6 +17722,8 @@ InstructionCost BoUpSLP::getCoalescedLoadPhantomSavings(
         TE.getOpcode() != Instruction::Load ||
         TE.State != TreeEntry::Vectorize || TE.getInterleaveFactor())
       continue;
+    if (DeletedNodes.contains(&TE) || TransformedToGatherNodes.contains(&TE))
+      continue;
     if (!TE.ReuseShuffleIndices.empty() || !TE.ReorderIndices.empty() ||
         MinBWs.contains(&TE))
       continue;
