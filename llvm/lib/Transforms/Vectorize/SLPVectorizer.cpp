@@ -457,9 +457,11 @@ public:
   /// \returns the load saving credited to vectorized load bundles that never
   /// materializes on targets whose consecutive scalar loads coalesce into the
   /// same wide access. Only clean bundles with no reordering, reuse or
-  /// bit-width reduction are cancelled.
-  InstructionCost
-  getCoalescedLoadPhantomSavings(TTI::TargetCostKind CostKind) const;
+  /// bit-width reduction are cancelled. With \p WidenedOnly set only the
+  /// bundles feeding a cast to a wider type are cancelled and every other
+  /// bundle keeps its saving.
+  InstructionCost getCoalescedLoadPhantomSavings(TTI::TargetCostKind CostKind,
+                                                 bool WidenedOnly) const;
 
   /// Calculates the cost of the subtrees, trims non-profitable ones and returns
   /// final cost.
@@ -12939,7 +12941,7 @@ getReductionPhantomLoadSavings(const BoUpSLP &R, RecurKind RdxKind,
   if (RdxKind != RecurKind::FAdd || !RdxFMF.allowContract() ||
       none_of(VL, isContractableOneUseFMul))
     return 0;
-  return R.getCoalescedLoadPhantomSavings(CostKind);
+  return R.getCoalescedLoadPhantomSavings(CostKind, /*WidenedOnly=*/false);
 }
 
 /// \returns true if contracting \p FMul into an fma with its user is worth
@@ -17713,8 +17715,9 @@ bool BoUpSLP::isTreeNotExtendable() const {
   return Res;
 }
 
-InstructionCost BoUpSLP::getCoalescedLoadPhantomSavings(
-    TTI::TargetCostKind CostKind) const {
+InstructionCost
+BoUpSLP::getCoalescedLoadPhantomSavings(TTI::TargetCostKind CostKind,
+                                        bool WidenedOnly) const {
   InstructionCost Savings = 0;
   for (const std::unique_ptr<TreeEntry> &TEPtr : VectorizableTree) {
     const TreeEntry &TE = *TEPtr;
@@ -17732,6 +17735,14 @@ InstructionCost BoUpSLP::getCoalescedLoadPhantomSavings(
     auto *LI0 = cast<LoadInst>(TE.getMainOp());
     if (!TTI->consecutiveLoadsCoalesce(LI0->getPointerAddressSpace()))
       continue;
+    if (WidenedOnly) {
+      const TreeEntry *UserTE = TE.UserTreeIndex.UserTE;
+      if (!UserTE || UserTE->isGather() || !UserTE->hasState() ||
+          !Instruction::isCast(UserTE->getOpcode()) ||
+          DL->getTypeSizeInBits(UserTE->getMainOp()->getType()) <=
+              DL->getTypeSizeInBits(LI0->getType()))
+        continue;
+    }
     InstructionCost ScalarLdCost = 0;
     for (Value *V : TE.Scalars) {
       auto *LI = cast<LoadInst>(V);
@@ -28330,6 +28341,8 @@ SLPVectorizerPass::vectorizeStoreChainImpl(ArrayRef<Value *> Chain, BoUpSLP &R,
   R.computeMinimumValueSizes();
 
   InstructionCost TreeCost = R.calculateTreeCostAndTrimNonProfitable();
+  TreeCost += R.getCoalescedLoadPhantomSavings(R.getCostKind(),
+                                               /*WidenedOnly=*/true);
   R.buildExternalUses();
 
   Size = R.getCanonicalGraphSize() - R.getNumSplatSubtreeEntries();
@@ -29373,6 +29386,8 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
       R.transformNodes();
       R.computeMinimumValueSizes();
       InstructionCost TreeCost = R.calculateTreeCostAndTrimNonProfitable();
+      TreeCost += R.getCoalescedLoadPhantomSavings(R.getCostKind(),
+                                                   /*WidenedOnly=*/true);
       R.buildExternalUses();
 
       InstructionCost Cost = R.getTreeCost(TreeCost);
