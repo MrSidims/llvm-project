@@ -187,6 +187,8 @@ void GCNSchedStrategy::initialize(ScheduleDAGMI *DAG) {
     [[maybe_unused]] unsigned OriginalVGPRCriticalLimit = VGPRCriticalLimit;
     VGPRExcessLimit = (VGPRThresholdPercent * VGPRExcessLimit + 99) / 100;
     VGPRCriticalLimit = (VGPRThresholdPercent * VGPRCriticalLimit + 99) / 100;
+    AGPRExcessLimit = (VGPRThresholdPercent * AGPRExcessLimit + 99) / 100;
+    AGPRCriticalLimit = (VGPRThresholdPercent * AGPRCriticalLimit + 99) / 100;
     LLVM_DEBUG(dbgs() << "Applied VGPR excess threshold "
                       << VGPRThresholdPercent << "%, VGPRExcessLimit: "
                       << OriginalVGPRExcessLimit << " -> " << VGPRExcessLimit
@@ -2306,15 +2308,42 @@ bool LiveIntervalRPStage::initGCNSchedStage() {
   return true;
 }
 
+bool LiveIntervalRPStage::shouldReschedule(GCNRegPressure::RegKind Kind,
+                                           unsigned InstantRP,
+                                           unsigned ExcessLimit) {
+  auto [RegionBegin, RegionEnd] = DAG.Regions[RegionIdx];
+  unsigned LIRP = estimateGreedyRegPressure(
+      RegionBegin, RegionEnd, DAG.LiveIns[RegionIdx], *DAG.getLIS(),
+      DAG.MF.getRegInfo(), static_cast<const SIRegisterInfo &>(*DAG.TRI), Kind);
+
+  [[maybe_unused]] StringRef Prefix =
+      Kind == GCNRegPressure::VGPR ? "" : GCNRegPressure::getName(Kind);
+  LLVM_DEBUG(dbgs() << ", " << Prefix << "InstantRP=" << InstantRP << ", "
+                    << Prefix << "LIRP=" << LIRP);
+
+  // Lower bound on InstantRP to skip over tiny regions.
+  unsigned InstantRPLowerBound =
+      ExcessLimit * LiveIntervalRPInstantLowerBound / 100;
+  if (LIRP > ExcessLimit) {
+    LLVM_DEBUG(dbgs() << " [" << Prefix << "LIRP exceeds the limit ("
+                      << ExcessLimit << "), rescheduling]");
+    return true;
+  }
+  if (LIRP > InstantRP && InstantRP > InstantRPLowerBound) {
+    unsigned IncreasePercent = ((LIRP - InstantRP) * 100) / InstantRP;
+    if (IncreasePercent > LiveIntervalRPThreshold) {
+      LLVM_DEBUG(dbgs() << " [" << Prefix << IncreasePercent << "% > "
+                        << LiveIntervalRPThreshold << "%, rescheduling]");
+      return true;
+    }
+  }
+  return false;
+}
+
 bool LiveIntervalRPStage::initGCNRegion() {
-  unsigned InstantRP = DAG.Pressure[RegionIdx].getArchVGPRNum();
   auto [RegionBegin, RegionEnd] = DAG.Regions[RegionIdx];
   if (RegionBegin == RegionEnd)
     return false;
-
-  unsigned LIRP = estimateGreedyVGPRPressure(
-      RegionBegin, RegionEnd, DAG.LiveIns[RegionIdx], *DAG.getLIS(),
-      DAG.MF.getRegInfo(), static_cast<const SIRegisterInfo &>(*DAG.TRI));
 
   unsigned NewVGPRThresholdPercent =
       (S.VGPRThresholdPercent * LiveIntervalRPVGPRReduction + 99) / 100;
@@ -2323,30 +2352,25 @@ bool LiveIntervalRPStage::initGCNRegion() {
                     << ", VGPRThresholdPercent: " << S.VGPRThresholdPercent
                     << " -> " << NewVGPRThresholdPercent
                     << ", VGPRExcessLimit=" << S.VGPRExcessLimit
-                    << ", VGPRCriticalLimit=" << S.VGPRCriticalLimit
-                    << ", InstantRP=" << InstantRP << ", LIRP=" << LIRP);
+                    << ", VGPRCriticalLimit=" << S.VGPRCriticalLimit);
 
-  bool DoRescheduling = false;
-  // Lower bound on InstantRP to skip over tiny regions.
-  unsigned InstantRPLowerBound =
-      S.VGPRExcessLimit * LiveIntervalRPInstantLowerBound / 100;
-  if (LIRP > S.VGPRExcessLimit) {
-    LLVM_DEBUG(dbgs() << " [LIRP exceeds the limit (" << S.VGPRExcessLimit
-                      << "), rescheduling]");
-    DoRescheduling = true;
-  } else if (LIRP > InstantRP && InstantRP > InstantRPLowerBound) {
-    unsigned IncreasePercent = ((LIRP - InstantRP) * 100) / InstantRP;
-    if (IncreasePercent > LiveIntervalRPThreshold) {
-      LLVM_DEBUG(dbgs() << " [" << IncreasePercent << "% > "
-                        << LiveIntervalRPThreshold << "%, rescheduling]");
-      DoRescheduling = true;
-    }
+  bool DoRescheduling =
+      shouldReschedule(GCNRegPressure::VGPR,
+                       DAG.Pressure[RegionIdx].getArchVGPRNum(),
+                       S.VGPRExcessLimit);
+  if (S.AGPRExcessLimit > 0) {
+    LLVM_DEBUG(dbgs() << ", AGPRExcessLimit=" << S.AGPRExcessLimit);
+    DoRescheduling |= shouldReschedule(GCNRegPressure::AGPR,
+                                       DAG.Pressure[RegionIdx].getAGPRNum(),
+                                       S.AGPRExcessLimit);
   }
   LLVM_DEBUG(dbgs() << '\n');
 
   if (DoRescheduling && GCNSchedStage::initGCNRegion()) {
     SavedVGPRExcessLimit = S.VGPRExcessLimit;
     SavedVGPRCriticalLimit = S.VGPRCriticalLimit;
+    SavedAGPRExcessLimit = S.AGPRExcessLimit;
+    SavedAGPRCriticalLimit = S.AGPRCriticalLimit;
     SavedVGPRThresholdPercent = S.VGPRThresholdPercent;
     S.VGPRThresholdPercent = NewVGPRThresholdPercent;
     return true;
@@ -2358,6 +2382,8 @@ bool LiveIntervalRPStage::initGCNRegion() {
 void LiveIntervalRPStage::finalizeGCNRegion() {
   S.VGPRExcessLimit = SavedVGPRExcessLimit;
   S.VGPRCriticalLimit = SavedVGPRCriticalLimit;
+  S.AGPRExcessLimit = SavedAGPRExcessLimit;
+  S.AGPRCriticalLimit = SavedAGPRCriticalLimit;
   S.VGPRThresholdPercent = SavedVGPRThresholdPercent;
   GCNSchedStage::finalizeGCNRegion();
 }

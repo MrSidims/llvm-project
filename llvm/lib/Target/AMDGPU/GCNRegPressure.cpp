@@ -1216,11 +1216,13 @@ LLVM_DUMP_METHOD void llvm::dumpMaxRegPressure(MachineFunction &MF,
 }
 #endif
 
-unsigned llvm::estimateGreedyVGPRPressure(
+unsigned llvm::estimateGreedyRegPressure(
     MachineBasicBlock::const_iterator RegionBegin,
     MachineBasicBlock::const_iterator RegionEnd,
     const GCNRPTracker::LiveRegSet &LiveIns, const LiveIntervals &LIS,
-    const MachineRegisterInfo &MRI, const SIRegisterInfo &TRI) {
+    const MachineRegisterInfo &MRI, const SIRegisterInfo &TRI,
+    GCNRegPressure::RegKind Kind) {
+  assert(Kind == GCNRegPressure::VGPR || Kind == GCNRegPressure::AGPR);
 
   SetVector<const LiveInterval *> IntervalSet;
   IntervalSet.reserve(LiveIns.size());
@@ -1230,7 +1232,9 @@ unsigned llvm::estimateGreedyVGPRPressure(
       return;
 
     const TargetRegisterClass *RC = MRI.getRegClass(VReg);
-    if (!TRI.hasVGPRs(RC))
+    bool IsKind = Kind == GCNRegPressure::AGPR ? SIRegisterInfo::isAGPRClass(RC)
+                                               : TRI.hasVGPRs(RC);
+    if (!IsKind)
       return;
 
     const LiveInterval &LI = LIS.getInterval(VReg);

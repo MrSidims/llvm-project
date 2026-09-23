@@ -816,9 +816,16 @@ public:
       : GCNSchedStage(StageID, DAG) {}
 
 private:
+  /// Whether the live interval pressure of \p Kind in the current region
+  /// calls for rescheduling with tighter register bounds.
+  bool shouldReschedule(GCNRegPressure::RegKind Kind, unsigned InstantRP,
+                        unsigned ExcessLimit);
+
   unsigned SavedVGPRThresholdPercent = 0;
   unsigned SavedVGPRExcessLimit = 0;
   unsigned SavedVGPRCriticalLimit = 0;
+  unsigned SavedAGPRExcessLimit = 0;
+  unsigned SavedAGPRCriticalLimit = 0;
 };
 
 class GCNPostScheduleDAGMILive final : public ScheduleDAGMI {

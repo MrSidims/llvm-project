@@ -589,17 +589,20 @@ LLVM_ABI void dumpMaxRegPressure(MachineFunction &MF,
                                  LiveIntervals &LIS,
                                  const MachineLoopInfo *MLI);
 
-/// Estimate VGPR pressure using greedy, non-splitting register allocation
+/// Estimate register pressure using greedy, non-splitting register allocation
 /// simulation, accounting for live interval interference.
 /// \param RegionBegin Start iterator of the region
 /// \param RegionEnd End iterator of the region
 /// \param LiveIns Live-in registers for the region
-/// \returns estimated VGPR pressure
-unsigned estimateGreedyVGPRPressure(
+/// \param Kind VGPR counts arch VGPRs together with AV registers, AGPR counts
+/// AGPRs only
+/// \returns estimated register pressure
+unsigned estimateGreedyRegPressure(
     MachineBasicBlock::const_iterator RegionBegin,
     MachineBasicBlock::const_iterator RegionEnd,
     const GCNRPTracker::LiveRegSet &LiveIns, const LiveIntervals &LIS,
-    const MachineRegisterInfo &MRI, const SIRegisterInfo &TRI);
+    const MachineRegisterInfo &MRI, const SIRegisterInfo &TRI,
+    GCNRegPressure::RegKind Kind);
 
 } // end namespace llvm
 

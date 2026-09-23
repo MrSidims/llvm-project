@@ -1,0 +1,60 @@
+# RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx950 -run-pass=machine-scheduler -amdgpu-sched-strategy=coexec -amdgpu-lirp-reschedule=true -amdgpu-coexec-reg-free-proximity=off -debug-only=machine-scheduler %s -o - 2>&1 | FileCheck %s
+# RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx950 -run-pass=machine-scheduler -amdgpu-sched-strategy=coexec -amdgpu-lirp-reschedule=false -amdgpu-coexec-reg-free-proximity=off -debug-only=machine-scheduler %s -o - 2>&1 | FileCheck %s --check-prefix=DISABLE
+# REQUIRES: asserts
+
+# The live interval pressure reschedule stage also estimates the AGPR pressure
+# of a region and reschedules it with tighter bounds when the estimate exceeds
+# the AGPR limit while the VGPR pressure is far below its limit.
+#
+# CHECK: LIRP: Region 0,{{.*}}InstantRP=0, LIRP=0, AGPRExcessLimit=253, AGPRInstantRP=248, AGPRLIRP=264 [AGPRLIRP exceeds the limit (253), rescheduling]
+# DISABLE-NOT: LIRP:
+#
+# CHECK-LABEL: name: lirp_agpr_reschedule
+# CHECK:      %13:areg_256_align2 = IMPLICIT_DEF
+# CHECK-NEXT: KILL %0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13
+# CHECK-NEXT: %14:areg_512_align2 = IMPLICIT_DEF
+#
+# DISABLE-LABEL: name: lirp_agpr_reschedule
+# DISABLE:      %13:areg_256_align2 = IMPLICIT_DEF
+# DISABLE-NEXT: %14:areg_512_align2 = IMPLICIT_DEF
+--- |
+  define void @lirp_agpr_reschedule() #0 { ret void }
+  attributes #0 = { "amdgpu-waves-per-eu"="1,1" "amdgpu-flat-work-group-size"="64,64" }
+...
+---
+name: lirp_agpr_reschedule
+tracksRegLiveness: true
+isSSA: false
+machineFunctionInfo:
+  isEntryFunction: true
+  occupancy: 1
+body: |
+  bb.0:
+    ; 216 AGPRs of baseline pressure, live across the whole region.
+    %0:areg_512_align2 = IMPLICIT_DEF
+    %1:areg_512_align2 = IMPLICIT_DEF
+    %2:areg_512_align2 = IMPLICIT_DEF
+    %3:areg_512_align2 = IMPLICIT_DEF
+    %4:areg_512_align2 = IMPLICIT_DEF
+    %5:areg_512_align2 = IMPLICIT_DEF
+    %6:areg_512_align2 = IMPLICIT_DEF
+    %7:areg_512_align2 = IMPLICIT_DEF
+    %8:areg_512_align2 = IMPLICIT_DEF
+    %9:areg_512_align2 = IMPLICIT_DEF
+    %10:areg_512_align2 = IMPLICIT_DEF
+    %11:areg_512_align2 = IMPLICIT_DEF
+    %12:areg_512_align2 = IMPLICIT_DEF
+    %13:areg_256_align2 = IMPLICIT_DEF
+
+    ; %14, %15 and %16 pairwise interfere, only two are live at once.
+    %14:areg_512_align2 = IMPLICIT_DEF
+    %15:areg_512_align2 = IMPLICIT_DEF
+    KILL %14
+    %16:areg_512_align2 = IMPLICIT_DEF
+    KILL %15
+    %14:areg_512_align2 = IMPLICIT_DEF
+    KILL %14, %16
+
+    KILL %0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13
+    S_ENDPGM 0
+...
