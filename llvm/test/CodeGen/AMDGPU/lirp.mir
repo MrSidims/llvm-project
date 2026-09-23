@@ -1,5 +1,5 @@
-# RUN: llc -mtriple=amdgpu12.50 -run-pass=machine-scheduler -amdgpu-sched-strategy=coexec -amdgpu-lirp-reschedule=true  -debug-only=machine-scheduler %s -o - 2>&1 | FileCheck %s
-# RUN: llc -mtriple=amdgpu12.50 -run-pass=machine-scheduler -amdgpu-sched-strategy=coexec -amdgpu-lirp-reschedule=false -debug-only=machine-scheduler %s -o - 2>&1 | FileCheck %s --check-prefix=DISABLE
+# RUN: llc -mtriple=amdgpu12.50 -run-pass=machine-scheduler -amdgpu-sched-strategy=coexec -amdgpu-lirp-reschedule=true -amdgpu-coexec-reg-free-proximity=off -debug-only=machine-scheduler %s -o - 2>&1 | FileCheck %s
+# RUN: llc -mtriple=amdgpu12.50 -run-pass=machine-scheduler -amdgpu-sched-strategy=coexec -amdgpu-lirp-reschedule=false -amdgpu-coexec-reg-free-proximity=off -debug-only=machine-scheduler %s -o - 2>&1 | FileCheck %s --check-prefix=DISABLE
 # REQUIRES: asserts
 
 # Test that the live interval pressure reschedule stage runs and detects a gap in pressure estimates:
