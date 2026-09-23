@@ -27,6 +27,8 @@ constexpr unsigned DS = 16;
 
 enum class CarriedLatency { Off, Fence, All };
 
+enum class RegFreeProximityMode { Off, Auto, Always };
+
 /// AMDGPU-specific scheduling decision reasons. These provide more granularity
 /// than the generic CandReason enum for debugging purposes.
 enum class AMDGPUSchedReason : uint8_t {
@@ -117,12 +119,13 @@ private:
   /// \returns -1 if Candidate is worse, 0 if equal, 1 if Candidate is better.
   int compareRegFreeProximity(SUnit *Candidate, SUnit *Existing) const;
 
-  /// Try to update PrioritySUs with a new \p SU.
-  void updatePrioritySUsWith(SUnit *SU, bool IsCloseToRegPressureLimit = false);
+  /// Try to update PrioritySUs with a new \p SU. SUs are ordered by register
+  /// free proximity when \p UseRegFreeProximity is set and by depth otherwise.
+  void updatePrioritySUsWith(SUnit *SU, bool UseRegFreeProximity);
 
 public:
-  /// Rebuild PrioritySUs from AllSUs using the given pressure flag.
-  void rebuildPrioritySUs(bool IsCloseToRegPressureLimit);
+  /// Rebuild PrioritySUs from AllSUs.
+  void rebuildPrioritySUs(bool UseRegFreeProximity);
   HardwareUnitInfo() {}
 
   unsigned size() { return AllSUs.size(); }
@@ -207,13 +210,12 @@ public:
   SUnit *getNextTargetSU(bool LookDeep = false) const;
   /// Insert the \p SU into AllSUs and account its \p BlockingCycles into
   /// the TotalCycles. This maintains the list of PrioritySUs.
-  void insert(SUnit *SU, unsigned BlockingCycles,
-              bool IsCloseToRegPressureLimit);
+  void insert(SUnit *SU, unsigned BlockingCycles, bool UseRegFreeProximity);
   /// Update the state for \p SU being scheduled by removing it from the AllSUs
   /// and reducing its \p BlockingCycles from the TotalCycles. This maintains
   /// the list of PrioritySUs.
   void markScheduled(SUnit *SU, unsigned BlockingCycles,
-                     bool IsCloseToRegPressureLimit);
+                     bool UseRegFreeProximity);
   /// After we've collected all the region pressure for this HWUI, correct for
   /// any specifics of the behavior of this resource. For example, if the
   /// HardwareUnit can hold N instructions simultaneously, then there is no
@@ -293,9 +295,24 @@ protected:
 
   StallCosts getStallCosts(SUnit *SU, SchedBoundary &Zone);
 
-  /// Controls whether or not the KillProximity heuristic is used when
-  /// selecting the next candidate SU for scheduling.
+  AMDGPU::RegFreeProximityMode RegFreeProximity =
+      AMDGPU::RegFreeProximityMode::Off;
+
+  /// Set while the region is scheduled close to a register pressure limit.
   bool IsCloseToRegPressureLimit = false;
+
+  /// Whether PrioritySUs are ordered by register free proximity rather than by
+  /// depth.
+  bool useRegFreeProximity() const {
+    return RegFreeProximity == AMDGPU::RegFreeProximityMode::Always ||
+           (RegFreeProximity == AMDGPU::RegFreeProximityMode::Auto &&
+            IsCloseToRegPressureLimit);
+  }
+
+  void rebuildAllPrioritySUs() {
+    for (auto &HWUI : HWUInfo)
+      HWUI.rebuildPrioritySUs(useRegFreeProximity());
+  }
 
 public:
   CandidateHeuristics() = default;
@@ -354,13 +371,15 @@ public:
 
   void dumpRegionSummary();
 
+  /// Record whether the next pick happens close to a register pressure limit.
+  /// The register free proximity order depends on which SUs are scheduled, so
+  /// PrioritySUs are rebuilt on every pick while it is in use and once more
+  /// when the order falls back to depth.
   void setIsCloseToRegPressureLimit(bool Value) {
+    bool WasInUse = useRegFreeProximity();
     IsCloseToRegPressureLimit = Value;
-  }
-
-  void rebuildAllPrioritySUs() {
-    for (auto &HWUI : HWUInfo)
-      HWUI.rebuildPrioritySUs(IsCloseToRegPressureLimit);
+    if (WasInUse || useRegFreeProximity())
+      rebuildAllPrioritySUs();
   }
 };
 

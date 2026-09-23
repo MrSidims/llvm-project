@@ -15,6 +15,7 @@
 #include "AMDGPUIGroupLP.h"
 #include "GCNHazardRecognizer.h"
 #include "llvm/Support/Debug.h"
+#include <limits>
 
 using namespace llvm;
 using namespace llvm::AMDGPU;
@@ -38,8 +39,6 @@ static cl::opt<CarriedLatency> BlockCarriedLatency(
 // Default VGPR threshold percent for coexec scheduler.
 static constexpr unsigned DefaultCoExecVGPRThresholdPercent = 100;
 
-enum class RegFreeProximityMode { Off, Auto, Always };
-
 static cl::opt<RegFreeProximityMode> CoexecRegFreeProximity(
     "amdgpu-coexec-reg-free-proximity", cl::Hidden,
     cl::init(RegFreeProximityMode::Auto),
@@ -47,7 +46,7 @@ static cl::opt<RegFreeProximityMode> CoexecRegFreeProximity(
              "sooner (lower min NumSuccsLeft)."),
     cl::values(clEnumValN(RegFreeProximityMode::Off, "off", "Disabled."),
                clEnumValN(RegFreeProximityMode::Auto, "auto",
-                          "Enabled when HighPressure is set."),
+                          "Enabled when close to a register pressure limit."),
                clEnumValN(RegFreeProximityMode::Always, "always",
                           "Always enabled.")));
 
@@ -526,8 +525,7 @@ int HardwareUnitInfo::compareRegFreeProximity(SUnit *Candidate,
     }
 
     unsigned Frees = 0;
-    unsigned MinOther =
-        RegMaxUnsched.empty() ? 0 : RegMaxUnsched.begin()->second;
+    unsigned MinOther = std::numeric_limits<unsigned>::max();
     for (auto &[Reg, MaxUnsched] : RegMaxUnsched) {
       if (MaxUnsched < 2)
         ++Frees;
@@ -572,7 +570,7 @@ int HardwareUnitInfo::compareRegFreeProximity(SUnit *Candidate,
 }
 
 void HardwareUnitInfo::updatePrioritySUsWith(SUnit *Cand,
-                                             bool IsCloseToRegPressureLimit) {
+                                             bool UseRegFreeProximity) {
   if (PrioritySUs.empty()) {
     PrioritySUs.insert(Cand);
     return;
@@ -581,16 +579,14 @@ void HardwareUnitInfo::updatePrioritySUsWith(SUnit *Cand,
   int Decision = 0;
 
   SUnit *Existing = *PrioritySUs.begin();
-  bool UseRegFree = CoexecRegFreeProximity == RegFreeProximityMode::Always ||
-                    (CoexecRegFreeProximity == RegFreeProximityMode::Auto &&
-                     IsCloseToRegPressureLimit);
 
   LLVM_DEBUG(dbgs() << "    updatePrioritySUs: SU(" << Cand->NodeNum
                     << ") vs existing SU(" << Existing->NodeNum << ")"
-                    << " mode=" << (UseRegFree ? "RegFreeProximity" : "Depth")
+                    << " mode="
+                    << (UseRegFreeProximity ? "RegFreeProximity" : "Depth")
                     << "\n");
 
-  if (!UseRegFree)
+  if (!UseRegFreeProximity)
     Decision = compareDepth(Cand, Existing);
   else
     Decision = compareRegFreeProximity(Cand, Existing);
@@ -613,26 +609,26 @@ void HardwareUnitInfo::updatePrioritySUsWith(SUnit *Cand,
   PrioritySUs.insert(Cand);
 }
 
-void HardwareUnitInfo::rebuildPrioritySUs(bool IsCloseToRegPressureLimit) {
+void HardwareUnitInfo::rebuildPrioritySUs(bool UseRegFreeProximity) {
   if (AllSUs.empty())
     return;
   PrioritySUs.clear();
   for (auto *SU : AllSUs)
-    updatePrioritySUsWith(SU, IsCloseToRegPressureLimit);
+    updatePrioritySUsWith(SU, UseRegFreeProximity);
 }
 
 void HardwareUnitInfo::insert(SUnit *SU, unsigned BlockingCycles,
-                              bool IsCloseToRegPressureLimit) {
+                              bool UseRegFreeProximity) {
   if (!AllSUs.insert(SU))
     llvm_unreachable("HardwareUnit already contains SU!");
 
   TotalCycles += BlockingCycles;
 
-  updatePrioritySUsWith(SU, IsCloseToRegPressureLimit);
+  updatePrioritySUsWith(SU, UseRegFreeProximity);
 }
 
 void HardwareUnitInfo::markScheduled(SUnit *SU, unsigned BlockingCycles,
-                                     bool IsCloseToRegPressureLimit) {
+                                     bool UseRegFreeProximity) {
   // We may want to ignore some HWUIs (e.g. InstructionFlavor::Other). To do so,
   // we just clear the HWUI. However, we still have instructions which map to
   // this HWUI. Don't bother managing the state for these HWUI.
@@ -651,7 +647,7 @@ void HardwareUnitInfo::markScheduled(SUnit *SU, unsigned BlockingCycles,
   if (AllSUs.empty())
     return;
   if (PrioritySUs.empty())
-    rebuildPrioritySUs(IsCloseToRegPressureLimit);
+    rebuildPrioritySUs(UseRegFreeProximity);
 }
 
 void HardwareUnitInfo::finalizeCycles() {
@@ -724,7 +720,7 @@ void CandidateHeuristics::updateForScheduling(SUnit *SU, unsigned CurrCycle) {
   HardwareUnitInfo *HWUI =
       getHWUIFromFlavor(classifyFlavor(*SU->getInstr(), *SII));
   assert(HWUI);
-  HWUI->markScheduled(SU, getHWUICyclesForSU(SU), IsCloseToRegPressureLimit);
+  HWUI->markScheduled(SU, getHWUICyclesForSU(SU), useRegFreeProximity());
   if (SIInstrInfo::isMFMA(*SU->getInstr()))
     MFMAIssueCycle[SU] = std::max(CurrCycle, SU->TopReadyCycle);
 }
@@ -779,6 +775,8 @@ void CandidateHeuristics::initialize(ScheduleDAGMI *SchedDAG,
   SRI = static_cast<const SIRegisterInfo *>(TRI);
   SII = static_cast<const SIInstrInfo *>(DAG->TII);
   MFMAIssueCycle.clear();
+  RegFreeProximity = CoexecRegFreeProximity;
+  IsCloseToRegPressureLimit = false;
 
   HWUInfo.resize(static_cast<int>(InstructionFlavor::NUM_FLAVORS));
 
@@ -924,7 +922,7 @@ void CandidateHeuristics::collectRegionSummary() {
     MachineInstr *MI = SU.getInstr();
     const InstructionFlavor Flavor = classifyFlavor(*MI, *SII);
     HWUInfo[static_cast<int>(Flavor)].insert(&SU, getHWUICyclesForSU(&SU),
-                                             IsCloseToRegPressureLimit);
+                                             useRegFreeProximity());
     unsigned CarriedLatency = getCarriedLatency(&SU);
     if (CarriedLatency)
       CarriedLatencies[MI] = CarriedLatency;
@@ -1406,16 +1404,17 @@ void AMDGPUCoExecSchedStrategy::pickNodeFromQueue(
 
   constexpr unsigned MaxVGPRPressureInc = 16;
   constexpr unsigned MaxVGPRPressureIncFactor = 2;
+  constexpr unsigned PressureMargin =
+      MaxVGPRPressureIncFactor * MaxVGPRPressureInc;
   const bool IsCloseToRegPressureLimit =
       DAG->isTrackingPressure() &&
-      VGPRPressure + MaxVGPRPressureIncFactor * MaxVGPRPressureInc >=
-          VGPRExcessLimit;
+      (VGPRPressure + PressureMargin >= VGPRExcessLimit ||
+       (AGPRExcessLimit > 0 && AGPRPressure + PressureMargin >= AGPRExcessLimit));
   LLVM_DEBUG(dbgs() << "IsCloseToRegPressureLimit=" << IsCloseToRegPressureLimit
                     << " (VGPR=" << VGPRPressure << " limit=" << VGPRExcessLimit
+                    << " AGPR=" << AGPRPressure << " limit=" << AGPRExcessLimit
                     << ")\n");
   Heurs.setIsCloseToRegPressureLimit(IsCloseToRegPressureLimit);
-  if (IsCloseToRegPressureLimit)
-    Heurs.rebuildAllPrioritySUs();
 
   auto EvaluateQueue = [&](ReadyQueue &Q, bool FromPending) {
     for (SUnit *SU : Q) {
