@@ -1,0 +1,54 @@
+# RUN: llc -mtriple=amdgcn -mcpu=gfx950 -run-pass=machine-scheduler -verify-misched %s -o - | FileCheck -check-prefix=DEFAULT %s
+# RUN: llc -mtriple=amdgcn -mcpu=gfx950 -run-pass=machine-scheduler -amdgpu-sched-strategy=coexec -verify-misched %s -o - | FileCheck -check-prefix=COEXEC %s
+
+# A VALU read of a 4 pass XDL MFMA result needs 8 wait states on gfx950, more
+# than the latency the scheduling model assigns to the MFMA. The default
+# scheduler issues the consumer right into that shadow, where the hardware
+# stalls. The coexec strategy counts the remaining wait states as a stall of
+# the consumer, so with enough independent VALU work at hand it fills the
+# shadow with at least 8 of them before the consumer.
+
+--- |
+  define void @mfma_consumer_hazard() #0 { ret void }
+
+  attributes #0 = { "amdgpu-waves-per-eu"="1,1" }
+...
+
+---
+name: mfma_consumer_hazard
+tracksRegLiveness: true
+liveins:
+  - { reg: '$vgpr0' }
+  - { reg: '$vgpr1' }
+  - { reg: '$vgpr2' }
+  - { reg: '$vgpr0_vgpr1_vgpr2_vgpr3' }
+  - { reg: '$vgpr4_vgpr5_vgpr6_vgpr7' }
+  - { reg: '$vgpr8_vgpr9_vgpr10_vgpr11' }
+body: |
+  bb.0:
+    liveins: $vgpr0, $vgpr1, $vgpr2, $vgpr0_vgpr1_vgpr2_vgpr3, $vgpr4_vgpr5_vgpr6_vgpr7, $vgpr8_vgpr9_vgpr10_vgpr11
+
+    ; DEFAULT-LABEL: name: mfma_consumer_hazard
+    ; DEFAULT: [[MFMA:%[0-9]+]]:vreg_128_align2 = contract nofpexcept V_MFMA_F32_16X16X32_F16_vgprcd_e64
+    ; DEFAULT-NEXT: V_ADD_U32_e32 $vgpr2, $vgpr0
+    ; DEFAULT-NEXT: V_ADD_U32_e32 [[MFMA]].sub0, $vgpr0
+    ;
+    ; COEXEC-LABEL: name: mfma_consumer_hazard
+    ; COEXEC: [[MFMA:%[0-9]+]]:vreg_128_align2 = contract nofpexcept V_MFMA_F32_16X16X32_F16_vgprcd_e64
+    ; COEXEC-COUNT-8: V_ADD_U32_e32 $vgpr
+    ; COEXEC: V_ADD_U32_e32 [[MFMA]].sub0, $vgpr0
+    %7:vreg_128_align2 = contract nofpexcept V_MFMA_F32_16X16X32_F16_vgprcd_e64 $vgpr0_vgpr1_vgpr2_vgpr3, $vgpr4_vgpr5_vgpr6_vgpr7, $vgpr8_vgpr9_vgpr10_vgpr11, 0, 0, 0, implicit $mode, implicit $exec
+    %8:vgpr_32 = V_ADD_U32_e32 %7.sub0, $vgpr0, implicit $exec
+    %9:vgpr_32 = V_ADD_U32_e32 $vgpr0, $vgpr1, implicit $exec
+    %10:vgpr_32 = V_ADD_U32_e32 $vgpr1, $vgpr2, implicit $exec
+    %11:vgpr_32 = V_ADD_U32_e32 $vgpr2, $vgpr0, implicit $exec
+    %12:vgpr_32 = V_ADD_U32_e32 $vgpr0, $vgpr2, implicit $exec
+    %13:vgpr_32 = V_ADD_U32_e32 $vgpr1, $vgpr0, implicit $exec
+    %14:vgpr_32 = V_ADD_U32_e32 $vgpr2, $vgpr1, implicit $exec
+    %15:vgpr_32 = V_ADD_U32_e32 $vgpr0, $vgpr1, implicit $exec
+    %16:vgpr_32 = V_ADD_U32_e32 $vgpr1, $vgpr2, implicit $exec
+    %17:vgpr_32 = V_ADD_U32_e32 $vgpr2, $vgpr0, implicit $exec
+    %18:vgpr_32 = V_ADD_U32_e32 $vgpr0, $vgpr2, implicit $exec
+    %19:vgpr_32 = V_ADD_U32_e32 $vgpr1, $vgpr0, implicit $exec
+    S_ENDPGM 0, implicit %8, implicit %9, implicit %10, implicit %11, implicit %12, implicit %13, implicit %14, implicit %15, implicit %16, implicit %17, implicit %18, implicit %19
+...

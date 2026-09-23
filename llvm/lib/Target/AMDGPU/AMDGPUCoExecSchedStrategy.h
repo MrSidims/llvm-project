@@ -237,6 +237,7 @@ protected:
     unsigned Carried = 0;
     unsigned Buffer = 0;
     unsigned Fence = 0;
+    unsigned Hazard = 0;
     unsigned Effective = 0;
   };
 
@@ -248,6 +249,20 @@ protected:
 
   AMDGPU::CarriedLatency RegionCarriedLatency = AMDGPU::CarriedLatency::Off;
   DenseMap<MachineInstr *, unsigned> CarriedLatencies;
+
+  /// Issue cycle of each scheduled MFMA.
+  DenseMap<SUnit *, unsigned> MFMAIssueCycle;
+
+  /// Wait states a VALU, memory or export consumer must observe before it
+  /// reads the result of \p MFMA on this subtarget.
+  unsigned getMFMAResultReadWaitStates(const MachineInstr *MFMA) const;
+
+  /// Cycles \p SU would still sit in the latency shadow of an in flight MFMA
+  /// whose result it reads if it were issued at \p CurrCycle. The DAG latency
+  /// of an MFMA result is lower than the hazard the post RA hazard recognizer
+  /// enforces, so without this term the scheduler places consumers where an
+  /// s_nop gets inserted later.
+  unsigned getMFMAShadowStall(SUnit *SU, unsigned CurrCycle) const;
 
   /// Walk over the region and collect characteristics for the various
   /// heuristics.
@@ -284,8 +299,9 @@ public:
   void initialize(ScheduleDAGMI *DAG, const TargetSchedModel *SchedModel,
                   const TargetRegisterInfo *TRI);
 
-  /// Update the state to reflect that \p SU is going to be scheduled.
-  void updateForScheduling(SUnit *SU);
+  /// Update the state to reflect that \p SU is going to be scheduled at
+  /// \p CurrCycle.
+  void updateForScheduling(SUnit *SU, unsigned CurrCycle);
 
   /// Given a \p Flavor , find the corresponding HardwareUnit. \returns the
   /// mapped HardwareUnit.

@@ -720,11 +720,53 @@ unsigned CandidateHeuristics::getHWUICyclesForMI(MachineInstr *MI) {
   return getMaxBlockingCycles(SchedModel->resolveSchedClass(MI), MI);
 }
 
-void CandidateHeuristics::updateForScheduling(SUnit *SU) {
+void CandidateHeuristics::updateForScheduling(SUnit *SU, unsigned CurrCycle) {
   HardwareUnitInfo *HWUI =
       getHWUIFromFlavor(classifyFlavor(*SU->getInstr(), *SII));
   assert(HWUI);
   HWUI->markScheduled(SU, getHWUICyclesForSU(SU), IsCloseToRegPressureLimit);
+  if (SIInstrInfo::isMFMA(*SU->getInstr()))
+    MFMAIssueCycle[SU] = std::max(CurrCycle, SU->TopReadyCycle);
+}
+
+unsigned CandidateHeuristics::getMFMAResultReadWaitStates(
+    const MachineInstr *MFMA) const {
+  unsigned NumPasses = SchedModel->computeInstrLatency(MFMA);
+  const GCNSubtarget &ST = DAG->MF.getSubtarget<GCNSubtarget>();
+
+  // Mirrors the gfx940 and gfx950 formulas of the hazard recognizer.
+  if (SIInstrInfo::isDGEMM(MFMA->getOpcode()))
+    return NumPasses == 4 ? 6 : (ST.hasGFX950Insts() ? 19 : 11);
+  if (SII->isXDL(*MFMA))
+    return NumPasses + 3 + (NumPasses != 2 && ST.hasGFX950Insts() ? 1 : 0);
+  return NumPasses + 2;
+}
+
+unsigned CandidateHeuristics::getMFMAShadowStall(SUnit *SU,
+                                                 unsigned CurrCycle) const {
+  const MachineInstr *MI = SU->getInstr();
+  // The read after MFMA wait applies to VALU, memory and export consumers.
+  // MFMA to MFMA accumulator chains pipeline at the matrix unit throughput.
+  if (SIInstrInfo::isMFMA(*MI))
+    return 0;
+  bool IsMemOrExport = SIInstrInfo::isVMEM(*MI) || SIInstrInfo::isDS(*MI) ||
+                       SIInstrInfo::isEXP(*MI);
+  if (!IsMemOrExport && !SIInstrInfo::isVALU(*MI, /*AllowLDSDMA=*/false))
+    return 0;
+
+  unsigned MaxStall = 0;
+  for (const SDep &Pred : SU->Preds) {
+    if (Pred.getKind() != SDep::Data)
+      continue;
+    auto It = MFMAIssueCycle.find(Pred.getSUnit());
+    if (It == MFMAIssueCycle.end())
+      continue;
+    unsigned Wait = getMFMAResultReadWaitStates(Pred.getSUnit()->getInstr());
+    unsigned Elapsed = CurrCycle > It->second ? CurrCycle - It->second : 0;
+    if (Wait > Elapsed)
+      MaxStall = std::max(MaxStall, Wait - Elapsed);
+  }
+  return MaxStall;
 }
 
 void CandidateHeuristics::initialize(ScheduleDAGMI *SchedDAG,
@@ -736,6 +778,7 @@ void CandidateHeuristics::initialize(ScheduleDAGMI *SchedDAG,
 
   SRI = static_cast<const SIRegisterInfo *>(TRI);
   SII = static_cast<const SIInstrInfo *>(DAG->TII);
+  MFMAIssueCycle.clear();
 
   HWUInfo.resize(static_cast<int>(InstructionFlavor::NUM_FLAVORS));
 
@@ -1038,8 +1081,10 @@ CandidateHeuristics::getStallCosts(SUnit *SU, SchedBoundary &Zone) {
   Costs.Carried = CarriedLatency > CurrCycle ? CarriedLatency - CurrCycle : 0;
   Costs.Buffer = getBufferFullStalls(SU);
   Costs.Fence = getFenceStalls(SU);
-  Costs.Effective = std::max({Costs.Ready, Costs.Structural, Costs.Latency,
-                              Costs.Carried, Costs.Buffer, Costs.Fence});
+  Costs.Hazard = getMFMAShadowStall(SU, CurrCycle);
+  Costs.Effective =
+      std::max({Costs.Ready, Costs.Structural, Costs.Latency, Costs.Carried,
+                Costs.Buffer, Costs.Fence, Costs.Hazard});
   return Costs;
 }
 
@@ -1058,11 +1103,12 @@ bool CandidateHeuristics::tryEffectiveStall(
            << " (ready=" << TryCosts.Ready << ", struct=" << TryCosts.Structural
            << ", lat=" << TryCosts.Latency << ", carried=" << TryCosts.Carried
            << ", buffer=" << TryCosts.Buffer << ", fence=" << TryCosts.Fence
-           << ") cand=" << CandCosts.Effective << " (ready=" << CandCosts.Ready
+           << ", hazard=" << TryCosts.Hazard << ") cand=" << CandCosts.Effective
+           << " (ready=" << CandCosts.Ready
            << ", struct=" << CandCosts.Structural
            << ", lat=" << CandCosts.Latency << ", carried=" << CandCosts.Carried
            << ", buffer=" << CandCosts.Buffer << ", fence=" << CandCosts.Fence
-           << ")\n";
+           << ", hazard=" << CandCosts.Hazard << ")\n";
   });
 
   return tryLess(TryCosts.Effective, CandCosts.Effective, TryCand, Cand,
@@ -1283,7 +1329,7 @@ void AMDGPUCoExecSchedStrategy::initialize(ScheduleDAGMI *DAG) {
 }
 
 void AMDGPUCoExecSchedStrategy::schedNode(SUnit *SU, bool IsTopNode) {
-  Heurs.updateForScheduling(SU);
+  Heurs.updateForScheduling(SU, Top.getCurrCycle());
   GCNSchedStrategy::schedNode(SU, IsTopNode);
 }
 
