@@ -29,6 +29,21 @@ enum class CarriedLatency { Off, Fence, All };
 
 enum class RegFreeProximityMode { Off, Auto, Always };
 
+/// Per subtarget defaults of the coexec scheduler. Command line options
+/// override the fields they correspond to.
+struct CoExecSchedPolicy {
+  /// Transcendental instructions open a coexecution window.
+  bool TransCoExecutes = true;
+  /// Regions which must schedule ds loads after wmma carry the load latency to
+  /// the fences of their successor regions.
+  bool AutoFenceCarriedLatency = true;
+  RegFreeProximityMode RegFreeProximity = RegFreeProximityMode::Auto;
+  unsigned DSBufferSize = DefaultBufferSizes::DS;
+  unsigned VGPRThresholdPercent = 100;
+
+  static CoExecSchedPolicy get(const GCNSubtarget &ST);
+};
+
 /// AMDGPU-specific scheduling decision reasons. These provide more granularity
 /// than the generic CandReason enum for debugging purposes.
 enum class AMDGPUSchedReason : uint8_t {
@@ -295,6 +310,7 @@ protected:
 
   StallCosts getStallCosts(SUnit *SU, SchedBoundary &Zone);
 
+  AMDGPU::CoExecSchedPolicy Policy;
   AMDGPU::RegFreeProximityMode RegFreeProximity =
       AMDGPU::RegFreeProximityMode::Off;
 
@@ -318,7 +334,8 @@ public:
   CandidateHeuristics() = default;
 
   void initialize(ScheduleDAGMI *DAG, const TargetSchedModel *SchedModel,
-                  const TargetRegisterInfo *TRI);
+                  const TargetRegisterInfo *TRI,
+                  const AMDGPU::CoExecSchedPolicy &SchedPolicy);
 
   /// Update the state to reflect that \p SU is going to be scheduled at
   /// \p CurrCycle.
@@ -386,6 +403,7 @@ public:
 class AMDGPUCoExecSchedStrategy final : public GCNSchedStrategy {
 protected:
   AMDGPU::AMDGPUSchedReason LastAMDGPUReason = AMDGPU::AMDGPUSchedReason::None;
+  AMDGPU::CoExecSchedPolicy Policy;
   CandidateHeuristics Heurs;
 
 #ifndef NDEBUG

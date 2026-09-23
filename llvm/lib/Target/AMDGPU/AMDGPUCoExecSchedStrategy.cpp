@@ -36,9 +36,6 @@ static cl::opt<CarriedLatency> BlockCarriedLatency(
             CarriedLatency::All, "all",
             "Pad latency for any SU with an incoming ds_load dependency.")));
 
-// Default VGPR threshold percent for coexec scheduler.
-static constexpr unsigned DefaultCoExecVGPRThresholdPercent = 100;
-
 static cl::opt<RegFreeProximityMode> CoexecRegFreeProximity(
     "amdgpu-coexec-reg-free-proximity", cl::Hidden,
     cl::init(RegFreeProximityMode::Auto),
@@ -49,6 +46,35 @@ static cl::opt<RegFreeProximityMode> CoexecRegFreeProximity(
                           "Enabled when close to a register pressure limit."),
                clEnumValN(RegFreeProximityMode::Always, "always",
                           "Always enabled.")));
+
+static cl::opt<bool> CoexecTransWindow(
+    "amdgpu-coexec-trans-window", cl::Hidden, cl::init(true),
+    cl::desc("Treat transcendental instructions as opening a coexecution "
+             "window."));
+
+static cl::opt<unsigned> CoexecDSBufferSize(
+    "amdgpu-coexec-ds-buffer-size", cl::Hidden,
+    cl::init(DefaultBufferSizes::DS),
+    cl::desc("Number of DS instructions the LDS pipeline buffers before its "
+             "cycles count towards the critical resource."));
+
+CoExecSchedPolicy CoExecSchedPolicy::get(const GCNSubtarget &ST) {
+  CoExecSchedPolicy P;
+  if (ST.hasGFX950Insts()) {
+    P.TransCoExecutes = false;
+    P.AutoFenceCarriedLatency = false;
+  }
+
+  if (CoexecTransWindow.getNumOccurrences())
+    P.TransCoExecutes = CoexecTransWindow;
+  if (CoexecDSBufferSize.getNumOccurrences())
+    P.DSBufferSize = CoexecDSBufferSize;
+  if (CoexecRegFreeProximity.getNumOccurrences())
+    P.RegFreeProximity = CoexecRegFreeProximity;
+  if (VGPRThresholdPercentOpt.getNumOccurrences())
+    P.VGPRThresholdPercent = VGPRThresholdPercentOpt;
+  return P;
+}
 
 namespace {
 
@@ -765,17 +791,18 @@ unsigned CandidateHeuristics::getMFMAShadowStall(SUnit *SU,
   return MaxStall;
 }
 
-void CandidateHeuristics::initialize(ScheduleDAGMI *SchedDAG,
-                                     const TargetSchedModel *TargetSchedModel,
-                                     const TargetRegisterInfo *TRI) {
+void CandidateHeuristics::initialize(
+    ScheduleDAGMI *SchedDAG, const TargetSchedModel *TargetSchedModel,
+    const TargetRegisterInfo *TRI, const CoExecSchedPolicy &SchedPolicy) {
   DAG = SchedDAG;
+  Policy = SchedPolicy;
   SchedModel = TargetSchedModel;
   assert(SchedModel && SchedModel->hasInstrSchedModel());
 
   SRI = static_cast<const SIRegisterInfo *>(TRI);
   SII = static_cast<const SIInstrInfo *>(DAG->TII);
   MFMAIssueCycle.clear();
-  RegFreeProximity = CoexecRegFreeProximity;
+  RegFreeProximity = Policy.RegFreeProximity;
   IsCloseToRegPressureLimit = false;
 
   HWUInfo.resize(static_cast<int>(InstructionFlavor::NUM_FLAVORS));
@@ -790,9 +817,9 @@ void CandidateHeuristics::initialize(ScheduleDAGMI *SchedDAG,
   HWUInfo[static_cast<int>(InstructionFlavor::MultiCycleVALU)]
       .setProducesCoexecWindow(true);
   HWUInfo[static_cast<int>(InstructionFlavor::TRANS)].setProducesCoexecWindow(
-      true);
+      Policy.TransCoExecutes);
   HWUInfo[static_cast<int>(InstructionFlavor::DS)].setBufferSize(
-      DefaultBufferSizes::DS);
+      Policy.DSBufferSize);
 
   collectRegionSummary();
 }
@@ -915,7 +942,7 @@ void CandidateHeuristics::collectRegionSummary() {
   // latencies about fence legalization.
   if (BlockCarriedLatency.getNumOccurrences())
     RegionCarriedLatency = BlockCarriedLatency;
-  else if (mustScheduleDSAfterWMMA())
+  else if (Policy.AutoFenceCarriedLatency && mustScheduleDSAfterWMMA())
     RegionCarriedLatency = CarriedLatency::Fence;
 
   for (auto &SU : DAG->SUnits) {
@@ -1279,8 +1306,8 @@ AMDGPUCoExecSchedStrategy::AMDGPUCoExecSchedStrategy(
   // Use more accurate GCN pressure trackers.
   UseGCNTrackers = true;
 
-  if (!VGPRThresholdPercentOpt.getNumOccurrences())
-    VGPRThresholdPercent = DefaultCoExecVGPRThresholdPercent;
+  Policy = CoExecSchedPolicy::get(C->MF->getSubtarget<GCNSubtarget>());
+  VGPRThresholdPercent = Policy.VGPRThresholdPercent;
 }
 
 void AMDGPUCoExecSchedStrategy::initPolicy(MachineBasicBlock::iterator Begin,
@@ -1302,7 +1329,7 @@ void AMDGPUCoExecSchedStrategy::initialize(ScheduleDAGMI *DAG) {
   RegionPolicy.OnlyBottomUp = false;
 
   GCNSchedStrategy::initialize(DAG);
-  Heurs.initialize(DAG, SchedModel, TRI);
+  Heurs.initialize(DAG, SchedModel, TRI, Policy);
 
   // Replace the default hazard recognizer with our PreRA one so that pre-RA
   // scheduling accounts for WMMA co-execution slot constraints. This must
