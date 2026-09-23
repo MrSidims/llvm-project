@@ -78,7 +78,8 @@ using CoExecMaskT = CoExecMask;
 /// Classification of instructions by execution characteristics.
 /// Used for scheduling decisions and co-execution slot preferences.
 enum class InstructionFlavor : uint8_t {
-  WMMA,            // WMMA/MFMA matrix operations
+  WMMA,            // WMMA and SWMMAC matrix operations
+  MFMA,            // MFMA matrix operations
   SingleCycleVALU, // Single-cycle VALU (not TRANS, not multi-cycle CVT)
   TRANS,           // Transcendental ops (v_exp, v_log, etc.)
   MultiCycleVALU,  // VALU instructions with repeat rate > 1
@@ -96,6 +97,8 @@ constexpr StringRef getFlavorName(InstructionFlavor F) {
   switch (F) {
   case InstructionFlavor::WMMA:
     return "WMMA";
+  case InstructionFlavor::MFMA:
+    return "MFMA";
   case InstructionFlavor::SingleCycleVALU:
     return "VALU(1c)";
   case InstructionFlavor::TRANS:
@@ -127,10 +130,16 @@ constexpr StringRef getFlavorName(InstructionFlavor F) {
 InstructionFlavor classifyFlavor(const MachineInstr &MI,
                                  const SIInstrInfo &SII);
 
+/// Matrix flavors issue on the matrix unit and open a co-execution window.
+constexpr bool isMatrixFlavor(InstructionFlavor F) {
+  return F == InstructionFlavor::WMMA || F == InstructionFlavor::MFMA;
+}
+
 /// Map a flavor to the co-execution class it occupies in a window slot.
 constexpr CoExecMaskT getCoExecMask(InstructionFlavor F) {
   switch (F) {
   case InstructionFlavor::WMMA:
+  case InstructionFlavor::MFMA:
     return CoExecMask::WMMA;
   case InstructionFlavor::TRANS:
     return CoExecMask::TRANS;

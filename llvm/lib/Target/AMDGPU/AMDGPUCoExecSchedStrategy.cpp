@@ -444,7 +444,7 @@ InstructionFlavor llvm::AMDGPU::classifyFlavor(const MachineInstr &MI,
     // certain sub-classes can be co-executed in certain slots. For now, we
     // simply treat them all as one to simplify the change and leave the rest
     // to a follow-up fine-tuning.
-    return InstructionFlavor::WMMA;
+    return InstructionFlavor::MFMA;
   }
 
   if (SII.isWMMA(MI) || SII.isSWMMAC(MI))
@@ -814,6 +814,8 @@ void CandidateHeuristics::initialize(
 
   HWUInfo[static_cast<int>(InstructionFlavor::WMMA)].setProducesCoexecWindow(
       true);
+  HWUInfo[static_cast<int>(InstructionFlavor::MFMA)].setProducesCoexecWindow(
+      true);
   HWUInfo[static_cast<int>(InstructionFlavor::MultiCycleVALU)]
       .setProducesCoexecWindow(true);
   HWUInfo[static_cast<int>(InstructionFlavor::TRANS)].setProducesCoexecWindow(
@@ -907,7 +909,7 @@ bool CandidateHeuristics::mustScheduleDSAfterWMMA() const {
   bool HasWMMA = false;
   for (auto &SU : DAG->SUnits) {
     MachineInstr *MI = SU.getInstr();
-    if (!MI || classifyFlavor(*MI, *SII) != InstructionFlavor::WMMA)
+    if (!MI || !isMatrixFlavor(classifyFlavor(*MI, *SII)))
       continue;
     HasWMMA = true;
     bool HasDSSucc = false;
@@ -1174,7 +1176,7 @@ bool CandidateHeuristics::tryCriticalResourceDependency(
     auto TryCandFlavor = classifyFlavor(*TryCand.SU->getInstr(), *SII);
     bool LookDeep = (CandFlavor == InstructionFlavor::DS ||
                      TryCandFlavor == InstructionFlavor::DS) &&
-                    HWUI.getType() == InstructionFlavor::WMMA;
+                    isMatrixFlavor(HWUI.getType());
     auto *TargetSU = HWUI.getNextTargetSU(LookDeep);
 
     // If we do not have a TargetSU for this resource, then it is not critical.
@@ -1190,7 +1192,7 @@ bool CandidateHeuristics::tryCriticalResourceDependency(
 
     // We want to ensure our DS order matches WMMA order.
     bool LookDeep = CandFlavor == InstructionFlavor::DS &&
-                    HWUI.getType() == InstructionFlavor::WMMA;
+                    isMatrixFlavor(HWUI.getType());
     auto *TargetSU = HWUI.getNextTargetSU(LookDeep);
 
     bool CandEnables =
