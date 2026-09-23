@@ -878,60 +878,47 @@ unsigned CandidateHeuristics::getCarriedLatency(SUnit *SU) {
   return CarriedLatency;
 }
 
-void CandidateHeuristics::collectRegionSummary() {
-  CarriedLatencies.clear();
-  if (!SchedModel || !SchedModel->hasInstrSchedModel())
-    return;
-
-  if (BlockCarriedLatency.getNumOccurrences())
-    RegionCarriedLatency = BlockCarriedLatency;
-
-  if (!BlockCarriedLatency.getNumOccurrences()) {
-    SmallVector<SUnit *, 16> RegionWMMAs;
-
-    for (auto &SU : DAG->SUnits) {
-      if (!SU.getInstr())
-        continue;
-      MachineInstr *MI = SU.getInstr();
-      const InstructionFlavor Flavor = classifyFlavor(*MI, *SII);
-      if (Flavor == InstructionFlavor::WMMA)
-        RegionWMMAs.push_back(&SU);
-    }
-
-    bool MustHaveDSAfter = RegionWMMAs.size();
-
-    // In some cases, we may end up with loads at the end of a predecssor block.
-    // In these cases, it is preferable to defer scheduling a fence which
-    // corresponds with a waitcnt for those loads until the latency of the load
-    // has cleared. Unfortunately, there is no reliable way to determine whether
-    // or not a predecessor block will end up scheduling loads at the end. Here,
-    // we inspect the dependency structure to define a rough heuristic: if we
-    // must schedule  ds_loads after wmma, then we carry the latency of ds_loads
-    // to successor block fences.
-    // TODO: 1. extend to different memory instructions, 2. teach carried
-    // latencies about fence legalization.
-    for (SUnit *SU : RegionWMMAs) {
-      bool HasDSSucc = false;
-      for (auto &Succ : SU->Succs) {
-        if (!Succ.getSUnit()->getInstr())
-          continue;
-        if (classifyFlavor(*Succ.getSUnit()->getInstr(), *SII) ==
-            InstructionFlavor::DS) {
-          HasDSSucc = true;
-          break;
-        }
-      }
-
-      if (!HasDSSucc) {
-        MustHaveDSAfter = false;
+bool CandidateHeuristics::mustScheduleDSAfterWMMA() const {
+  bool HasWMMA = false;
+  for (auto &SU : DAG->SUnits) {
+    MachineInstr *MI = SU.getInstr();
+    if (!MI || classifyFlavor(*MI, *SII) != InstructionFlavor::WMMA)
+      continue;
+    HasWMMA = true;
+    bool HasDSSucc = false;
+    for (auto &Succ : SU.Succs) {
+      MachineInstr *SuccMI = Succ.getSUnit()->getInstr();
+      if (SuccMI && classifyFlavor(*SuccMI, *SII) == InstructionFlavor::DS) {
+        HasDSSucc = true;
         break;
       }
     }
-
-    if (MustHaveDSAfter) {
-      RegionCarriedLatency = CarriedLatency::Fence;
-    }
+    if (!HasDSSucc)
+      return false;
   }
+  return HasWMMA;
+}
+
+void CandidateHeuristics::collectRegionSummary() {
+  CarriedLatencies.clear();
+  RegionCarriedLatency = CarriedLatency::Off;
+  if (!SchedModel || !SchedModel->hasInstrSchedModel())
+    return;
+
+  // In some cases, we may end up with loads at the end of a predecssor block.
+  // In these cases, it is preferable to defer scheduling a fence which
+  // corresponds with a waitcnt for those loads until the latency of the load
+  // has cleared. Unfortunately, there is no reliable way to determine whether
+  // or not a predecessor block will end up scheduling loads at the end. Here,
+  // we inspect the dependency structure to define a rough heuristic: if we
+  // must schedule  ds_loads after wmma, then we carry the latency of ds_loads
+  // to successor block fences.
+  // TODO: 1. extend to different memory instructions, 2. teach carried
+  // latencies about fence legalization.
+  if (BlockCarriedLatency.getNumOccurrences())
+    RegionCarriedLatency = BlockCarriedLatency;
+  else if (mustScheduleDSAfterWMMA())
+    RegionCarriedLatency = CarriedLatency::Fence;
 
   for (auto &SU : DAG->SUnits) {
     MachineInstr *MI = SU.getInstr();

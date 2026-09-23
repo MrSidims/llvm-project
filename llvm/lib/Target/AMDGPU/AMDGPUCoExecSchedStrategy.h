@@ -268,6 +268,10 @@ protected:
   /// heuristics.
   void collectRegionSummary();
 
+  /// \returns true when the region has WMMA instructions and every one of
+  /// them has a DS successor.
+  bool mustScheduleDSAfterWMMA() const;
+
   /// \returns the maximum blocking cycles according to the SchedModel for a
   /// given MCSchedClassDesc \p SC.
   unsigned getMaxBlockingCycles(const MCSchedClassDesc *SC,
