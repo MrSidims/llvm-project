@@ -1,26 +1,30 @@
 # REQUIRES: asserts
 # RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx950 -run-pass=machine-scheduler -amdgpu-sched-strategy=coexec -debug-only=machine-scheduler %s -filetype=null 2>&1 | FileCheck %s
 
-# MFMA instructions form their own flavor, separate from the WMMA flavor of
-# gfx1250, while both keep opening a coexecution window.
+# MFMA instructions form their own flavors, separate from the WMMA flavor of
+# gfx1250, while all of them keep opening a coexecution window. XDL MFMAs and
+# the SGEMM and DGEMM MFMAs are told apart.
 
 --- |
-  define void @mfma_flavor() #0 { ret void }
+  define void @xdl_flavor() #0 { ret void }
+  define void @sdgemm_flavor() #0 { ret void }
 
   attributes #0 = { "amdgpu-waves-per-eu"="1,1" }
 ...
 
-# CHECK-LABEL: === Region: mfma_flavor BB0
+# CHECK-LABEL: === Region: xdl_flavor BB0
 # CHECK: HWUI Resource Pressure:
 # CHECK-NOT: WMMA:
-# CHECK-DAG: MFMA: 8 cycles, 2 instrs
+# CHECK-NOT: SDGEMM:
+# CHECK-DAG: XDL: 8 cycles, 2 instrs
 # CHECK-DAG: VALU(1c): 2 cycles, 2 instrs
 # CHECK-DAG: SALU: 1 cycles, 1 instrs
 # CHECK-NOT: WMMA:
-# CHECK: Picked: SU({{[0-9]+}}) {{.*}}V_MFMA_F32_16X16X32_F16_e64{{.*}} [MFMA]
+# CHECK-NOT: SDGEMM:
+# CHECK: Picked: SU({{[0-9]+}}) {{.*}}V_MFMA_F32_16X16X32_F16_e64{{.*}} [XDL]
 
 ---
-name: mfma_flavor
+name: xdl_flavor
 tracksRegLiveness: true
 machineFunctionInfo:
   isEntryFunction: true
@@ -32,4 +36,28 @@ body: |
     %a1:vgpr_32 = V_ADD_F32_e32 undef %v1:vgpr_32, undef %v2:vgpr_32, implicit $mode, implicit $exec
     %sa0:sgpr_32 = S_ADD_I32 undef $sgpr10, undef $sgpr11, implicit-def $scc
     S_ENDPGM 0, implicit %m0, implicit %m1, implicit %a0, implicit %a1, implicit %sa0
+...
+
+# CHECK-LABEL: === Region: sdgemm_flavor BB0
+# CHECK: HWUI Resource Pressure:
+# CHECK-NOT: WMMA:
+# CHECK-NOT: XDL:
+# CHECK-DAG: SDGEMM: 32 cycles, 2 instrs
+# CHECK-DAG: VALU(1c): 1 cycles, 1 instrs
+# CHECK-NOT: WMMA:
+# CHECK-NOT: XDL:
+# CHECK: Picked: SU({{[0-9]+}}) {{.*}}V_MFMA_F32_32X32X2F32_e64{{.*}} [SDGEMM]
+# CHECK: Picked: SU({{[0-9]+}}) {{.*}}V_MFMA_F64_16X16X4F64_e64{{.*}} [SDGEMM]
+
+---
+name: sdgemm_flavor
+tracksRegLiveness: true
+machineFunctionInfo:
+  isEntryFunction: true
+body: |
+  bb.0:
+    %m0:areg_512_align2 = V_MFMA_F32_32X32X2F32_e64 undef %s0:vgpr_32, undef %s1:vgpr_32, undef %acc0:areg_512_align2, 0, 0, 0, implicit $mode, implicit $exec
+    %m1:areg_256_align2 = V_MFMA_F64_16X16X4F64_e64 undef %s2:vreg_64_align2, undef %s3:vreg_64_align2, undef %acc1:areg_256_align2, 0, 0, 0, implicit $mode, implicit $exec
+    %a0:vgpr_32 = V_ADD_F32_e32 undef %v0:vgpr_32, undef %v1:vgpr_32, implicit $mode, implicit $exec
+    S_ENDPGM 0, implicit %m0, implicit %m1, implicit %a0
 ...

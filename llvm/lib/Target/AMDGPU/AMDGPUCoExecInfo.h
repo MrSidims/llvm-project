@@ -44,17 +44,20 @@ namespace AMDGPU {
 /// Bitmask for instruction types allowed to co-execute at a stage.
 enum class CoExecMask : uint16_t {
   None = 0,
-  CTRL = 1 << 0,  // Control: s_delay_alu, s_set_vgpr_msb
-  VALU = 1 << 1,  // Vector ALU
-  TRANS = 1 << 2, // Transcendentals (V_EXP etc)
-  SALU = 1 << 3,  // Scalar ALU
-  DS = 1 << 4,    // LDS read/write
-  VMEM = 1 << 5,  // Global memory
-  SMEM = 1 << 6,  // Scalar memory
-  WMMA = 1 << 7,  // Next WMMA (V stages only), or MFMA
+  CTRL = 1 << 0,   // Control: s_delay_alu, s_set_vgpr_msb
+  VALU = 1 << 1,   // Vector ALU
+  TRANS = 1 << 2,  // Transcendentals (V_EXP etc)
+  SALU = 1 << 3,   // Scalar ALU
+  DS = 1 << 4,     // LDS read/write
+  VMEM = 1 << 5,   // Global memory
+  SMEM = 1 << 6,   // Scalar memory
+  WMMA = 1 << 7,   // Next WMMA (V stages only)
+  XDL = 1 << 8,    // Next XDL MFMA
+  SDGEMM = 1 << 9, // Next SGEMM or DGEMM MFMA
   All = 0xFFFF,
 
   MEM = DS | VMEM | SMEM,
+  MFMA = XDL | SDGEMM,
   StageE0 = CTRL,                            // Issue: control only
   StageE = CTRL | SALU | MEM,                // External: mem/salu
   StageI = CTRL | SALU | MEM | VALU | TRANS, // Internal: all ALU
@@ -79,7 +82,8 @@ using CoExecMaskT = CoExecMask;
 /// Used for scheduling decisions and co-execution slot preferences.
 enum class InstructionFlavor : uint8_t {
   WMMA,            // WMMA and SWMMAC matrix operations
-  MFMA,            // MFMA matrix operations
+  XDL,             // MFMA on the XDL pipe
+  SDGEMM,          // SGEMM and DGEMM MFMA
   SingleCycleVALU, // Single-cycle VALU (not TRANS, not multi-cycle CVT)
   TRANS,           // Transcendental ops (v_exp, v_log, etc.)
   MultiCycleVALU,  // VALU instructions with repeat rate > 1
@@ -97,8 +101,10 @@ constexpr StringRef getFlavorName(InstructionFlavor F) {
   switch (F) {
   case InstructionFlavor::WMMA:
     return "WMMA";
-  case InstructionFlavor::MFMA:
-    return "MFMA";
+  case InstructionFlavor::XDL:
+    return "XDL";
+  case InstructionFlavor::SDGEMM:
+    return "SDGEMM";
   case InstructionFlavor::SingleCycleVALU:
     return "VALU(1c)";
   case InstructionFlavor::TRANS:
@@ -132,15 +138,19 @@ InstructionFlavor classifyFlavor(const MachineInstr &MI,
 
 /// Matrix flavors issue on the matrix unit and open a co-execution window.
 constexpr bool isMatrixFlavor(InstructionFlavor F) {
-  return F == InstructionFlavor::WMMA || F == InstructionFlavor::MFMA;
+  return F == InstructionFlavor::WMMA || F == InstructionFlavor::XDL ||
+         F == InstructionFlavor::SDGEMM;
 }
 
 /// Map a flavor to the co-execution class it occupies in a window slot.
 constexpr CoExecMaskT getCoExecMask(InstructionFlavor F) {
   switch (F) {
   case InstructionFlavor::WMMA:
-  case InstructionFlavor::MFMA:
     return CoExecMask::WMMA;
+  case InstructionFlavor::XDL:
+    return CoExecMask::XDL;
+  case InstructionFlavor::SDGEMM:
+    return CoExecMask::SDGEMM;
   case InstructionFlavor::TRANS:
     return CoExecMask::TRANS;
   case InstructionFlavor::SingleCycleVALU:
@@ -221,6 +231,10 @@ inline const char *getCoExecMaskName(CoExecMaskT Mask) {
     return "SMEM";
   case CoExecMask::WMMA:
     return "WMMA";
+  case CoExecMask::XDL:
+    return "XDL";
+  case CoExecMask::SDGEMM:
+    return "SDGEMM";
   default:
     llvm_unreachable("Not a single instruction class");
   }
@@ -315,8 +329,8 @@ struct CoExecInfo {
     // For 'All' or unknown, return based on what's allowed.
     if (any(Mask & CoExecMask::VALU))
       return CoExecStageType::I; // If VALU allowed, it's I-like
-    if (any(Mask & CoExecMask::WMMA))
-      return CoExecStageType::V; // If WMMA allowed (not VALU), V-like
+    if (any(Mask & (CoExecMask::WMMA | CoExecMask::MFMA)))
+      return CoExecStageType::V; // If a matrix op is allowed (not VALU), V-like
     return CoExecStageType::E;   // Default to E
   }
 

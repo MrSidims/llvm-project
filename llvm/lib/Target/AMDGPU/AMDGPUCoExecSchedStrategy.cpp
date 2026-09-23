@@ -112,7 +112,7 @@ static void allowCoExec(llvm::AMDGPU::CoExecInfo &Info,
 
 /// Get co-execution info for a gfx950 MFMA instruction.
 /// The occupancy (cycles until the next MFMA may issue) is expressed as the
-/// first stage carrying the WMMA bit.
+/// first stage carrying the MFMA bits.
 llvm::AMDGPU::CoExecInfo llvm::AMDGPU::getMFMACoExecInfo(unsigned Opcode) {
   using namespace llvm;
   using namespace llvm::AMDGPU;
@@ -193,7 +193,7 @@ llvm::AMDGPU::CoExecInfo llvm::AMDGPU::getMFMACoExecInfo(unsigned Opcode) {
     Res.TotalWindow = 8;
     allowCoExec(Res, CoExecMask::SALU, 1);
     allowCoExec(Res, CoExecMask::DS | CoExecMask::VALU | CoExecMask::VMEM, 2);
-    allowCoExec(Res, CoExecMask::WMMA, 4);
+    allowCoExec(Res, CoExecMask::MFMA, 4);
     return Res;
 
   // 8-cycle occupancy, 12-cycle window.
@@ -241,7 +241,7 @@ llvm::AMDGPU::CoExecInfo llvm::AMDGPU::getMFMACoExecInfo(unsigned Opcode) {
     allowCoExec(Res, CoExecMask::SALU, 1);
     allowCoExec(Res, CoExecMask::DS | CoExecMask::VMEM, 2);
     allowCoExec(Res, CoExecMask::VALU, 3);
-    allowCoExec(Res, CoExecMask::WMMA, 8);
+    allowCoExec(Res, CoExecMask::MFMA, 8);
     return Res;
 
   // 4-cycle occupancy, 8-cycle window.
@@ -314,7 +314,7 @@ llvm::AMDGPU::CoExecInfo llvm::AMDGPU::getMFMACoExecInfo(unsigned Opcode) {
     Res.TotalWindow = 8;
     allowCoExec(Res, CoExecMask::SALU, 1);
     allowCoExec(Res, CoExecMask::DS | CoExecMask::VALU | CoExecMask::VMEM, 2);
-    allowCoExec(Res, CoExecMask::WMMA, 4);
+    allowCoExec(Res, CoExecMask::MFMA, 4);
     return Res;
 
   // 16-cycle occupancy, 20-cycle window.
@@ -382,7 +382,7 @@ llvm::AMDGPU::CoExecInfo llvm::AMDGPU::getMFMACoExecInfo(unsigned Opcode) {
     allowCoExec(Res, CoExecMask::SALU, 1);
     allowCoExec(Res, CoExecMask::DS | CoExecMask::VMEM, 2);
     allowCoExec(Res, CoExecMask::VALU, 3);
-    allowCoExec(Res, CoExecMask::WMMA, 16);
+    allowCoExec(Res, CoExecMask::MFMA, 16);
     return Res;
 
   // 9-cycle occupancy, 12-cycle window.
@@ -403,7 +403,7 @@ llvm::AMDGPU::CoExecInfo llvm::AMDGPU::getMFMACoExecInfo(unsigned Opcode) {
     Res.TotalWindow = 12;
     allowCoExec(Res, CoExecMask::SALU, 1);
     allowCoExec(Res, CoExecMask::DS | CoExecMask::VALU | CoExecMask::VMEM, 4);
-    allowCoExec(Res, CoExecMask::WMMA, 9);
+    allowCoExec(Res, CoExecMask::MFMA, 9);
     return Res;
 
   // 18-cycle occupancy, 19-cycle window.
@@ -413,7 +413,7 @@ llvm::AMDGPU::CoExecInfo llvm::AMDGPU::getMFMACoExecInfo(unsigned Opcode) {
   case V_MFMA_F64_16X16X4F64_vgprcd_e64:
     Res.TotalWindow = 19;
     allowCoExec(Res, CoExecMask::DS | CoExecMask::SALU | CoExecMask::VMEM, 0);
-    allowCoExec(Res, CoExecMask::WMMA | CoExecMask::VALU, 18);
+    allowCoExec(Res, CoExecMask::MFMA | CoExecMask::VALU, 18);
     return Res;
 
   default:
@@ -439,12 +439,11 @@ InstructionFlavor llvm::AMDGPU::classifyFlavor(const MachineInstr &MI,
     return InstructionFlavor::DMA;
 
   if (SII.isMFMA(MI)) {
-    // TODO: Consider further sub-classifying this (XDL, XDL2x, S/DGEMM).
-    // GFX9 SPG sub-classifies MFMA into XDL, XDL2x and S/DGEMM, because only
-    // certain sub-classes can be co-executed in certain slots. For now, we
-    // simply treat them all as one to simplify the change and leave the rest
-    // to a follow-up fine-tuning.
-    return InstructionFlavor::MFMA;
+    // TODO: The GFX9 SPG also lists XDL2x. It stays inside XDL until its
+    // opcode set is known.
+    if (SII.isXDL(MI))
+      return InstructionFlavor::XDL;
+    return InstructionFlavor::SDGEMM;
   }
 
   if (SII.isWMMA(MI) || SII.isSWMMAC(MI))
@@ -810,12 +809,10 @@ void CandidateHeuristics::initialize(
   for (unsigned I = 0; I < HWUInfo.size(); I++) {
     HWUInfo[I].reset();
     HWUInfo[I].setType(I);
+    if (isMatrixFlavor(static_cast<InstructionFlavor>(I)))
+      HWUInfo[I].setProducesCoexecWindow(true);
   }
 
-  HWUInfo[static_cast<int>(InstructionFlavor::WMMA)].setProducesCoexecWindow(
-      true);
-  HWUInfo[static_cast<int>(InstructionFlavor::MFMA)].setProducesCoexecWindow(
-      true);
   HWUInfo[static_cast<int>(InstructionFlavor::MultiCycleVALU)]
       .setProducesCoexecWindow(true);
   HWUInfo[static_cast<int>(InstructionFlavor::TRANS)].setProducesCoexecWindow(
