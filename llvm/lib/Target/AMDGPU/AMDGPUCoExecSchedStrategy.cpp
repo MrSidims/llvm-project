@@ -23,7 +23,7 @@ using namespace llvm::AMDGPU;
 #define DEBUG_TYPE "machine-scheduler"
 
 static cl::opt<CarriedLatency> BlockCarriedLatency(
-    "amdgpu-block-carried-latency", cl::Hidden, cl::init(CarriedLatency::Off),
+    "amdgpu-block-carried-latency", cl::Hidden, cl::init(CarriedLatency::All),
     cl::desc("Estimate block-carried latency and include it in the effective "
              "candidate stall cost."),
     cl::values(
@@ -939,9 +939,9 @@ void CandidateHeuristics::collectRegionSummary() {
   // to successor block fences.
   // TODO: 1. extend to different memory instructions, 2. teach carried
   // latencies about fence legalization.
-  if (BlockCarriedLatency.getNumOccurrences())
-    RegionCarriedLatency = BlockCarriedLatency;
-  else if (Policy.AutoFenceCarriedLatency && mustScheduleDSAfterWMMA())
+  RegionCarriedLatency = BlockCarriedLatency;
+  if (RegionCarriedLatency == CarriedLatency::Off &&
+      Policy.AutoFenceCarriedLatency && mustScheduleDSAfterWMMA())
     RegionCarriedLatency = CarriedLatency::Fence;
 
   for (auto &SU : DAG->SUnits) {
