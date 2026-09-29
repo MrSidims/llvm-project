@@ -26,16 +26,10 @@ define float @dot8(ptr addrspace(1) noalias readonly align 4 %a, ptr addrspace(1
 ; SCALARFMA-NEXT:  [[ENTRY:.*:]]
 ; SCALARFMA-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
 ; SCALARFMA-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
-; SCALARFMA-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr addrspace(1) [[PA0]], align 4
-; SCALARFMA-NEXT:    [[TMP1:%.*]] = load <4 x float>, ptr addrspace(1) [[PB0]], align 4
-; SCALARFMA-NEXT:    [[TMP2:%.*]] = fmul contract <4 x float> [[TMP0]], [[TMP1]]
-; SCALARFMA-NEXT:    [[PA4:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 4
-; SCALARFMA-NEXT:    [[PB4:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 4
-; SCALARFMA-NEXT:    [[TMP3:%.*]] = load <4 x float>, ptr addrspace(1) [[PA4]], align 4
-; SCALARFMA-NEXT:    [[TMP4:%.*]] = load <4 x float>, ptr addrspace(1) [[PB4]], align 4
-; SCALARFMA-NEXT:    [[TMP5:%.*]] = fmul contract <4 x float> [[TMP3]], [[TMP4]]
-; SCALARFMA-NEXT:    [[RDX_OP:%.*]] = fadd fast <4 x float> [[TMP2]], [[TMP5]]
-; SCALARFMA-NEXT:    [[S7:%.*]] = call fast float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> [[RDX_OP]])
+; SCALARFMA-NEXT:    [[TMP0:%.*]] = load <8 x float>, ptr addrspace(1) [[PA0]], align 4
+; SCALARFMA-NEXT:    [[TMP1:%.*]] = load <8 x float>, ptr addrspace(1) [[PB0]], align 4
+; SCALARFMA-NEXT:    [[TMP2:%.*]] = fmul contract <8 x float> [[TMP0]], [[TMP1]]
+; SCALARFMA-NEXT:    [[S7:%.*]] = call fast float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> [[TMP2]])
 ; SCALARFMA-NEXT:    ret float [[S7]]
 ;
 entry:
@@ -102,28 +96,8 @@ define float @sum8(ptr addrspace(1) noalias readonly align 4 %a) {
 ; SCALARFMA-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]]) {
 ; SCALARFMA-NEXT:  [[ENTRY:.*:]]
 ; SCALARFMA-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
-; SCALARFMA-NEXT:    [[LA0:%.*]] = load float, ptr addrspace(1) [[PA0]], align 4
-; SCALARFMA-NEXT:    [[PA1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 1
-; SCALARFMA-NEXT:    [[LA1:%.*]] = load float, ptr addrspace(1) [[PA1]], align 4
-; SCALARFMA-NEXT:    [[PA2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 2
-; SCALARFMA-NEXT:    [[LA2:%.*]] = load float, ptr addrspace(1) [[PA2]], align 4
-; SCALARFMA-NEXT:    [[PA3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 3
-; SCALARFMA-NEXT:    [[LA3:%.*]] = load float, ptr addrspace(1) [[PA3]], align 4
-; SCALARFMA-NEXT:    [[PA4:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 4
-; SCALARFMA-NEXT:    [[LA4:%.*]] = load float, ptr addrspace(1) [[PA4]], align 4
-; SCALARFMA-NEXT:    [[PA5:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 5
-; SCALARFMA-NEXT:    [[LA5:%.*]] = load float, ptr addrspace(1) [[PA5]], align 4
-; SCALARFMA-NEXT:    [[PA6:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 6
-; SCALARFMA-NEXT:    [[LA6:%.*]] = load float, ptr addrspace(1) [[PA6]], align 4
-; SCALARFMA-NEXT:    [[PA7:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 7
-; SCALARFMA-NEXT:    [[LA7:%.*]] = load float, ptr addrspace(1) [[PA7]], align 4
-; SCALARFMA-NEXT:    [[S1:%.*]] = fadd fast float [[LA0]], [[LA1]]
-; SCALARFMA-NEXT:    [[S2:%.*]] = fadd fast float [[S1]], [[LA2]]
-; SCALARFMA-NEXT:    [[S3:%.*]] = fadd fast float [[S2]], [[LA3]]
-; SCALARFMA-NEXT:    [[S4:%.*]] = fadd fast float [[S3]], [[LA4]]
-; SCALARFMA-NEXT:    [[S5:%.*]] = fadd fast float [[S4]], [[LA5]]
-; SCALARFMA-NEXT:    [[S6:%.*]] = fadd fast float [[S5]], [[LA6]]
-; SCALARFMA-NEXT:    [[S7:%.*]] = fadd fast float [[S6]], [[LA7]]
+; SCALARFMA-NEXT:    [[TMP0:%.*]] = load <8 x float>, ptr addrspace(1) [[PA0]], align 4
+; SCALARFMA-NEXT:    [[S7:%.*]] = call fast float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> [[TMP0]])
 ; SCALARFMA-NEXT:    ret float [[S7]]
 ;
 entry:

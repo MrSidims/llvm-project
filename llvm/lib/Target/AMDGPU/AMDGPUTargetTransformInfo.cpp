@@ -1295,6 +1295,23 @@ GCNTTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
 
   EVT OrigTy = TLI->getValueType(DL, Ty);
 
+  auto *FTy = dyn_cast<FixedVectorType>(Ty);
+  if (FTy && FTy->getElementType()->isFloatingPointTy() &&
+      OrigTy.getScalarSizeInBits() >= 32 && CostKind != TTI::TCK_CodeSize &&
+      CostKind != TTI::TCK_SizeAndLatency) {
+    Type *EltTy = FTy->getElementType();
+    unsigned NumElts = FTy->getNumElements();
+    if (!isPowerOf2_32(NumElts))
+      return getArithmeticInstrCost(Opcode, EltTy, CostKind) * (NumElts - 1);
+    InstructionCost Cost = 0;
+    for (; NumElts > 1; NumElts /= 2) {
+      unsigned Half = NumElts / 2;
+      Type *HalfTy = Half == 1 ? EltTy : FixedVectorType::get(EltTy, Half);
+      Cost += getArithmeticInstrCost(Opcode, HalfTy, CostKind);
+    }
+    return Cost;
+  }
+
   // Computes cost on targets that have packed math instructions(which support
   // 16-bit types only).
   if (!ST->hasVOP3PInsts() || OrigTy.getScalarSizeInBits() != 16)

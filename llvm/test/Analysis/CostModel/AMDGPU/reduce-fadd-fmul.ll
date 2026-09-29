@@ -6,41 +6,51 @@
 
 define void @reduce_fadd_f32() {
 ; GFX900-LABEL: 'reduce_fadd_f32'
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fadd.v2f32(float 0.000000e+00, <2 x float> poison)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V3 = call reassoc float @llvm.vector.reduce.fadd.v3f32(float 0.000000e+00, <3 x float> poison)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> poison)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> poison)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %V16 = call reassoc float @llvm.vector.reduce.fadd.v16f32(float 0.000000e+00, <16 x float> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fadd.v2f32(float 0.000000e+00, <2 x float> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3 = call reassoc float @llvm.vector.reduce.fadd.v3f32(float 0.000000e+00, <3 x float> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V5 = call reassoc float @llvm.vector.reduce.fadd.v5f32(float 0.000000e+00, <5 x float> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 11 for instruction: %V12 = call reassoc float @llvm.vector.reduce.fadd.v12f32(float 0.000000e+00, <12 x float> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %V16 = call reassoc float @llvm.vector.reduce.fadd.v16f32(float 0.000000e+00, <16 x float> poison)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX90A-LABEL: 'reduce_fadd_f32'
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fadd.v2f32(float 0.000000e+00, <2 x float> poison)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3 = call reassoc float @llvm.vector.reduce.fadd.v3f32(float 0.000000e+00, <3 x float> poison)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> poison)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> poison)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V16 = call reassoc float @llvm.vector.reduce.fadd.v16f32(float 0.000000e+00, <16 x float> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V5 = call reassoc float @llvm.vector.reduce.fadd.v5f32(float 0.000000e+00, <5 x float> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 11 for instruction: %V12 = call reassoc float @llvm.vector.reduce.fadd.v12f32(float 0.000000e+00, <12 x float> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V16 = call reassoc float @llvm.vector.reduce.fadd.v16f32(float 0.000000e+00, <16 x float> poison)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1030-LABEL: 'reduce_fadd_f32'
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fadd.v2f32(float 0.000000e+00, <2 x float> poison)
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V3 = call reassoc float @llvm.vector.reduce.fadd.v3f32(float 0.000000e+00, <3 x float> poison)
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> poison)
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> poison)
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %V16 = call reassoc float @llvm.vector.reduce.fadd.v16f32(float 0.000000e+00, <16 x float> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fadd.v2f32(float 0.000000e+00, <2 x float> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3 = call reassoc float @llvm.vector.reduce.fadd.v3f32(float 0.000000e+00, <3 x float> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V5 = call reassoc float @llvm.vector.reduce.fadd.v5f32(float 0.000000e+00, <5 x float> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 11 for instruction: %V12 = call reassoc float @llvm.vector.reduce.fadd.v12f32(float 0.000000e+00, <12 x float> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %V16 = call reassoc float @llvm.vector.reduce.fadd.v16f32(float 0.000000e+00, <16 x float> poison)
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX90A-SIZE-LABEL: 'reduce_fadd_f32'
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fadd.v2f32(float 0.000000e+00, <2 x float> poison)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3 = call reassoc float @llvm.vector.reduce.fadd.v3f32(float 0.000000e+00, <3 x float> poison)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> poison)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %V5 = call reassoc float @llvm.vector.reduce.fadd.v5f32(float 0.000000e+00, <5 x float> poison)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fadd.v8f32(float 0.000000e+00, <8 x float> poison)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 54 for instruction: %V12 = call reassoc float @llvm.vector.reduce.fadd.v12f32(float 0.000000e+00, <12 x float> poison)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V16 = call reassoc float @llvm.vector.reduce.fadd.v16f32(float 0.000000e+00, <16 x float> poison)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %V2 = call reassoc float @llvm.vector.reduce.fadd.v2f32(float 0.0, <2 x float> poison)
   %V3 = call reassoc float @llvm.vector.reduce.fadd.v3f32(float 0.0, <3 x float> poison)
   %V4 = call reassoc float @llvm.vector.reduce.fadd.v4f32(float 0.0, <4 x float> poison)
+  %V5 = call reassoc float @llvm.vector.reduce.fadd.v5f32(float 0.0, <5 x float> poison)
   %V8 = call reassoc float @llvm.vector.reduce.fadd.v8f32(float 0.0, <8 x float> poison)
+  %V12 = call reassoc float @llvm.vector.reduce.fadd.v12f32(float 0.0, <12 x float> poison)
   %V16 = call reassoc float @llvm.vector.reduce.fadd.v16f32(float 0.0, <16 x float> poison)
   ret void
 }
@@ -73,21 +83,21 @@ define void @reduce_fadd_f32_ordered() {
 
 define void @reduce_fmul_f32() {
 ; GFX900-LABEL: 'reduce_fmul_f32'
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fmul.v2f32(float 1.000000e+00, <2 x float> poison)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fmul.v4f32(float 1.000000e+00, <4 x float> poison)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fmul.v8f32(float 1.000000e+00, <8 x float> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fmul.v2f32(float 1.000000e+00, <2 x float> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fmul.v4f32(float 1.000000e+00, <4 x float> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fmul.v8f32(float 1.000000e+00, <8 x float> poison)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX90A-LABEL: 'reduce_fmul_f32'
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fmul.v2f32(float 1.000000e+00, <2 x float> poison)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fmul.v4f32(float 1.000000e+00, <4 x float> poison)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fmul.v8f32(float 1.000000e+00, <8 x float> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fmul.v4f32(float 1.000000e+00, <4 x float> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fmul.v8f32(float 1.000000e+00, <8 x float> poison)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1030-LABEL: 'reduce_fmul_f32'
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fmul.v2f32(float 1.000000e+00, <2 x float> poison)
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fmul.v4f32(float 1.000000e+00, <4 x float> poison)
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fmul.v8f32(float 1.000000e+00, <8 x float> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2 = call reassoc float @llvm.vector.reduce.fmul.v2f32(float 1.000000e+00, <2 x float> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V4 = call reassoc float @llvm.vector.reduce.fmul.v4f32(float 1.000000e+00, <4 x float> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %V8 = call reassoc float @llvm.vector.reduce.fmul.v8f32(float 1.000000e+00, <8 x float> poison)
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX90A-SIZE-LABEL: 'reduce_fmul_f32'
@@ -104,31 +114,36 @@ define void @reduce_fmul_f32() {
 
 define void @reduce_fadd_f64() {
 ; GFX900-LABEL: 'reduce_fadd_f64'
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2 = call reassoc double @llvm.vector.reduce.fadd.v2f64(double 0.000000e+00, <2 x double> poison)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V4 = call reassoc double @llvm.vector.reduce.fadd.v4f64(double 0.000000e+00, <4 x double> poison)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %V8 = call reassoc double @llvm.vector.reduce.fadd.v8f64(double 0.000000e+00, <8 x double> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2 = call reassoc double @llvm.vector.reduce.fadd.v2f64(double 0.000000e+00, <2 x double> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %V4 = call reassoc double @llvm.vector.reduce.fadd.v4f64(double 0.000000e+00, <4 x double> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V8 = call reassoc double @llvm.vector.reduce.fadd.v8f64(double 0.000000e+00, <8 x double> poison)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %V12 = call reassoc double @llvm.vector.reduce.fadd.v12f64(double 0.000000e+00, <12 x double> poison)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX90A-LABEL: 'reduce_fadd_f64'
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2 = call reassoc double @llvm.vector.reduce.fadd.v2f64(double 0.000000e+00, <2 x double> poison)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4 = call reassoc double @llvm.vector.reduce.fadd.v4f64(double 0.000000e+00, <4 x double> poison)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %V8 = call reassoc double @llvm.vector.reduce.fadd.v8f64(double 0.000000e+00, <8 x double> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2 = call reassoc double @llvm.vector.reduce.fadd.v2f64(double 0.000000e+00, <2 x double> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V4 = call reassoc double @llvm.vector.reduce.fadd.v4f64(double 0.000000e+00, <4 x double> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %V8 = call reassoc double @llvm.vector.reduce.fadd.v8f64(double 0.000000e+00, <8 x double> poison)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 11 for instruction: %V12 = call reassoc double @llvm.vector.reduce.fadd.v12f64(double 0.000000e+00, <12 x double> poison)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1030-LABEL: 'reduce_fadd_f64'
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2 = call reassoc double @llvm.vector.reduce.fadd.v2f64(double 0.000000e+00, <2 x double> poison)
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V4 = call reassoc double @llvm.vector.reduce.fadd.v4f64(double 0.000000e+00, <4 x double> poison)
-; GFX1030-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %V8 = call reassoc double @llvm.vector.reduce.fadd.v8f64(double 0.000000e+00, <8 x double> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2 = call reassoc double @llvm.vector.reduce.fadd.v2f64(double 0.000000e+00, <2 x double> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %V4 = call reassoc double @llvm.vector.reduce.fadd.v4f64(double 0.000000e+00, <4 x double> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %V8 = call reassoc double @llvm.vector.reduce.fadd.v8f64(double 0.000000e+00, <8 x double> poison)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %V12 = call reassoc double @llvm.vector.reduce.fadd.v12f64(double 0.000000e+00, <12 x double> poison)
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX90A-SIZE-LABEL: 'reduce_fadd_f64'
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2 = call reassoc double @llvm.vector.reduce.fadd.v2f64(double 0.000000e+00, <2 x double> poison)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4 = call reassoc double @llvm.vector.reduce.fadd.v4f64(double 0.000000e+00, <4 x double> poison)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %V8 = call reassoc double @llvm.vector.reduce.fadd.v8f64(double 0.000000e+00, <8 x double> poison)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %V12 = call reassoc double @llvm.vector.reduce.fadd.v12f64(double 0.000000e+00, <12 x double> poison)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %V2 = call reassoc double @llvm.vector.reduce.fadd.v2f64(double 0.0, <2 x double> poison)
   %V4 = call reassoc double @llvm.vector.reduce.fadd.v4f64(double 0.0, <4 x double> poison)
   %V8 = call reassoc double @llvm.vector.reduce.fadd.v8f64(double 0.0, <8 x double> poison)
+  %V12 = call reassoc double @llvm.vector.reduce.fadd.v12f64(double 0.0, <12 x double> poison)
   ret void
 }
