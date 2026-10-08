@@ -24,11 +24,11 @@ define void @select_i32(i1 %cond, i32 %a, i32 %b) {
 
 define void @select_i64(i1 %cond, i64 %a, i64 %b) {
 ; ALL-LABEL: 'select_i64'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, i64 %a, i64 %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select i1 %cond, i64 %a, i64 %b
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_i64'
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, i64 %a, i64 %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select i1 %cond, i64 %a, i64 %b
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; ALL-SIZE-LATENCY-LABEL: 'select_i64'
@@ -58,11 +58,11 @@ define void @select_f32(i1 %cond, float %a, float %b) {
 
 define void @select_f64(i1 %cond, double %a, double %b) {
 ; ALL-LABEL: 'select_f64'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, double %a, double %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select i1 %cond, double %a, double %b
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_f64'
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, double %a, double %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select i1 %cond, double %a, double %b
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; ALL-SIZE-LATENCY-LABEL: 'select_f64'
@@ -109,11 +109,11 @@ define void @select_f16(i1 %cond, half %a, half %b) {
 
 define void @select_ptr(i1 %cond, ptr %a, ptr %b) {
 ; ALL-LABEL: 'select_ptr'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, ptr %a, ptr %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select i1 %cond, ptr %a, ptr %b
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_ptr'
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, ptr %a, ptr %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select i1 %cond, ptr %a, ptr %b
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; ALL-SIZE-LATENCY-LABEL: 'select_ptr'
@@ -330,11 +330,11 @@ define void @select_v3f16(i1 %cond, <3 x half> %a, <3 x half> %b) {
 
 define void @select_v2ptr(i1 %cond, <2 x ptr> %a, <2 x ptr> %b) {
 ; ALL-LABEL: 'select_v2ptr'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select i1 %cond, <2 x ptr> %a, <2 x ptr> %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select i1 %cond, <2 x ptr> %a, <2 x ptr> %b
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_v2ptr'
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select i1 %cond, <2 x ptr> %a, <2 x ptr> %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select i1 %cond, <2 x ptr> %a, <2 x ptr> %b
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; ALL-SIZE-LATENCY-LABEL: 'select_v2ptr'
@@ -347,11 +347,11 @@ define void @select_v2ptr(i1 %cond, <2 x ptr> %a, <2 x ptr> %b) {
 
 define void @select_v4ptr(i1 %cond, <4 x ptr> %a, <4 x ptr> %b) {
 ; ALL-LABEL: 'select_v4ptr'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select i1 %cond, <4 x ptr> %a, <4 x ptr> %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %sel = select i1 %cond, <4 x ptr> %a, <4 x ptr> %b
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_v4ptr'
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select i1 %cond, <4 x ptr> %a, <4 x ptr> %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %sel = select i1 %cond, <4 x ptr> %a, <4 x ptr> %b
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; ALL-SIZE-LATENCY-LABEL: 'select_v4ptr'

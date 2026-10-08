@@ -11,11 +11,11 @@
 
 define void @abs_nonpoison() {
 ; FAST-LABEL: 'abs_nonpoison'
-; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 false)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 false)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 false)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 false)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 false)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 false)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 false)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 false)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 false)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 false)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I32 = call i32 @llvm.abs.i32(i32 undef, i1 false)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I32 = call <2 x i32> @llvm.abs.v2i32(<2 x i32> undef, i1 false)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I32 = call <4 x i32> @llvm.abs.v4i32(<4 x i32> undef, i1 false)
@@ -40,11 +40,11 @@ define void @abs_nonpoison() {
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SLOW-LABEL: 'abs_nonpoison'
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 false)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 false)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 false)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 false)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 false)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 false)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 false)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 false)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 false)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 false)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I32 = call i32 @llvm.abs.i32(i32 undef, i1 false)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I32 = call <2 x i32> @llvm.abs.v2i32(<2 x i32> undef, i1 false)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I32 = call <4 x i32> @llvm.abs.v4i32(<4 x i32> undef, i1 false)
@@ -69,11 +69,11 @@ define void @abs_nonpoison() {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FAST-SIZE-LABEL: 'abs_nonpoison'
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 false)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 false)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 false)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 false)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 false)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 false)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 false)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 false)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 false)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 false)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I32 = call i32 @llvm.abs.i32(i32 undef, i1 false)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I32 = call <2 x i32> @llvm.abs.v2i32(<2 x i32> undef, i1 false)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I32 = call <4 x i32> @llvm.abs.v4i32(<4 x i32> undef, i1 false)
@@ -98,11 +98,11 @@ define void @abs_nonpoison() {
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SLOW-SIZE-LABEL: 'abs_nonpoison'
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 false)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 false)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 false)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 false)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 false)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 false)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 false)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 false)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 false)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 false)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I32 = call i32 @llvm.abs.i32(i32 undef, i1 false)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I32 = call <2 x i32> @llvm.abs.v2i32(<2 x i32> undef, i1 false)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I32 = call <4 x i32> @llvm.abs.v4i32(<4 x i32> undef, i1 false)
@@ -161,11 +161,11 @@ define void @abs_nonpoison() {
 
 define void @abs_poison() {
 ; FAST-LABEL: 'abs_poison'
-; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 true)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 true)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 true)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 true)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 true)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 true)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 true)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 true)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 true)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 true)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I32 = call i32 @llvm.abs.i32(i32 undef, i1 true)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I32 = call <2 x i32> @llvm.abs.v2i32(<2 x i32> undef, i1 true)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I32 = call <4 x i32> @llvm.abs.v4i32(<4 x i32> undef, i1 true)
@@ -190,11 +190,11 @@ define void @abs_poison() {
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SLOW-LABEL: 'abs_poison'
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 true)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 true)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 true)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 true)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 true)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 true)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 true)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 true)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 true)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 true)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I32 = call i32 @llvm.abs.i32(i32 undef, i1 true)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I32 = call <2 x i32> @llvm.abs.v2i32(<2 x i32> undef, i1 true)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I32 = call <4 x i32> @llvm.abs.v4i32(<4 x i32> undef, i1 true)
@@ -219,11 +219,11 @@ define void @abs_poison() {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FAST-SIZE-LABEL: 'abs_poison'
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 true)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 true)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 true)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 true)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 true)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 true)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 true)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 true)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 true)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 true)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I32 = call i32 @llvm.abs.i32(i32 undef, i1 true)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I32 = call <2 x i32> @llvm.abs.v2i32(<2 x i32> undef, i1 true)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I32 = call <4 x i32> @llvm.abs.v4i32(<4 x i32> undef, i1 true)
@@ -248,11 +248,11 @@ define void @abs_poison() {
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SLOW-SIZE-LABEL: 'abs_poison'
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 true)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 true)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 true)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 true)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 true)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %I64 = call i64 @llvm.abs.i64(i64 undef, i1 true)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V2I64 = call <2 x i64> @llvm.abs.v2i64(<2 x i64> undef, i1 true)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V4I64 = call <4 x i64> @llvm.abs.v4i64(<4 x i64> undef, i1 true)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V5I64 = call <5 x i64> @llvm.abs.v5i64(<5 x i64> undef, i1 true)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V8I64 = call <8 x i64> @llvm.abs.v8i64(<8 x i64> undef, i1 true)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I32 = call i32 @llvm.abs.i32(i32 undef, i1 true)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I32 = call <2 x i32> @llvm.abs.v2i32(<2 x i32> undef, i1 true)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I32 = call <4 x i32> @llvm.abs.v4i32(<4 x i32> undef, i1 true)

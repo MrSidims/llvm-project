@@ -62,11 +62,11 @@ define amdgpu_kernel void @add_i64() #0 {
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FAST64-LABEL: 'add_i64'
-; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i64 = add i64 undef, undef
-; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i64 = add <2 x i64> undef, undef
-; FAST64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i64 = add <3 x i64> undef, undef
-; FAST64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i64 = add <4 x i64> undef, undef
-; FAST64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5i64 = add <5 x i64> undef, undef
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = add i64 undef, undef
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i64 = add <2 x i64> undef, undef
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i64 = add <3 x i64> undef, undef
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v4i64 = add <4 x i64> undef, undef
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v5i64 = add <5 x i64> undef, undef
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FAST16-SIZE-LABEL: 'add_i64'
@@ -86,11 +86,11 @@ define amdgpu_kernel void @add_i64() #0 {
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FAST64-SIZE-LABEL: 'add_i64'
-; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i64 = add i64 undef, undef
-; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i64 = add <2 x i64> undef, undef
-; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i64 = add <3 x i64> undef, undef
-; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i64 = add <4 x i64> undef, undef
-; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5i64 = add <5 x i64> undef, undef
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = add i64 undef, undef
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i64 = add <2 x i64> undef, undef
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i64 = add <3 x i64> undef, undef
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v4i64 = add <4 x i64> undef, undef
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v5i64 = add <5 x i64> undef, undef
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %i64 = add i64 undef, undef
@@ -238,7 +238,7 @@ define amdgpu_kernel void @sub() #0 {
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = sub i8 undef, undef
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = sub i16 undef, undef
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = sub i32 undef, undef
-; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i64 = sub i64 undef, undef
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = sub i64 undef, undef
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i16 = sub <2 x i16> undef, undef
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i16 = sub <3 x i16> undef, undef
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v4i16 = sub <4 x i16> undef, undef
@@ -268,7 +268,7 @@ define amdgpu_kernel void @sub() #0 {
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = sub i8 undef, undef
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = sub i16 undef, undef
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = sub i32 undef, undef
-; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i64 = sub i64 undef, undef
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = sub i64 undef, undef
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i16 = sub <2 x i16> undef, undef
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i16 = sub <3 x i16> undef, undef
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v4i16 = sub <4 x i16> undef, undef

@@ -134,12 +134,12 @@ define void @fcmp_select_v4f32(<4 x float> %a, <4 x float> %b, <4 x float> %c) {
 define void @icmp_select_v2ptr(<2 x ptr> %a, <2 x ptr> %b, <2 x ptr> %c) {
 ; ALL-LABEL: 'icmp_select_v2ptr'
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %cmp = icmp ugt <2 x ptr> %a, %b
-; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select <2 x i1> %cmp, <2 x ptr> %a, <2 x ptr> %c
+; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select <2 x i1> %cmp, <2 x ptr> %a, <2 x ptr> %c
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'icmp_select_v2ptr'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %cmp = icmp ugt <2 x ptr> %a, %b
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select <2 x i1> %cmp, <2 x ptr> %a, <2 x ptr> %c
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select <2 x i1> %cmp, <2 x ptr> %a, <2 x ptr> %c
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; ALL-SIZE-LATENCY-LABEL: 'icmp_select_v2ptr'
@@ -155,12 +155,12 @@ define void @icmp_select_v2ptr(<2 x ptr> %a, <2 x ptr> %b, <2 x ptr> %c) {
 define void @icmp_select_v4ptr(<4 x ptr> %a, <4 x ptr> %b, <4 x ptr> %c) {
 ; ALL-LABEL: 'icmp_select_v4ptr'
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %cmp = icmp ugt <4 x ptr> %a, %b
-; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select <4 x i1> %cmp, <4 x ptr> %a, <4 x ptr> %c
+; ALL-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %sel = select <4 x i1> %cmp, <4 x ptr> %a, <4 x ptr> %c
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'icmp_select_v4ptr'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %cmp = icmp ugt <4 x ptr> %a, %b
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select <4 x i1> %cmp, <4 x ptr> %a, <4 x ptr> %c
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %sel = select <4 x i1> %cmp, <4 x ptr> %a, <4 x ptr> %c
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; ALL-SIZE-LATENCY-LABEL: 'icmp_select_v4ptr'

@@ -201,43 +201,16 @@ bb:
 
 
 define void @minnum_combine_v2f16(ptr addrspace(1) %arg) {
-; GFX8-LABEL: define void @minnum_combine_v2f16(
-; GFX8-SAME: ptr addrspace(1) [[ARG:%.*]]) {
-; GFX8-NEXT:  [[BB:.*:]]
-; GFX8-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
-; GFX8-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
-; GFX8-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
-; GFX8-NEXT:    [[ITMP3:%.*]] = load half, ptr addrspace(1) [[ITMP2]], align 2
-; GFX8-NEXT:    [[ITMP4:%.*]] = call half @llvm.minnum.f16(half [[ITMP3]], half 1.000000e+00)
-; GFX8-NEXT:    store half [[ITMP4]], ptr addrspace(1) [[ITMP2]], align 2
-; GFX8-NEXT:    [[ITMP5:%.*]] = add nuw nsw i64 [[ITMP1]], 1
-; GFX8-NEXT:    [[ITMP6:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP5]]
-; GFX8-NEXT:    [[ITMP7:%.*]] = load half, ptr addrspace(1) [[ITMP6]], align 2
-; GFX8-NEXT:    [[ITMP8:%.*]] = call half @llvm.minnum.f16(half [[ITMP7]], half 1.000000e+00)
-; GFX8-NEXT:    store half [[ITMP8]], ptr addrspace(1) [[ITMP6]], align 2
-; GFX8-NEXT:    ret void
-;
-; GFX9-LABEL: define void @minnum_combine_v2f16(
-; GFX9-SAME: ptr addrspace(1) [[ARG:%.*]]) {
-; GFX9-NEXT:  [[BB:.*:]]
-; GFX9-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
-; GFX9-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
-; GFX9-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
-; GFX9-NEXT:    [[TMP0:%.*]] = load <2 x half>, ptr addrspace(1) [[ITMP2]], align 2
-; GFX9-NEXT:    [[TMP1:%.*]] = call <2 x half> @llvm.minnum.v2f16(<2 x half> [[TMP0]], <2 x half> splat (half 1.000000e+00))
-; GFX9-NEXT:    store <2 x half> [[TMP1]], ptr addrspace(1) [[ITMP2]], align 2
-; GFX9-NEXT:    ret void
-;
-; GFX90A-LABEL: define void @minnum_combine_v2f16(
-; GFX90A-SAME: ptr addrspace(1) [[ARG:%.*]]) {
-; GFX90A-NEXT:  [[BB:.*:]]
-; GFX90A-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
-; GFX90A-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
-; GFX90A-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
-; GFX90A-NEXT:    [[TMP0:%.*]] = load <2 x half>, ptr addrspace(1) [[ITMP2]], align 2
-; GFX90A-NEXT:    [[TMP1:%.*]] = call <2 x half> @llvm.minnum.v2f16(<2 x half> [[TMP0]], <2 x half> splat (half 1.000000e+00))
-; GFX90A-NEXT:    store <2 x half> [[TMP1]], ptr addrspace(1) [[ITMP2]], align 2
-; GFX90A-NEXT:    ret void
+; GCN-LABEL: define void @minnum_combine_v2f16(
+; GCN-SAME: ptr addrspace(1) [[ARG:%.*]]) {
+; GCN-NEXT:  [[BB:.*:]]
+; GCN-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
+; GCN-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
+; GCN-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
+; GCN-NEXT:    [[TMP0:%.*]] = load <2 x half>, ptr addrspace(1) [[ITMP2]], align 2
+; GCN-NEXT:    [[TMP1:%.*]] = call <2 x half> @llvm.minnum.v2f16(<2 x half> [[TMP0]], <2 x half> splat (half 1.000000e+00))
+; GCN-NEXT:    store <2 x half> [[TMP1]], ptr addrspace(1) [[ITMP2]], align 2
+; GCN-NEXT:    ret void
 ;
 bb:
   %tmp = tail call i32 @llvm.amdgcn.workitem.id.x()
@@ -256,43 +229,16 @@ bb:
 
 
 define void @maxnum_combine_v2f16(ptr addrspace(1) %arg) {
-; GFX8-LABEL: define void @maxnum_combine_v2f16(
-; GFX8-SAME: ptr addrspace(1) [[ARG:%.*]]) {
-; GFX8-NEXT:  [[BB:.*:]]
-; GFX8-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
-; GFX8-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
-; GFX8-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
-; GFX8-NEXT:    [[ITMP3:%.*]] = load half, ptr addrspace(1) [[ITMP2]], align 2
-; GFX8-NEXT:    [[ITMP4:%.*]] = call half @llvm.maxnum.f16(half [[ITMP3]], half 1.000000e+00)
-; GFX8-NEXT:    store half [[ITMP4]], ptr addrspace(1) [[ITMP2]], align 2
-; GFX8-NEXT:    [[ITMP5:%.*]] = add nuw nsw i64 [[ITMP1]], 1
-; GFX8-NEXT:    [[ITMP6:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP5]]
-; GFX8-NEXT:    [[ITMP7:%.*]] = load half, ptr addrspace(1) [[ITMP6]], align 2
-; GFX8-NEXT:    [[ITMP8:%.*]] = call half @llvm.maxnum.f16(half [[ITMP7]], half 1.000000e+00)
-; GFX8-NEXT:    store half [[ITMP8]], ptr addrspace(1) [[ITMP6]], align 2
-; GFX8-NEXT:    ret void
-;
-; GFX9-LABEL: define void @maxnum_combine_v2f16(
-; GFX9-SAME: ptr addrspace(1) [[ARG:%.*]]) {
-; GFX9-NEXT:  [[BB:.*:]]
-; GFX9-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
-; GFX9-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
-; GFX9-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
-; GFX9-NEXT:    [[TMP0:%.*]] = load <2 x half>, ptr addrspace(1) [[ITMP2]], align 2
-; GFX9-NEXT:    [[TMP1:%.*]] = call <2 x half> @llvm.maxnum.v2f16(<2 x half> [[TMP0]], <2 x half> splat (half 1.000000e+00))
-; GFX9-NEXT:    store <2 x half> [[TMP1]], ptr addrspace(1) [[ITMP2]], align 2
-; GFX9-NEXT:    ret void
-;
-; GFX90A-LABEL: define void @maxnum_combine_v2f16(
-; GFX90A-SAME: ptr addrspace(1) [[ARG:%.*]]) {
-; GFX90A-NEXT:  [[BB:.*:]]
-; GFX90A-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
-; GFX90A-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
-; GFX90A-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
-; GFX90A-NEXT:    [[TMP0:%.*]] = load <2 x half>, ptr addrspace(1) [[ITMP2]], align 2
-; GFX90A-NEXT:    [[TMP1:%.*]] = call <2 x half> @llvm.maxnum.v2f16(<2 x half> [[TMP0]], <2 x half> splat (half 1.000000e+00))
-; GFX90A-NEXT:    store <2 x half> [[TMP1]], ptr addrspace(1) [[ITMP2]], align 2
-; GFX90A-NEXT:    ret void
+; GCN-LABEL: define void @maxnum_combine_v2f16(
+; GCN-SAME: ptr addrspace(1) [[ARG:%.*]]) {
+; GCN-NEXT:  [[BB:.*:]]
+; GCN-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
+; GCN-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
+; GCN-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
+; GCN-NEXT:    [[TMP0:%.*]] = load <2 x half>, ptr addrspace(1) [[ITMP2]], align 2
+; GCN-NEXT:    [[TMP1:%.*]] = call <2 x half> @llvm.maxnum.v2f16(<2 x half> [[TMP0]], <2 x half> splat (half 1.000000e+00))
+; GCN-NEXT:    store <2 x half> [[TMP1]], ptr addrspace(1) [[ITMP2]], align 2
+; GCN-NEXT:    ret void
 ;
 bb:
   %tmp = tail call i32 @llvm.amdgcn.workitem.id.x()
@@ -317,14 +263,9 @@ define void @minimum_combine_v2f16(ptr addrspace(1) %arg) {
 ; GCN-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
 ; GCN-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
 ; GCN-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
-; GCN-NEXT:    [[ITMP3:%.*]] = load half, ptr addrspace(1) [[ITMP2]], align 2
-; GCN-NEXT:    [[ITMP4:%.*]] = call half @llvm.minimum.f16(half [[ITMP3]], half 1.000000e+00)
-; GCN-NEXT:    store half [[ITMP4]], ptr addrspace(1) [[ITMP2]], align 2
-; GCN-NEXT:    [[ITMP5:%.*]] = add nuw nsw i64 [[ITMP1]], 1
-; GCN-NEXT:    [[ITMP6:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP5]]
-; GCN-NEXT:    [[ITMP7:%.*]] = load half, ptr addrspace(1) [[ITMP6]], align 2
-; GCN-NEXT:    [[ITMP8:%.*]] = call half @llvm.minimum.f16(half [[ITMP7]], half 1.000000e+00)
-; GCN-NEXT:    store half [[ITMP8]], ptr addrspace(1) [[ITMP6]], align 2
+; GCN-NEXT:    [[TMP0:%.*]] = load <2 x half>, ptr addrspace(1) [[ITMP2]], align 2
+; GCN-NEXT:    [[TMP1:%.*]] = call <2 x half> @llvm.minimum.v2f16(<2 x half> [[TMP0]], <2 x half> splat (half 1.000000e+00))
+; GCN-NEXT:    store <2 x half> [[TMP1]], ptr addrspace(1) [[ITMP2]], align 2
 ; GCN-NEXT:    ret void
 ;
 bb:
@@ -349,14 +290,9 @@ define void @maximum_combine_v2f16(ptr addrspace(1) %arg) {
 ; GCN-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
 ; GCN-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
 ; GCN-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
-; GCN-NEXT:    [[ITMP3:%.*]] = load half, ptr addrspace(1) [[ITMP2]], align 2
-; GCN-NEXT:    [[ITMP4:%.*]] = call half @llvm.maximum.f16(half [[ITMP3]], half 1.000000e+00)
-; GCN-NEXT:    store half [[ITMP4]], ptr addrspace(1) [[ITMP2]], align 2
-; GCN-NEXT:    [[ITMP5:%.*]] = add nuw nsw i64 [[ITMP1]], 1
-; GCN-NEXT:    [[ITMP6:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP5]]
-; GCN-NEXT:    [[ITMP7:%.*]] = load half, ptr addrspace(1) [[ITMP6]], align 2
-; GCN-NEXT:    [[ITMP8:%.*]] = call half @llvm.maximum.f16(half [[ITMP7]], half 1.000000e+00)
-; GCN-NEXT:    store half [[ITMP8]], ptr addrspace(1) [[ITMP6]], align 2
+; GCN-NEXT:    [[TMP0:%.*]] = load <2 x half>, ptr addrspace(1) [[ITMP2]], align 2
+; GCN-NEXT:    [[TMP1:%.*]] = call <2 x half> @llvm.maximum.v2f16(<2 x half> [[TMP0]], <2 x half> splat (half 1.000000e+00))
+; GCN-NEXT:    store <2 x half> [[TMP1]], ptr addrspace(1) [[ITMP2]], align 2
 ; GCN-NEXT:    ret void
 ;
 bb:

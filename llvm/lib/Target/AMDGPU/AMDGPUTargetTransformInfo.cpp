@@ -608,6 +608,11 @@ static bool isFusedFMul(const SITargetLowering &TLI, Type *Ty,
          canFuseFMulWithFAddSub(TLI, Ty, FMul, Outer);
 }
 
+static unsigned getNumIRElts(Type *Ty) {
+  auto *VTy = dyn_cast<FixedVectorType>(Ty);
+  return VTy ? VTy->getNumElements() : 1;
+}
+
 InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
     TTI::OperandValueInfo Op1Info, TTI::OperandValueInfo Op2Info,
@@ -631,16 +636,25 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     if (SLT == MVT::i64)
       return get64BitInstrCost(CostKind) * LT.first * NElts;
 
-    if (ST->has16BitInsts() && SLT == MVT::i16)
+    if (ST->hasVOP3PInsts() && SLT == MVT::i16)
       NElts = (NElts + 1) / 2;
 
     // i32
     return getFullRateInstrCost() * LT.first * NElts;
   case ISD::ADD:
   case ISD::SUB:
-    if (SLT == MVT::i64 && ST->hasAnyPackedU64Ops())
+    if (SLT == MVT::i64) {
+      if (ST->hasAnyPackedU64Ops())
+        NElts = (NElts + 1) / 2;
+      bool HasU64Op = ST->hasAddSubU64Insts() ||
+                      (ISD == ISD::ADD && ST->hasLshlAddU64Inst());
+      return (HasU64Op ? 1 : 2) * getFullRateInstrCost() * LT.first * NElts;
+    }
+
+    if (ST->hasVOP3PInsts() && SLT == MVT::i16)
       NElts = (NElts + 1) / 2;
-    [[fallthrough]];
+
+    return LT.first * NElts * getFullRateInstrCost();
   case ISD::AND:
   case ISD::OR:
   case ISD::XOR:
@@ -649,22 +663,93 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       return 2 * getFullRateInstrCost() * LT.first * NElts;
     }
 
+    // i8 vectors are operated on as packed dwords.
+    if (Ty->isVectorTy() && Ty->getScalarType()->isIntegerTy(8))
+      return divideCeil(getNumIRElts(Ty), 4) * getFullRateInstrCost();
+
     if (ST->has16BitInsts() && SLT == MVT::i16)
       NElts = (NElts + 1) / 2;
 
     return LT.first * NElts * getFullRateInstrCost();
   case ISD::MUL: {
+    if (Op2Info.isConstant() && Op2Info.isPowerOf2())
+      return getArithmeticInstrCost(Instruction::Shl, Ty, CostKind);
+
     const int QuarterRateCost = getQuarterRateInstrCost(CostKind);
     if (SLT == MVT::i64) {
-      const int FullRateCost = getFullRateInstrCost();
-      return (4 * QuarterRateCost + (2 * 2) * FullRateCost) * LT.first * NElts;
+      if (ST->useVMulU64Inst())
+        return QuarterRateCost * LT.first * NElts;
+      // v_mad_u64_u32 plus the high half cross products.
+      int Cost = (Op2Info.isConstant() ? 2 : 3) * QuarterRateCost +
+                 getFullRateInstrCost();
+      return Cost * LT.first * NElts;
     }
 
-    if (ST->has16BitInsts() && SLT == MVT::i16)
-      NElts = (NElts + 1) / 2;
+    // Narrow multiplies select to full rate 16 or 24-bit instructions.
+    if (Ty->getScalarSizeInBits() <= 16) {
+      if (ST->hasVOP3PInsts() && SLT == MVT::i16)
+        NElts = (NElts + 1) / 2;
+      return getFullRateInstrCost() * NElts * LT.first;
+    }
 
     // i32
     return QuarterRateCost * NElts * LT.first;
+  }
+  case ISD::UDIV:
+  case ISD::SDIV:
+  case ISD::UREM:
+  case ISD::SREM: {
+    unsigned Bits = Ty->getScalarSizeInBits();
+    if (Bits > 64)
+      break;
+
+    const bool IsSigned = ISD == ISD::SDIV || ISD == ISD::SREM;
+    const bool IsRem = ISD == ISD::UREM || ISD == ISD::SREM;
+    const bool Is64 = Bits > 32;
+    const int FullRateCost = getFullRateInstrCost();
+    const int QuarterRateCost = getQuarterRateInstrCost(CostKind);
+    const int Rate64Cost = get64BitInstrCost(CostKind);
+    const int TransCost = getTransInstrCost(CostKind);
+
+    int Cost;
+    if (Op2Info.isPowerOf2() || Op2Info.isNegatedPowerOf2()) {
+      // Shifts and masks.
+      if (!IsSigned)
+        Cost = IsRem ? (Is64 ? 2 : 1) * FullRateCost
+                     : (Is64 ? Rate64Cost : FullRateCost);
+      else if (IsRem)
+        Cost = (Is64 ? 7 : 5) * FullRateCost;
+      else
+        Cost =
+            (Is64 ? Rate64Cost : 0) + 4 * FullRateCost +
+            (Op2Info.isNegatedPowerOf2() ? (Is64 ? 2 : 1) : 0) * FullRateCost;
+    } else if (Op2Info.isConstant()) {
+      // Multiply by a magic constant.
+      if (Bits <= 16)
+        Cost = (IsRem ? 8 : 6) * FullRateCost;
+      else if (!Is64)
+        Cost = IsRem ? 2 * QuarterRateCost + 5 * FullRateCost
+                     : QuarterRateCost + 4 * FullRateCost;
+      else if (!IsSigned)
+        Cost = IsRem ? 6 * QuarterRateCost + Rate64Cost + 13 * FullRateCost
+                     : 4 * QuarterRateCost + 2 * Rate64Cost + 8 * FullRateCost;
+      else
+        Cost = IsRem ? 9 * QuarterRateCost + Rate64Cost + 12 * FullRateCost
+                     : 7 * QuarterRateCost + Rate64Cost + 10 * FullRateCost;
+    } else if (Bits <= 16) {
+      // f32 reciprocal based expansion.
+      Cost = TransCost +
+             (IsRem ? QuarterRateCost + 7 * FullRateCost : 6 * FullRateCost);
+    } else if (!Is64) {
+      unsigned NumFullRateOps =
+          IsSigned ? (IsRem ? 19 : 22) : (IsRem ? 12 : 14);
+      Cost = TransCost + 4 * QuarterRateCost + NumFullRateOps * FullRateCost;
+    } else {
+      unsigned NumFullRateOps = (IsRem ? 81 : 84) + (IsSigned ? 15 : 0);
+      Cost =
+          2 * TransCost + 25 * QuarterRateCost + NumFullRateOps * FullRateCost;
+    }
+    return getNumIRElts(Ty) * Cost;
   }
   case ISD::FMUL:
     // Check possible fuse {fadd|fsub}(a,fmul(b,c)) and return zero cost for
@@ -684,6 +769,8 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     [[fallthrough]];
   case ISD::FADD:
   case ISD::FSUB:
+    if (Ty->getScalarType()->isBFloatTy() && !ST->hasBF16PackedInsts())
+      return getBF16EmulationCost(getNumIRElts(Ty), 2, getFullRateInstrCost());
     if (ST->hasAnyPackedFP32Ops() && SLT == MVT::f32)
       NElts = (NElts + 1) / 2;
     if (ST->hasBF16PackedInsts() && SLT == MVT::bf16)
@@ -694,7 +781,7 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       return LT.first * NElts * get64BitInstrCost(CostKind);
     }
 
-    if (ST->has16BitInsts() && SLT == MVT::f16)
+    if (ST->hasVOP3PInsts() && SLT == MVT::f16)
       NElts = (NElts + 1) / 2;
 
     if (SLT == MVT::f32 || SLT == MVT::f16 || SLT == MVT::bf16)
@@ -704,6 +791,21 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
   case ISD::FREM:
     // FIXME: frem should be handled separately. The fdiv in it is most of it,
     // but the current lowering is also not entirely correct.
+    if (Ty->getScalarType()->isBFloatTy()) {
+      unsigned NumElts = getNumIRElts(Ty);
+      if (ISD == ISD::FDIV && ST->hasBF16TransInsts()) {
+        if (!Args.empty() && match(Args[0], PatternMatch::m_FPOne()))
+          return NumElts * getTransInstrCost(CostKind);
+        if (CtxI && (CtxI->hasApproxFunc() || CtxI->hasAllowReciprocal()))
+          return NumElts *
+                 (getTransInstrCost(CostKind) + getFullRateInstrCost());
+      }
+      InstructionCost F32Cost =
+          getArithmeticInstrCost(Opcode, Type::getFloatTy(Ty->getContext()),
+                                 CostKind, Op1Info, Op2Info, Args, CtxI);
+      return getBF16EmulationCost(NumElts, 2, F32Cost);
+    }
+
     if (SLT == MVT::f64) {
       int Cost = 7 * get64BitInstrCost(CostKind) +
                  getQuarterRateInstrCost(CostKind) +
@@ -724,6 +826,13 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     }
 
     if (SLT == MVT::f16 && ST->has16BitInsts()) {
+      // v_rcp_f16 and fmul
+      if (ISD == ISD::FDIV && CtxI &&
+          (CtxI->hasApproxFunc() || CtxI->hasAllowReciprocal())) {
+        int Cost = getTransInstrCost(CostKind) + getFullRateInstrCost();
+        return LT.first * Cost * NElts;
+      }
+
       // 2 x v_cvt_f32_f16
       // f32 rcp
       // f32 fmul
@@ -741,10 +850,23 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       return LT.first * Cost * NElts;
     }
 
+    if (SLT == MVT::f32 && ISD == ISD::FDIV) {
+      // frexp scaled rcp and ldexp for !fpmath of at least 1 ulp
+      const auto *FPOp = dyn_cast_or_null<FPMathOperator>(CtxI);
+      if (FPOp && FPOp->getFPAccuracy() >= 1.0f) {
+        int Cost = 7 * getFullRateInstrCost() + getTransInstrCost(CostKind);
+        return LT.first * Cost * NElts;
+      }
+    }
+
     if (SLT == MVT::f32 || SLT == MVT::f16) {
-      // 4 more v_cvt_* insts without f16 insts support
-      int Cost = (SLT == MVT::f16 ? 14 : 10) * getFullRateInstrCost() +
-                 1 * getTransInstrCost(CostKind);
+      // 7 fma, the f16 variant needs 4 more v_cvt_* insts without f16 insts
+      // support
+      const int FMACost = ST->hasFastFMAF32()
+                              ? getFullRateInstrCost()
+                              : getQuarterRateInstrCost(CostKind);
+      int Cost = (SLT == MVT::f16 ? 7 : 3) * getFullRateInstrCost() +
+                 7 * FMACost + getTransInstrCost(CostKind);
 
       if (!HasFP32Denormals) {
         // FP mode switches.
@@ -776,8 +898,12 @@ static bool intrinsicHasPackedVectorBenefit(Intrinsic::ID ID) {
   case Intrinsic::minimumnum:
   case Intrinsic::maximumnum:
   case Intrinsic::canonicalize:
-  // There's a small benefit to using vector ops in the legalized code.
-  case Intrinsic::round:
+  case Intrinsic::minnum:
+  case Intrinsic::maxnum:
+  case Intrinsic::smin:
+  case Intrinsic::smax:
+  case Intrinsic::umin:
+  case Intrinsic::umax:
   case Intrinsic::uadd_sat:
   case Intrinsic::usub_sat:
   case Intrinsic::sadd_sat:
@@ -819,6 +945,61 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   Type *RetTy = ICA.getReturnType();
 
   Intrinsic::ID IID = ICA.getID();
+  if (RetTy->getScalarType()->isBFloatTy()) {
+    unsigned NumSrcs = 1;
+    bool IsNative = false;
+    switch (IID) {
+    case Intrinsic::fma:
+    case Intrinsic::fmuladd:
+      NumSrcs = 3;
+      IsNative = ST->hasBF16PackedInsts();
+      break;
+    case Intrinsic::minnum:
+    case Intrinsic::maxnum:
+    case Intrinsic::minimumnum:
+    case Intrinsic::maximumnum:
+      NumSrcs = 2;
+      IsNative = ST->hasBF16PackedInsts();
+      break;
+    case Intrinsic::minimum:
+    case Intrinsic::maximum:
+      NumSrcs = 2;
+      IsNative = TLI->isOperationLegal(
+          IID == Intrinsic::minimum ? ISD::FMINIMUM : ISD::FMAXIMUM, MVT::bf16);
+      break;
+    case Intrinsic::canonicalize:
+      IsNative = ST->hasBF16PackedInsts();
+      break;
+    case Intrinsic::sqrt:
+      IsNative = ST->hasBF16TransInsts();
+      break;
+    case Intrinsic::floor:
+    case Intrinsic::ceil:
+    case Intrinsic::trunc:
+    case Intrinsic::rint:
+    case Intrinsic::nearbyint:
+    case Intrinsic::roundeven:
+    case Intrinsic::round:
+      break;
+    default:
+      IsNative = true;
+      break;
+    }
+
+    if (!IsNative && (IID == Intrinsic::minnum || IID == Intrinsic::maxnum))
+      return getBF16EmulationCost(getNumIRElts(RetTy), NumSrcs,
+                                  getFullRateInstrCost());
+
+    if (!IsNative) {
+      Type *FloatTy = Type::getFloatTy(RetTy->getContext());
+      SmallVector<Type *, 3> FloatArgTys(ICA.getArgTypes().size(), FloatTy);
+      IntrinsicCostAttributes FloatICA(IID, FloatTy, FloatArgTys,
+                                       ICA.getFlags());
+      return getBF16EmulationCost(getNumIRElts(RetTy), NumSrcs,
+                                  getIntrinsicInstrCost(FloatICA, CostKind));
+    }
+  }
+
   switch (IID) {
   case Intrinsic::exp:
   case Intrinsic::exp2:
@@ -868,6 +1049,22 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
       return LT.first * NElts * Cost;
     }
 
+    if (SLT == MVT::f16) {
+      // v_exp_f32 with conversions and base scaling.
+      unsigned NumFullRateOps = 0;
+      unsigned NumTransOps = 1;
+      if (IID == Intrinsic::exp10 && ICA.getFlags().approxFunc()) {
+        NumFullRateOps = 3;
+        NumTransOps = 2;
+      } else if (IID != Intrinsic::exp2) {
+        NumFullRateOps = ICA.getFlags().approxFunc() ? 1 : 3;
+      }
+
+      InstructionCost Cost = NumFullRateOps * getFullRateInstrCost() +
+                             NumTransOps * getTransInstrCost(CostKind);
+      return LT.first * NElts * Cost;
+    }
+
     break;
   }
   case Intrinsic::log:
@@ -900,6 +1097,17 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
       return LT.first * NElts * Cost;
     }
 
+    if (SLT == MVT::f16) {
+      // v_log_f32 with conversions and base scaling.
+      unsigned NumFullRateOps = 0;
+      if (IID != Intrinsic::log2)
+        NumFullRateOps = ICA.getFlags().approxFunc() ? 1 : 3;
+
+      InstructionCost Cost =
+          NumFullRateOps * getFullRateInstrCost() + getTransInstrCost(CostKind);
+      return LT.first * NElts * Cost;
+    }
+
     break;
   }
   case Intrinsic::sin:
@@ -915,6 +1123,13 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
 
       InstructionCost Cost =
           NumFullRateOps * getFullRateInstrCost() + getTransInstrCost(CostKind);
+      return LT.first * NElts * Cost;
+    }
+
+    if (SLT == MVT::f16) {
+      // fmul and v_sin_f16 or v_cos_f16
+      InstructionCost Cost =
+          getFullRateInstrCost() + getTransInstrCost(CostKind);
       return LT.first * NElts * Cost;
     }
 
@@ -939,7 +1154,127 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
       return LT.first * NElts * Cost;
     }
 
+    if (SLT == MVT::f16 || SLT == MVT::bf16)
+      return LT.first * NElts * getTransInstrCost(CostKind);
+
+    if (SLT == MVT::f64) {
+      // v_rsq_f64 refined with fma iterations and denormal scaling.
+      bool IsApprox = ICA.getFlags().approxFunc();
+      InstructionCost Cost = (IsApprox ? 7 : 11) * get64BitInstrCost(CostKind) +
+                             (IsApprox ? 4 : 8) * getFullRateInstrCost() +
+                             getTransInstrCost(CostKind);
+      return LT.first * NElts * Cost;
+    }
+
     break;
+  }
+  case Intrinsic::floor:
+  case Intrinsic::ceil:
+  case Intrinsic::trunc:
+  case Intrinsic::rint:
+  case Intrinsic::nearbyint:
+  case Intrinsic::roundeven:
+  case Intrinsic::round: {
+    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(RetTy);
+    MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
+    unsigned NElts =
+        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+
+    InstructionCost Cost;
+    if (SLT == MVT::f64) {
+      if (IID == Intrinsic::round)
+        Cost = 3 * get64BitInstrCost(CostKind) + 5 * getFullRateInstrCost();
+      else if (ST->haveRoundOpsF64() || IID == Intrinsic::floor)
+        Cost = get64BitInstrCost(CostKind);
+      else
+        break;
+    } else if (SLT == MVT::f32 || SLT == MVT::f16) {
+      Cost = (IID == Intrinsic::round ? 6 : 1) * getFullRateInstrCost();
+    } else {
+      break;
+    }
+    return LT.first * NElts * Cost;
+  }
+  case Intrinsic::minimum:
+  case Intrinsic::maximum: {
+    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(RetTy);
+    MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
+    unsigned NElts =
+        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+
+    unsigned Opc = IID == Intrinsic::minimum ? ISD::FMINIMUM : ISD::FMAXIMUM;
+    InstructionCost Cost;
+    if (SLT != MVT::f64 && SLT != MVT::f32 && SLT != MVT::f16)
+      break;
+    const bool IsPacked =
+        SLT == MVT::f16 && TLI->isOperationLegal(Opc, MVT::v2f16);
+    if (IsPacked)
+      NElts = divideCeil(NElts, 2);
+    if (IsPacked || TLI->isOperationLegal(Opc, LT.second.getScalarType()))
+      Cost = SLT == MVT::f64 ? get64BitInstrCost(CostKind)
+                             : getFullRateInstrCost();
+    else
+      Cost = (SLT == MVT::f64 ? get64BitInstrCost(CostKind) : 0) +
+             3 * getFullRateInstrCost();
+    return LT.first * NElts * Cost;
+  }
+  case Intrinsic::ctlz:
+  case Intrinsic::cttz:
+  case Intrinsic::ctpop:
+  case Intrinsic::bswap: {
+    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(RetTy);
+    MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
+    unsigned NElts =
+        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+
+    unsigned NumOps = 1;
+    if (SLT == MVT::i64) {
+      NumOps = IID == Intrinsic::ctpop ? 3 : IID == Intrinsic::bswap ? 2 : 5;
+    } else if (SLT == MVT::i32) {
+      // A zero input needs a select unless it is poison.
+      ArrayRef<const Value *> Args = ICA.getArgs();
+      if ((IID == Intrinsic::ctlz || IID == Intrinsic::cttz) &&
+          (Args.size() < 2 || !match(Args[1], PatternMatch::m_One())))
+        NumOps = 2;
+    } else {
+      break;
+    }
+    return LT.first * NElts * NumOps * getFullRateInstrCost();
+  }
+  case Intrinsic::fshl:
+  case Intrinsic::fshr: {
+    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(RetTy);
+    MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
+    if (SLT != MVT::i16 && SLT != MVT::i32 && SLT != MVT::i64)
+      break;
+    unsigned NElts =
+        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+
+    ArrayRef<const Value *> Args = ICA.getArgs();
+    bool IsConstAmt = Args.size() == 3 && isa<Constant>(Args[2]);
+    // A variable amount is inverted and one input is shifted twice.
+    if (SLT == MVT::i64) {
+      unsigned NumShifts = IsConstAmt ? 1 : 3;
+      unsigned NumOps = IsConstAmt ? 2 : 3;
+      return LT.first * NElts *
+             (NumShifts * get64BitInstrCost(CostKind) +
+              NumOps * getFullRateInstrCost());
+    }
+    if (SLT == MVT::i16) {
+      unsigned NumOps;
+      if (IsConstAmt)
+        NumOps = 3 * NElts;
+      else if (ST->hasVOP3PInsts() && NElts == 2)
+        NumOps = 7;
+      else
+        NumOps =
+            5 * NElts + (NElts > 1 && !ST->useRealTrue16Insts() ? NElts : 0);
+      return LT.first * NumOps * getFullRateInstrCost();
+    }
+
+    // v_alignbit_b32 shifts right, a variable left shift is expanded.
+    unsigned NumOps = IID == Intrinsic::fshr || IsConstAmt ? 1 : 4;
+    return LT.first * NElts * NumOps * getFullRateInstrCost();
   }
   default:
     break;
@@ -952,18 +1287,14 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
   unsigned NElts = LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
 
+  const bool IsFMA = IID == Intrinsic::fma || IID == Intrinsic::fmuladd;
   if ((ST->hasVOP3PInsts() &&
        (SLT == MVT::f16 || SLT == MVT::i16 ||
         (SLT == MVT::bf16 && ST->hasBF16PackedInsts()))) ||
-      (ST->hasAnyPackedFP64Ops() && SLT == MVT::f64) ||
-      (ST->hasAnyPackedU64Ops() && SLT == MVT::i64)) {
+      (ST->hasAnyPackedFP64Ops() && SLT == MVT::f64 &&
+       IID != Intrinsic::copysign) ||
+      (IsFMA && ST->hasAnyPackedFP32Ops() && SLT == MVT::f32))
     NElts = (NElts + 1) / 2;
-  } else if (SLT == MVT::f32) {
-    bool HasPk2FP32Op = ST->hasAnyPackedFP32Ops() &&
-                        IID != Intrinsic::minimumnum &&
-                        IID != Intrinsic::maximumnum;
-    NElts = HasPk2FP32Op ? (NElts + 1) / 2 : NElts;
-  }
 
   // TODO: Get more refined intrinsic costs?
   unsigned InstRate = getQuarterRateInstrCost(CostKind);
@@ -976,8 +1307,13 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
       break;
     }
 
-    if ((SLT == MVT::f32 && ST->hasFastFMAF32()) || SLT == MVT::f16)
+    if ((SLT == MVT::f32 && ST->hasFastFMAF32()) || SLT == MVT::f16 ||
+        SLT == MVT::bf16)
       InstRate = getFullRateInstrCost();
+    else if (SLT == MVT::f32 && IID == Intrinsic::fmuladd)
+      // v_mad_f32 or a separate fmul and fadd
+      InstRate = (HasFP32Denormals || !ST->hasMadMacF32Insts() ? 2 : 1) *
+                 getFullRateInstrCost();
     else {
       InstRate = ST->hasFastFMAF32() ? getHalfRateInstrCost(CostKind)
                                      : getQuarterRateInstrCost(CostKind);
@@ -986,10 +1322,13 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   case Intrinsic::copysign:
     return NElts * getFullRateInstrCost();
   case Intrinsic::minimumnum:
-  case Intrinsic::maximumnum: {
+  case Intrinsic::maximumnum:
+  case Intrinsic::minnum:
+  case Intrinsic::maxnum: {
     // Instruction + 2 canonicalizes. For cases that need type promotion, we the
     // promotion takes the place of the canonicalize.
-    unsigned NumOps = 3;
+    unsigned NumOps =
+        ST->hasIEEEMinimumMaximumInsts() || ICA.getFlags().noNaNs() ? 1 : 3;
     if (const IntrinsicInst *II = ICA.getInst()) {
       // Directly legal with ieee=0
       // TODO: Not directly legal with strictfp
@@ -1007,22 +1346,40 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
         SLT == MVT::f64 ? get64BitInstrCost(CostKind) : getFullRateInstrCost();
     break;
   }
+  case Intrinsic::smin:
+  case Intrinsic::smax:
+  case Intrinsic::umin:
+  case Intrinsic::umax:
+    // v_cmp and two v_cndmask without native i64 min and max
+    InstRate = (SLT == MVT::i64 && !ST->useMinMaxI64Insts() ? 3 : 1) *
+               getFullRateInstrCost();
+    break;
   case Intrinsic::uadd_sat:
   case Intrinsic::usub_sat:
   case Intrinsic::sadd_sat:
   case Intrinsic::ssub_sat: {
-    if (SLT == MVT::i16 || SLT == MVT::i32)
-      InstRate = getFullRateInstrCost();
-
-    static const auto ValidSatTys = {MVT::v2i16, MVT::v4i16};
-    if (any_of(ValidSatTys, equal_to(LT.second)))
-      NElts = 1;
+    const bool IsSigned =
+        IID == Intrinsic::sadd_sat || IID == Intrinsic::ssub_sat;
+    unsigned NumOps = 1;
+    if (SLT == MVT::i64 && IsSigned)
+      NumOps = 8;
+    else if (SLT == MVT::i64)
+      NumOps = IID == Intrinsic::usub_sat && ST->useMinMaxI64Insts() &&
+                       ST->hasAddSubU64Insts()
+                   ? 2
+                   : 4;
+    else if (IsSigned && !ST->hasAddNoCarryInsts())
+      NumOps = SLT == MVT::i16 ? 7 : 6;
+    InstRate = NumOps * getFullRateInstrCost();
     break;
   }
   case Intrinsic::abs:
     // Expansion takes 2 instructions for VALU
     if (SLT == MVT::i16 || SLT == MVT::i32)
       InstRate = 2 * getFullRateInstrCost();
+    else if (SLT == MVT::i64)
+      InstRate = (ST->useMinMaxI64Insts() && ST->hasAddSubU64Insts() ? 2 : 5) *
+                 getFullRateInstrCost();
     break;
   default:
     break;
@@ -1067,6 +1424,15 @@ InstructionCost GCNTTIImpl::getCmpSelInstrCost(
   // width to enable SimplifyCFG's speculativelyExecuteBB optimization.
   if (CostKind == TTI::TCK_SizeAndLatency)
     return 1;
+
+  // A 64-bit select is a v_cndmask_b32 per half.
+  if (Opcode == Instruction::Select &&
+      getDataLayout().getTypeSizeInBits(ValTy->getScalarType()) == 64) {
+    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(ValTy);
+    unsigned NElts =
+        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+    return 2 * getFullRateInstrCost() * LT.first * NElts;
+  }
 
   return BaseT::getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind,
                                    Op1Info, Op2Info, I);
@@ -1210,17 +1576,7 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
             Opcode, Dst->getWithNewType(Type::getFloatTy(Dst->getContext())),
             Src, CCH, CostKind, I);
 
-      // Native rounding can convert a pair. With 16 bit instructions the
-      // expansion extracts the low significand bit, adds the rounding bias,
-      // preserves NaNs and shifts the result. Without gfx9 instructions the two
-      // additions cannot use v_add3_u32.
-      InstructionCost RoundCost =
-          ST->hasBF16ConversionInsts()
-              ? InstructionCost(divideCeil(NElts, 2)) * getFullRateInstrCost()
-              : Scale(!ST->has16BitInsts() ? 1
-                      : ST->hasGFX9Insts() ? 6
-                                           : 7);
-      return FloatCost + RoundCost;
+      return FloatCost + getBF16RoundCost(NElts);
     }
 
     if (NarrowSource) {
@@ -2174,6 +2530,25 @@ int GCNTTIImpl::get64BitInstrCost(TTI::TargetCostKind CostKind) const {
              ? getFullRateInstrCost()
              : ST->hasHalfRate64Ops() ? getHalfRateInstrCost(CostKind)
                                       : getQuarterRateInstrCost(CostKind);
+}
+
+InstructionCost GCNTTIImpl::getBF16RoundCost(unsigned NumElts) const {
+  // Native rounding can convert a pair. With 16 bit instructions the expansion
+  // extracts the low significand bit, adds the rounding bias, preserves NaNs
+  // and shifts the result. Without gfx9 instructions the two additions cannot
+  // use v_add3_u32.
+  const unsigned NumOps = ST->hasBF16ConversionInsts() ? divideCeil(NumElts, 2)
+                          : !ST->has16BitInsts()       ? NumElts
+                          : ST->hasGFX9Insts()         ? 6 * NumElts
+                                                       : 7 * NumElts;
+  return InstructionCost(NumOps) * getFullRateInstrCost();
+}
+
+InstructionCost GCNTTIImpl::getBF16EmulationCost(unsigned NumElts,
+                                                 unsigned NumSrcs,
+                                                 InstructionCost OpCost) const {
+  return NumElts * (NumSrcs * getFullRateInstrCost() + OpCost) +
+         getBF16RoundCost(NumElts);
 }
 
 unsigned GCNTTIImpl::getCacheLineSize() const {

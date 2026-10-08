@@ -54,7 +54,7 @@ define i32 @add(i32 %arg) {
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16I32 = call <16 x i32> @llvm.uadd.sat.v16i32(<16 x i32> undef, <16 x i32> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I16 = call i16 @llvm.uadd.sat.i16(i16 undef, i16 undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I16 = call <2 x i16> @llvm.uadd.sat.v2i16(<2 x i16> undef, <2 x i16> undef)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I16 = call <4 x i16> @llvm.uadd.sat.v4i16(<4 x i16> undef, <4 x i16> undef)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I16 = call <4 x i16> @llvm.uadd.sat.v4i16(<4 x i16> undef, <4 x i16> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I16 = call <8 x i16> @llvm.uadd.sat.v8i16(<8 x i16> undef, <8 x i16> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V16I16 = call <16 x i16> @llvm.uadd.sat.v16i16(<16 x i16> undef, <16 x i16> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V17I16 = call <17 x i16> @llvm.uadd.sat.v17i16(<17 x i16> undef, <17 x i16> undef)
@@ -99,11 +99,11 @@ define i32 @add(i32 %arg) {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; FAST-SIZE-LABEL: 'add'
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = call i64 @llvm.uadd.sat.i64(i64 undef, i64 undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I64 = call <2 x i64> @llvm.uadd.sat.v2i64(<2 x i64> undef, <2 x i64> undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = call <4 x i64> @llvm.uadd.sat.v4i64(<4 x i64> undef, <4 x i64> undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V5I64 = call <5 x i64> @llvm.uadd.sat.v5i64(<5 x i64> undef, <5 x i64> undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = call <8 x i64> @llvm.uadd.sat.v8i64(<8 x i64> undef, <8 x i64> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %I64 = call i64 @llvm.uadd.sat.i64(i64 undef, i64 undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2I64 = call <2 x i64> @llvm.uadd.sat.v2i64(<2 x i64> undef, <2 x i64> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4I64 = call <4 x i64> @llvm.uadd.sat.v4i64(<4 x i64> undef, <4 x i64> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V5I64 = call <5 x i64> @llvm.uadd.sat.v5i64(<5 x i64> undef, <5 x i64> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8I64 = call <8 x i64> @llvm.uadd.sat.v8i64(<8 x i64> undef, <8 x i64> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = call i32 @llvm.uadd.sat.i32(i32 undef, i32 undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I32 = call <2 x i32> @llvm.uadd.sat.v2i32(<2 x i32> undef, <2 x i32> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I32 = call <4 x i32> @llvm.uadd.sat.v4i32(<4 x i32> undef, <4 x i32> undef)
@@ -112,7 +112,7 @@ define i32 @add(i32 %arg) {
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16I32 = call <16 x i32> @llvm.uadd.sat.v16i32(<16 x i32> undef, <16 x i32> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I16 = call i16 @llvm.uadd.sat.i16(i16 undef, i16 undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I16 = call <2 x i16> @llvm.uadd.sat.v2i16(<2 x i16> undef, <2 x i16> undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I16 = call <4 x i16> @llvm.uadd.sat.v4i16(<4 x i16> undef, <4 x i16> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I16 = call <4 x i16> @llvm.uadd.sat.v4i16(<4 x i16> undef, <4 x i16> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I16 = call <8 x i16> @llvm.uadd.sat.v8i16(<8 x i16> undef, <8 x i16> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V16I16 = call <16 x i16> @llvm.uadd.sat.v16i16(<16 x i16> undef, <16 x i16> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V17I16 = call <17 x i16> @llvm.uadd.sat.v17i16(<17 x i16> undef, <17 x i16> undef)
@@ -128,11 +128,11 @@ define i32 @add(i32 %arg) {
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SLOW-SIZE-LABEL: 'add'
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = call i64 @llvm.uadd.sat.i64(i64 undef, i64 undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I64 = call <2 x i64> @llvm.uadd.sat.v2i64(<2 x i64> undef, <2 x i64> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = call <4 x i64> @llvm.uadd.sat.v4i64(<4 x i64> undef, <4 x i64> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V5I64 = call <5 x i64> @llvm.uadd.sat.v5i64(<5 x i64> undef, <5 x i64> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = call <8 x i64> @llvm.uadd.sat.v8i64(<8 x i64> undef, <8 x i64> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %I64 = call i64 @llvm.uadd.sat.i64(i64 undef, i64 undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2I64 = call <2 x i64> @llvm.uadd.sat.v2i64(<2 x i64> undef, <2 x i64> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4I64 = call <4 x i64> @llvm.uadd.sat.v4i64(<4 x i64> undef, <4 x i64> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V5I64 = call <5 x i64> @llvm.uadd.sat.v5i64(<5 x i64> undef, <5 x i64> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8I64 = call <8 x i64> @llvm.uadd.sat.v8i64(<8 x i64> undef, <8 x i64> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = call i32 @llvm.uadd.sat.i32(i32 undef, i32 undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I32 = call <2 x i32> @llvm.uadd.sat.v2i32(<2 x i32> undef, <2 x i32> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I32 = call <4 x i32> @llvm.uadd.sat.v4i32(<4 x i32> undef, <4 x i32> undef)
@@ -234,7 +234,7 @@ define i32 @sub(i32 %arg) {
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16I32 = call <16 x i32> @llvm.usub.sat.v16i32(<16 x i32> undef, <16 x i32> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I16 = call i16 @llvm.usub.sat.i16(i16 undef, i16 undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I16 = call <2 x i16> @llvm.usub.sat.v2i16(<2 x i16> undef, <2 x i16> undef)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I16 = call <4 x i16> @llvm.usub.sat.v4i16(<4 x i16> undef, <4 x i16> undef)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I16 = call <4 x i16> @llvm.usub.sat.v4i16(<4 x i16> undef, <4 x i16> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I16 = call <8 x i16> @llvm.usub.sat.v8i16(<8 x i16> undef, <8 x i16> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V16I16 = call <16 x i16> @llvm.usub.sat.v16i16(<16 x i16> undef, <16 x i16> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V17I16 = call <17 x i16> @llvm.usub.sat.v17i16(<17 x i16> undef, <17 x i16> undef)
@@ -279,11 +279,11 @@ define i32 @sub(i32 %arg) {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; FAST-SIZE-LABEL: 'sub'
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = call i64 @llvm.usub.sat.i64(i64 undef, i64 undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I64 = call <2 x i64> @llvm.usub.sat.v2i64(<2 x i64> undef, <2 x i64> undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = call <4 x i64> @llvm.usub.sat.v4i64(<4 x i64> undef, <4 x i64> undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V5I64 = call <5 x i64> @llvm.usub.sat.v5i64(<5 x i64> undef, <5 x i64> undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = call <8 x i64> @llvm.usub.sat.v8i64(<8 x i64> undef, <8 x i64> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %I64 = call i64 @llvm.usub.sat.i64(i64 undef, i64 undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2I64 = call <2 x i64> @llvm.usub.sat.v2i64(<2 x i64> undef, <2 x i64> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4I64 = call <4 x i64> @llvm.usub.sat.v4i64(<4 x i64> undef, <4 x i64> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V5I64 = call <5 x i64> @llvm.usub.sat.v5i64(<5 x i64> undef, <5 x i64> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8I64 = call <8 x i64> @llvm.usub.sat.v8i64(<8 x i64> undef, <8 x i64> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = call i32 @llvm.usub.sat.i32(i32 undef, i32 undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I32 = call <2 x i32> @llvm.usub.sat.v2i32(<2 x i32> undef, <2 x i32> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I32 = call <4 x i32> @llvm.usub.sat.v4i32(<4 x i32> undef, <4 x i32> undef)
@@ -292,7 +292,7 @@ define i32 @sub(i32 %arg) {
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16I32 = call <16 x i32> @llvm.usub.sat.v16i32(<16 x i32> undef, <16 x i32> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I16 = call i16 @llvm.usub.sat.i16(i16 undef, i16 undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V2I16 = call <2 x i16> @llvm.usub.sat.v2i16(<2 x i16> undef, <2 x i16> undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V4I16 = call <4 x i16> @llvm.usub.sat.v4i16(<4 x i16> undef, <4 x i16> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V4I16 = call <4 x i16> @llvm.usub.sat.v4i16(<4 x i16> undef, <4 x i16> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V8I16 = call <8 x i16> @llvm.usub.sat.v8i16(<8 x i16> undef, <8 x i16> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V16I16 = call <16 x i16> @llvm.usub.sat.v16i16(<16 x i16> undef, <16 x i16> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V17I16 = call <17 x i16> @llvm.usub.sat.v17i16(<17 x i16> undef, <17 x i16> undef)
@@ -308,11 +308,11 @@ define i32 @sub(i32 %arg) {
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SLOW-SIZE-LABEL: 'sub'
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %I64 = call i64 @llvm.usub.sat.i64(i64 undef, i64 undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2I64 = call <2 x i64> @llvm.usub.sat.v2i64(<2 x i64> undef, <2 x i64> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I64 = call <4 x i64> @llvm.usub.sat.v4i64(<4 x i64> undef, <4 x i64> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V5I64 = call <5 x i64> @llvm.usub.sat.v5i64(<5 x i64> undef, <5 x i64> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I64 = call <8 x i64> @llvm.usub.sat.v8i64(<8 x i64> undef, <8 x i64> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %I64 = call i64 @llvm.usub.sat.i64(i64 undef, i64 undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2I64 = call <2 x i64> @llvm.usub.sat.v2i64(<2 x i64> undef, <2 x i64> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4I64 = call <4 x i64> @llvm.usub.sat.v4i64(<4 x i64> undef, <4 x i64> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V5I64 = call <5 x i64> @llvm.usub.sat.v5i64(<5 x i64> undef, <5 x i64> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8I64 = call <8 x i64> @llvm.usub.sat.v8i64(<8 x i64> undef, <8 x i64> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %I32 = call i32 @llvm.usub.sat.i32(i32 undef, i32 undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2I32 = call <2 x i32> @llvm.usub.sat.v2i32(<2 x i32> undef, <2 x i32> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4I32 = call <4 x i32> @llvm.usub.sat.v4i32(<4 x i32> undef, <4 x i32> undef)
