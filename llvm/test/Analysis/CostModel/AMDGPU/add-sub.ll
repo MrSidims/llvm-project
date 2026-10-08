@@ -284,4 +284,40 @@ define amdgpu_kernel void @sub() #0 {
   ret void
 }
 
+define i32 @add_into_add_rhs(i32 %x, i32 %y, i32 %z) #0 {
+; FAST16-LABEL: 'add_into_add_rhs'
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a = add i32 %y, %z
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %u = add i32 %x, %a
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %u
+;
+; SLOW16-LABEL: 'add_into_add_rhs'
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a = add i32 %y, %z
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %u = add i32 %x, %a
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %u
+;
+; FAST64-LABEL: 'add_into_add_rhs'
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a = add i32 %y, %z
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %u = add i32 %x, %a
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %u
+;
+; FAST16-SIZE-LABEL: 'add_into_add_rhs'
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a = add i32 %y, %z
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %u = add i32 %x, %a
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 %u
+;
+; SLOW16-SIZE-LABEL: 'add_into_add_rhs'
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a = add i32 %y, %z
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %u = add i32 %x, %a
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 %u
+;
+; FAST64-SIZE-LABEL: 'add_into_add_rhs'
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a = add i32 %y, %z
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %u = add i32 %x, %a
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 %u
+;
+  %a = add i32 %y, %z
+  %u = add i32 %x, %a
+  ret i32 %u
+}
+
 attributes #0 = { nounwind }

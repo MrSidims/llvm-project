@@ -651,6 +651,164 @@ static bool isClampOf(const Value *V, Value *&X) {
                             m_PosZeroFP()));
 }
 
+/// \returns true if \p A is the bitwise complement of \p B.
+static bool isComplementOf(const Value *A, const Value *B) {
+  using namespace PatternMatch;
+  const APInt *CA, *CB;
+  if (match(A, m_APInt(CA)) && match(B, m_APInt(CB)))
+    return *CA == ~*CB;
+  return match(A, m_Not(m_Specific(B))) || match(B, m_Not(m_Specific(A)));
+}
+
+/// \returns true if \p V is an instruction in \p BB whose only user is in
+/// \p BB too.
+static bool isOneUseInBlock(const Value *V, const BasicBlock *BB) {
+  const auto *I = dyn_cast<Instruction>(V);
+  return I && I->hasOneUse() && I->getParent() == BB &&
+         cast<Instruction>(I->user_back())->getParent() == BB;
+}
+
+/// \returns true if \p I is an and that v_bfi_b32 selects together with its
+/// user. This is either an or with another and under the complement mask or
+/// the xor form of a bitfield insert. \p Absorbed is set to the operand of
+/// \p I that is selected along with it, if any.
+static bool isBFIAnd(const Instruction &I, const Value **Absorbed = nullptr) {
+  using namespace PatternMatch;
+  Value *A, *B, *C, *D;
+  if (!match(&I, m_And(m_Value(A), m_Value(B))) ||
+      !isOneUseInBlock(&I, I.getParent()))
+    return false;
+  const auto *U = cast<Instruction>(I.user_back());
+  const BasicBlock *BB = I.getParent();
+  const Value *Other = U->getOperand(U->getOperand(0) == &I ? 1 : 0);
+  const Value *Inner = nullptr;
+  bool Matched = false;
+  if (match(U, m_Or(m_Value(), m_Value()))) {
+    if (!isOneUseInBlock(Other, BB) ||
+        !match(Other, m_And(m_Value(C), m_Value(D))))
+      return false;
+    for (Value *X : {A, B}) {
+      for (Value *Y : {C, D}) {
+        if (!isComplementOf(X, Y))
+          continue;
+        Matched = true;
+        if (match(X, m_Not(m_Specific(Y))))
+          Inner = X;
+      }
+    }
+  } else if (match(U, m_Xor(m_Value(), m_Value()))) {
+    for (Value *X : {A, B}) {
+      if (isOneUseInBlock(X, BB) &&
+          match(X, m_c_Xor(m_Specific(Other), m_Value()))) {
+        Matched = true;
+        Inner = X;
+      }
+    }
+  }
+  if (Matched && Absorbed)
+    *Absorbed = Inner;
+  return Matched;
+}
+
+/// \returns true if \p U and its operand \p I select to one bitfield extract
+/// or one v_bfi_b32 that takes the complement of a mask.
+static bool isBitfieldFold(const Instruction &I, const Instruction &U) {
+  using namespace PatternMatch;
+  const bool Is64 = I.getType()->isIntegerTy(64);
+  const APInt *C1, *C2;
+  if (match(&U, m_And(m_Specific(&I), m_APInt(C2))) && C2->isMask()) {
+    if (!Is64 && match(&I, m_LShr(m_Value(), m_Value())))
+      return true;
+    const unsigned Width = C2->getActiveBits();
+    const unsigned BitWidth = C2->getBitWidth();
+    if (!match(&I, m_Shr(m_Value(), m_APInt(C1))) || C1->uge(BitWidth))
+      return false;
+    const uint64_t Lo = C1->getZExtValue();
+    return (I.getOpcode() == Instruction::LShr || Lo + Width <= BitWidth) &&
+           (!Is64 || Lo >= 32 || Lo + Width <= 32);
+  }
+  if (match(&U, m_Shr(m_Specific(&I), m_APInt(C2))) &&
+      match(&I, m_Shl(m_Value(), m_APInt(C1))))
+    return C2->uge(*C1) && (!Is64 || C1->uge(32));
+  if (!Is64 && match(&U, m_LShr(m_Specific(&I), m_APInt(C2))) &&
+      match(&I, m_And(m_Value(), m_APInt(C1))))
+    return C1->lshr(*C2).isMask();
+  return match(&I, m_Not(m_Value())) && (U.getOpcode() == Instruction::And ||
+                                         U.getOpcode() == Instruction::Or);
+}
+
+/// \returns true if \p U and its operand \p I select to one three input
+/// instruction.
+static bool isThreeInputFold(const GCNSubtarget &ST, const Instruction &I,
+                             const Instruction &U) {
+  using namespace PatternMatch;
+  const unsigned Opc = I.getOpcode();
+  const unsigned UOpc = U.getOpcode();
+  if (I.getType()->isIntegerTy(64)) {
+    const APInt *C;
+    if (Opc == Instruction::Shl && UOpc == Instruction::Add)
+      return ST.hasLshlAddU64Inst() && match(I.getOperand(1), m_APInt(C)) &&
+             C->ule(4);
+    return Opc == Instruction::Or && UOpc == Instruction::Or &&
+           ST.hasGFX9Insts();
+  }
+  auto IsBitOp = [](unsigned Opc) {
+    return Opc == Instruction::And || Opc == Instruction::Or ||
+           Opc == Instruction::Xor;
+  };
+  if (ST.hasBitOp3Insts() && IsBitOp(Opc) && IsBitOp(UOpc) &&
+      (Opc != Instruction::Xor || UOpc != Instruction::Xor))
+    return true;
+  if (!ST.hasGFX9Insts())
+    return false;
+  switch (UOpc) {
+  case Instruction::Add:
+    return Opc == Instruction::Add || Opc == Instruction::Shl ||
+           Opc == Instruction::Xor;
+  case Instruction::Or:
+    return Opc == Instruction::Or || Opc == Instruction::And ||
+           Opc == Instruction::Shl;
+  case Instruction::Xor:
+    return Opc == Instruction::Xor && ST.hasGFX10Insts();
+  case Instruction::Shl:
+    return Opc == Instruction::Add && U.getOperand(0) == &I;
+  default:
+    return false;
+  }
+}
+
+/// \returns true if instruction selection folds the 32 or 64-bit integer
+/// operation \p I into its user. A user folds at most one operand into a three
+/// input instruction, the first one that fits, and only when the user itself
+/// is not folded into its own user.
+static bool isFoldedIntoIntUser(const GCNSubtarget &ST, const Instruction &I,
+                                unsigned Depth = 0) {
+  using namespace PatternMatch;
+  Type *Ty = I.getType();
+  if ((!Ty->isIntegerTy(32) && !Ty->isIntegerTy(64)) ||
+      !isOneUseInBlock(&I, I.getParent()))
+    return false;
+  const auto &U = *cast<Instruction>(I.user_back());
+  if (U.getType() != Ty)
+    return false;
+  if (isBFIAnd(I))
+    return true;
+  const Value *Absorbed = nullptr;
+  if (match(&U, m_And(m_Value(), m_Value())) && isBFIAnd(U, &Absorbed) &&
+      Absorbed == &I)
+    return true;
+
+  bool Folds = isBitfieldFold(I, U);
+  if (!Folds && isThreeInputFold(ST, I, U)) {
+    const auto *First = dyn_cast<Instruction>(U.getOperand(0));
+    Folds = First == &I || !U.isCommutative() || !First ||
+            !isOneUseInBlock(First, I.getParent()) ||
+            !isThreeInputFold(ST, *First, U);
+  }
+  constexpr unsigned MaxDepth = 8;
+  return Folds && (Depth == MaxDepth || !isFoldedIntoIntUser(ST, U, Depth + 1));
+}
+
 static unsigned getNumIRElts(Type *Ty) {
   auto *VTy = dyn_cast<FixedVectorType>(Ty);
   return VTy ? VTy->getNumElements() : 1;
@@ -671,6 +829,9 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     LT.second.getVectorNumElements() : 1;
 
   MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
+
+  if (CtxI && CtxI->getOpcode() == Opcode && isFoldedIntoIntUser(*ST, *CtxI))
+    return TargetTransformInfo::TCC_Free;
 
   switch (ISD) {
   case ISD::SHL:
