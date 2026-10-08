@@ -6,8 +6,8 @@
 ; O1-NOT: alloca
 ; O2-NOT: alloca
 ; O3-NOT: alloca
-; GCN-COUNT-27: = load
-; GCN-COUNT-26: = add
+; O1-COUNT-27: = load
+; O1-COUNT-26: = add
 define protected amdgpu_kernel void @t0(ptr addrspace(1) %p.coerce) #0 {
 entry:
   %p = alloca ptr, align 8, addrspace(5)
