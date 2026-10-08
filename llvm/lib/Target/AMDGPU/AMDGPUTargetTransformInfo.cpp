@@ -904,6 +904,63 @@ static bool isOneOverX(unsigned Opcode, TTI::OperandValueInfo Op1Info,
   return Numerator && match(Numerator, PatternMatch::m_FPOne());
 }
 
+/// \returns true if \p V holds each element in its own register, as the
+/// result of an operation done on each element does.
+static bool isPerElementValue(const Value *V) {
+  const auto *I = dyn_cast<Instruction>(V);
+  if (const auto *BO = dyn_cast_or_null<BinaryOperator>(I))
+    return !BO->isBitwiseLogicOp();
+  return isa_and_nonnull<CastInst>(I) && !isa<BitCastInst>(I);
+}
+
+/// \returns true if every user of \p I reads its elements one at a time.
+static bool hasPerElementUsersOnly(const Instruction &I) {
+  return all_of(I.users(), [](const User *U) {
+    return isa<CmpInst, ExtractElementInst>(U) || isPerElementValue(U);
+  });
+}
+
+/// \returns the cost of taking the elements of an i8 vector, or of an i16
+/// vector without packed math, out of their dwords for an operation done on
+/// each element and of packing the results back. \p CtxI tells whether the
+/// operands come packed and whether the result has to be packed.
+static unsigned getSubDwordLaneCost(const GCNSubtarget &ST, int ISD, Type *Ty,
+                                    TTI::OperandValueInfo Op2Info,
+                                    const Instruction *CtxI) {
+  auto *VTy = dyn_cast<FixedVectorType>(Ty);
+  if (!VTy || !isa_and_nonnull<BinaryOperator>(CtxI))
+    return 0;
+  const unsigned Bits = VTy->getScalarSizeInBits();
+  const bool HasSDWALanes = ST.hasSDWA() && ST.hasGCN3Encoding();
+  if (Bits != 8 && (Bits != 16 || !HasSDWALanes || ST.hasVOP3PInsts()))
+    return 0;
+  const unsigned NElts = VTy->getNumElements();
+  const bool IsShift = ISD == ISD::SHL || ISD == ISD::SRL || ISD == ISD::SRA ||
+                       (ISD == ISD::UDIV && Op2Info.isPowerOf2());
+  if (IsShift && Op2Info.isUniform() && Op2Info.isConstant() &&
+      NElts * Bits <= 16)
+    return 0;
+  unsigned Cost = 0;
+  if (!hasPerElementUsersOnly(*CtxI))
+    Cost += HasSDWALanes          ? NElts - divideCeil(NElts * Bits, 32)
+            : ST.hasBitOp3Insts() ? NElts
+                                  : NElts * 3 / 2;
+  const bool ReadsBytesInPlace = HasSDWALanes ||
+                                 (IsShift && Op2Info.isConstant()) ||
+                                 ((ISD == ISD::UDIV || ISD == ISD::UREM ||
+                                   ISD == ISD::SDIV || ISD == ISD::SREM) &&
+                                  !Op2Info.isConstant());
+  if (!ReadsBytesInPlace)
+    for (const Value *Op : CtxI->operands())
+      if (!isa<Constant>(Op) && !isPerElementValue(Op))
+        Cost += NElts / 2;
+  const Value *Src = CtxI->getOperand(0);
+  if (Bits == 8 && ISD == ISD::SRA && !Op2Info.isConstant() &&
+      !isa<Constant>(Src) && !isPerElementValue(Src))
+    Cost += NElts;
+  return Cost;
+}
+
 static unsigned getNumIRElts(Type *Ty) {
   auto *VTy = dyn_cast<FixedVectorType>(Ty);
   return VTy ? VTy->getNumElements() : 1;
@@ -956,7 +1013,8 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       NElts = (NElts + 1) / 2;
 
     // i32
-    return getFullRateInstrCost() * LT.first * NElts;
+    return getFullRateInstrCost() * LT.first * NElts +
+           getSubDwordLaneCost(*ST, ISD, Ty, Op2Info, CtxI);
   case ISD::ADD:
   case ISD::SUB:
     if (SLT == MVT::i64) {
@@ -970,7 +1028,8 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     if (ST->hasVOP3PInsts() && SLT == MVT::i16)
       NElts = (NElts + 1) / 2;
 
-    return LT.first * NElts * getFullRateInstrCost();
+    return LT.first * NElts * getFullRateInstrCost() +
+           getSubDwordLaneCost(*ST, ISD, Ty, Op2Info, CtxI);
   case ISD::AND:
   case ISD::OR:
   case ISD::XOR:
@@ -998,7 +1057,8 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     return LT.first * NElts * getFullRateInstrCost();
   case ISD::MUL: {
     if (Op2Info.isConstant() && Op2Info.isPowerOf2())
-      return getArithmeticInstrCost(Instruction::Shl, Ty, CostKind);
+      return getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
+                                    Op2Info, {}, CtxI);
 
     const int QuarterRateCost = getQuarterRateInstrCost(CostKind);
     const DataLayout &DL = getDataLayout();
@@ -1021,7 +1081,8 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     if (Ty->getScalarSizeInBits() <= 16) {
       if (ST->hasVOP3PInsts() && SLT == MVT::i16)
         NElts = (NElts + 1) / 2;
-      return getFullRateInstrCost() * NElts * LT.first;
+      return getFullRateInstrCost() * NElts * LT.first +
+             getSubDwordLaneCost(*ST, ISD, Ty, Op2Info, CtxI);
     }
 
     // i32
@@ -1082,7 +1143,8 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       Cost =
           2 * TransCost + 25 * QuarterRateCost + NumFullRateOps * FullRateCost;
     }
-    return getNumIRElts(Ty) * Cost;
+    return getNumIRElts(Ty) * Cost +
+           (Bits == 8 ? getSubDwordLaneCost(*ST, ISD, Ty, Op2Info, CtxI) : 0);
   }
   case ISD::FMUL:
     // Check possible fuse {fadd|fsub}(a,fmul(b,c)) and return zero cost for

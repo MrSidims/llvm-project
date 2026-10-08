@@ -1,7 +1,8 @@
-; RUN: opt -passes=slp-vectorizer -mtriple=amdgpu9.00-amd-amdhsa -pass-remarks=slp-vectorizer -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=slp-vectorizer -mtriple=amdgpu11.00-amd-amdhsa -pass-remarks=slp-vectorizer -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=slp-vectorizer -mtriple=amdgpu9.00-amd-amdhsa -pass-remarks=slp-vectorizer -disable-output < %s 2>&1 | FileCheck -check-prefix=GFX9 %s
+; RUN: opt -passes=slp-vectorizer -mtriple=amdgpu11.00-amd-amdhsa -pass-remarks=slp-vectorizer -disable-output < %s 2>&1 | FileCheck -check-prefix=GFX11 %s
 
-; CHECK: Vectorized horizontal reduction with cost -11 and with tree size 3
+; GFX9: Vectorized horizontal reduction with cost -11 and with tree size 3
+; GFX11: Vectorized horizontal reduction with cost -3 and with tree size 3
 define i8 @add_mul_i8(ptr addrspace(1) %a, ptr addrspace(1) %b) {
   %pa0 = getelementptr i8, ptr addrspace(1) %a, i64 0
   %pb0 = getelementptr i8, ptr addrspace(1) %b, i64 0
