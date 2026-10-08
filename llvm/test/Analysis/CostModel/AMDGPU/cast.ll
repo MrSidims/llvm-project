@@ -272,6 +272,77 @@ define i32 @zext_sext(<8 x i1> %in) {
   ret i32 poison
 }
 
+define void @zext_i16(i16 %a, ptr addrspace(1) %p) {
+; NOSDWA-LABEL: 'zext_i16'
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %z32 = zext i16 %a to i32
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %z64 = zext i16 %a to i64
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l = load i16, ptr addrspace(1) %p, align 2
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lz32 = zext i16 %l to i32
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %z32, ptr addrspace(1) %p, align 4
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %z64, ptr addrspace(1) %p, align 8
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %lz32, ptr addrspace(1) %p, align 4
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; FAST-LABEL: 'zext_i16'
+; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %z32 = zext i16 %a to i32
+; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %z64 = zext i16 %a to i64
+; FAST-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l = load i16, ptr addrspace(1) %p, align 2
+; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lz32 = zext i16 %l to i32
+; FAST-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %z32, ptr addrspace(1) %p, align 4
+; FAST-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %z64, ptr addrspace(1) %p, align 8
+; FAST-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %lz32, ptr addrspace(1) %p, align 4
+; FAST-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; SLOW-LABEL: 'zext_i16'
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %z32 = zext i16 %a to i32
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %z64 = zext i16 %a to i64
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l = load i16, ptr addrspace(1) %p, align 2
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lz32 = zext i16 %l to i32
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %z32, ptr addrspace(1) %p, align 4
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %z64, ptr addrspace(1) %p, align 8
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %lz32, ptr addrspace(1) %p, align 4
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; NOSDWA-SIZE-LABEL: 'zext_i16'
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %z32 = zext i16 %a to i32
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %z64 = zext i16 %a to i64
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l = load i16, ptr addrspace(1) %p, align 2
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lz32 = zext i16 %l to i32
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %z32, ptr addrspace(1) %p, align 4
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %z64, ptr addrspace(1) %p, align 8
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %lz32, ptr addrspace(1) %p, align 4
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; FAST-SIZE-LABEL: 'zext_i16'
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %z32 = zext i16 %a to i32
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %z64 = zext i16 %a to i64
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l = load i16, ptr addrspace(1) %p, align 2
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lz32 = zext i16 %l to i32
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %z32, ptr addrspace(1) %p, align 4
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %z64, ptr addrspace(1) %p, align 8
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %lz32, ptr addrspace(1) %p, align 4
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; SLOW-SIZE-LABEL: 'zext_i16'
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %z32 = zext i16 %a to i32
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %z64 = zext i16 %a to i64
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l = load i16, ptr addrspace(1) %p, align 2
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lz32 = zext i16 %l to i32
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %z32, ptr addrspace(1) %p, align 4
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %z64, ptr addrspace(1) %p, align 8
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %lz32, ptr addrspace(1) %p, align 4
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %z32 = zext i16 %a to i32
+  %z64 = zext i16 %a to i64
+  %l = load i16, ptr addrspace(1) %p
+  %lz32 = zext i16 %l to i32
+  store volatile i32 %z32, ptr addrspace(1) %p
+  store volatile i64 %z64, ptr addrspace(1) %p
+  store volatile i32 %lz32, ptr addrspace(1) %p
+  ret void
+}
+
 define i32 @masks8(<8 x i1> %in) {
 ; ALL-LABEL: 'masks8'
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %Z = zext <8 x i1> %in to <8 x i32>

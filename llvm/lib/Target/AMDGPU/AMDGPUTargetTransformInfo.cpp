@@ -1783,9 +1783,11 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
         return getIntTruncCost(NElts, SrcBits, DstBits);
       const bool IsSigned = Opcode == Instruction::SExt;
       if (NElts == 1) {
-        if (IsSigned && DstBits == 64 &&
-            !(I && isa<LoadInst>(I->getOperand(0))))
+        const bool FromLoad = I && isa<LoadInst>(I->getOperand(0));
+        if (IsSigned && DstBits == 64 && !FromLoad)
           return 2 * getFullRateInstrCost();
+        if (!IsSigned && SrcBits == 16 && ST->useRealTrue16Insts() && !FromLoad)
+          return getFullRateInstrCost();
         return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
       }
       // Bytes are repacked as 16 bit pairs, and real true16 writes either half
