@@ -873,6 +873,26 @@ static bool isFoldedIntoMul(const GCNSubtarget &ST, const Instruction &I) {
   });
 }
 
+/// \returns true if the select \p Sel and its compare become one fminnum or
+/// fmaxnum, returned in \p IID.
+static bool isFMinMaxSelect(const Instruction *Sel, Intrinsic::ID &IID) {
+  using namespace PatternMatch;
+  const auto *SI = dyn_cast<SelectInst>(Sel);
+  if (!SI || !isa<FPMathOperator>(SI) ||
+      SI->getType()->getScalarType()->isBFloatTy() || !SI->hasNoSignedZeros())
+    return false;
+  const auto *Cmp = dyn_cast<FCmpInst>(SI->getCondition());
+  if (!Cmp || !Cmp->hasOneUse() || !(SI->hasNoNaNs() || Cmp->hasNoNaNs()))
+    return false;
+  if (match(SI, m_OrdOrUnordFMin(m_Value(), m_Value())))
+    IID = Intrinsic::minnum;
+  else if (match(SI, m_OrdOrUnordFMax(m_Value(), m_Value())))
+    IID = Intrinsic::maxnum;
+  else
+    return false;
+  return true;
+}
+
 static unsigned getNumIRElts(Type *Ty) {
   auto *VTy = dyn_cast<FixedVectorType>(Ty);
   return VTy ? VTy->getNumElements() : 1;
@@ -1751,14 +1771,35 @@ InstructionCost GCNTTIImpl::getCmpSelInstrCost(
   if (CostKind == TTI::TCK_SizeAndLatency)
     return 1;
 
+  Intrinsic::ID MinMaxID;
+  if (I && Opcode == Instruction::FCmp && I->hasOneUse() &&
+      isFMinMaxSelect(I->user_back(), MinMaxID))
+    return TargetTransformInfo::TCC_Free;
+  if (I && Opcode == Instruction::Select && isFMinMaxSelect(I, MinMaxID)) {
+    FastMathFlags FMF;
+    FMF.setNoNaNs();
+    FMF.setNoSignedZeros();
+    return getIntrinsicInstrCost(
+        IntrinsicCostAttributes(MinMaxID, ValTy, {ValTy, ValTy}, FMF),
+        CostKind);
+  }
+
+  std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(ValTy);
+  unsigned NElts = LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+  Type *EltTy = ValTy->getScalarType();
+
   // A 64-bit select is a v_cndmask_b32 per half.
   if (Opcode == Instruction::Select &&
-      getDataLayout().getTypeSizeInBits(ValTy->getScalarType()) == 64) {
-    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(ValTy);
-    unsigned NElts =
-        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+      getDataLayout().getTypeSizeInBits(EltTy) == 64)
     return 2 * getFullRateInstrCost() * LT.first * NElts;
-  }
+
+  if (Opcode == Instruction::FCmp && EltTy->isDoubleTy())
+    return get64BitInstrCost(CostKind) * LT.first * NElts;
+
+  // True16 instructions read and write each half of a packed register.
+  if (ValTy->isVectorTy() && ST->useRealTrue16Insts() &&
+      (EltTy->isHalfTy() || EltTy->isIntegerTy(16)))
+    return getFullRateInstrCost() * LT.first * NElts;
 
   return BaseT::getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind,
                                    Op1Info, Op2Info, I);

@@ -159,9 +159,17 @@ define void @select_v4i32(i1 %cond, <4 x i32> %a, <4 x i32> %b) {
 }
 
 define void @select_v2i16(i1 %cond, <2 x i16> %a, <2 x i16> %b) {
-; ALL-LABEL: 'select_v2i16'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <2 x i16> %a, <2 x i16> %b
-; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX8-LABEL: 'select_v2i16'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <2 x i16> %a, <2 x i16> %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX9-LABEL: 'select_v2i16'
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <2 x i16> %a, <2 x i16> %b
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX11-LABEL: 'select_v2i16'
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select i1 %cond, <2 x i16> %a, <2 x i16> %b
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_v2i16'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <2 x i16> %a, <2 x i16> %b
@@ -176,9 +184,17 @@ define void @select_v2i16(i1 %cond, <2 x i16> %a, <2 x i16> %b) {
 }
 
 define void @select_v4i16(i1 %cond, <4 x i16> %a, <4 x i16> %b) {
-; ALL-LABEL: 'select_v4i16'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <4 x i16> %a, <4 x i16> %b
-; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX8-LABEL: 'select_v4i16'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <4 x i16> %a, <4 x i16> %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX9-LABEL: 'select_v4i16'
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <4 x i16> %a, <4 x i16> %b
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX11-LABEL: 'select_v4i16'
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select i1 %cond, <4 x i16> %a, <4 x i16> %b
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_v4i16'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <4 x i16> %a, <4 x i16> %b
@@ -227,9 +243,17 @@ define void @select_v4f32(i1 %cond, <4 x float> %a, <4 x float> %b) {
 }
 
 define void @select_v2f16(i1 %cond, <2 x half> %a, <2 x half> %b) {
-; ALL-LABEL: 'select_v2f16'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <2 x half> %a, <2 x half> %b
-; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX8-LABEL: 'select_v2f16'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <2 x half> %a, <2 x half> %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX9-LABEL: 'select_v2f16'
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <2 x half> %a, <2 x half> %b
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX11-LABEL: 'select_v2f16'
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %sel = select i1 %cond, <2 x half> %a, <2 x half> %b
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_v2f16'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <2 x half> %a, <2 x half> %b
@@ -244,9 +268,17 @@ define void @select_v2f16(i1 %cond, <2 x half> %a, <2 x half> %b) {
 }
 
 define void @select_v4f16(i1 %cond, <4 x half> %a, <4 x half> %b) {
-; ALL-LABEL: 'select_v4f16'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <4 x half> %a, <4 x half> %b
-; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX8-LABEL: 'select_v4f16'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <4 x half> %a, <4 x half> %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX9-LABEL: 'select_v4f16'
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <4 x half> %a, <4 x half> %b
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX11-LABEL: 'select_v4f16'
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select i1 %cond, <4 x half> %a, <4 x half> %b
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_v4f16'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <4 x half> %a, <4 x half> %b
@@ -295,9 +327,17 @@ define void @select_v3f32(i1 %cond, <3 x float> %a, <3 x float> %b) {
 }
 
 define void @select_v3i16(i1 %cond, <3 x i16> %a, <3 x i16> %b) {
-; ALL-LABEL: 'select_v3i16'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <3 x i16> %a, <3 x i16> %b
-; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX8-LABEL: 'select_v3i16'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <3 x i16> %a, <3 x i16> %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX9-LABEL: 'select_v3i16'
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <3 x i16> %a, <3 x i16> %b
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX11-LABEL: 'select_v3i16'
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select i1 %cond, <3 x i16> %a, <3 x i16> %b
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_v3i16'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <3 x i16> %a, <3 x i16> %b
@@ -312,9 +352,17 @@ define void @select_v3i16(i1 %cond, <3 x i16> %a, <3 x i16> %b) {
 }
 
 define void @select_v3f16(i1 %cond, <3 x half> %a, <3 x half> %b) {
-; ALL-LABEL: 'select_v3f16'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <3 x half> %a, <3 x half> %b
-; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX8-LABEL: 'select_v3f16'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <3 x half> %a, <3 x half> %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX9-LABEL: 'select_v3f16'
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <3 x half> %a, <3 x half> %b
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX11-LABEL: 'select_v3f16'
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sel = select i1 %cond, <3 x half> %a, <3 x half> %b
+; GFX11-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'select_v3f16'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sel = select i1 %cond, <3 x half> %a, <3 x half> %b
@@ -361,7 +409,3 @@ define void @select_v4ptr(i1 %cond, <4 x ptr> %a, <4 x ptr> %b) {
   %sel = select i1 %cond, <4 x ptr> %a, <4 x ptr> %b
   ret void
 }
-;; NOTE: These prefixes are unused and the list is autogenerated. Do not add tests below this line:
-; GFX11: {{.*}}
-; GFX8: {{.*}}
-; GFX9: {{.*}}

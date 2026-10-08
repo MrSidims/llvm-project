@@ -266,3 +266,159 @@ define void @fma_mix(half %a, half %b, float %c, ptr addrspace(1) %p) {
   store volatile half %trunc_arg, ptr addrspace(1) %p
   ret void
 }
+
+define void @fcmp_select_min_max(float %a, float %b, double %x, double %y, <2 x half> %v, <2 x half> %w, bfloat %h0, bfloat %h1, ptr addrspace(1) %p) {
+; GFX8-LABEL: 'fcmp_select_min_max'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_min = fcmp nnan nsz olt float %a, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min = select nnan nsz i1 %cmp_min, float %a, float %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %min, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_max = fcmp nnan ogt float %a, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %max = select nsz i1 %cmp_max, float %a, float %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %max, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_swapped = fcmp nnan nsz ogt float %a, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_swapped = select nnan nsz i1 %cmp_swapped, float %b, float %a
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %min_swapped, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_signed_zeros = fcmp nnan olt float %a, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_signed_zeros = select nnan i1 %cmp_signed_zeros, float %a, float %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_signed_zeros, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_nans = fcmp olt float %a, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_nans = select nsz i1 %cmp_nans, float %a, float %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_nans, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_two_uses = fcmp nnan nsz olt float %a, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_two_uses = select nnan nsz i1 %cmp_two_uses, float %a, float %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_two_uses, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i1 %cmp_two_uses, ptr addrspace(1) %p, align 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_f64 = fcmp nnan nsz olt double %x, %y
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %min_f64 = select nnan nsz i1 %cmp_f64, double %x, double %y
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double %min_f64, ptr addrspace(1) %p, align 8
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_v2f16 = fcmp nnan nsz olt <2 x half> %v, %w
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %min_v2f16 = select nnan nsz <2 x i1> %cmp_v2f16, <2 x half> %v, <2 x half> %w
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <2 x half> %min_v2f16, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_bf16 = fcmp nnan nsz olt bfloat %h0, %h1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_bf16 = select nnan nsz i1 %cmp_bf16, bfloat %h0, bfloat %h1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile bfloat %min_bf16, ptr addrspace(1) %p, align 2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX900-LABEL: 'fcmp_select_min_max'
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_min = fcmp nnan nsz olt float %a, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min = select nnan nsz i1 %cmp_min, float %a, float %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %min, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_max = fcmp nnan ogt float %a, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %max = select nsz i1 %cmp_max, float %a, float %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %max, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_swapped = fcmp nnan nsz ogt float %a, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_swapped = select nnan nsz i1 %cmp_swapped, float %b, float %a
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %min_swapped, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_signed_zeros = fcmp nnan olt float %a, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_signed_zeros = select nnan i1 %cmp_signed_zeros, float %a, float %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_signed_zeros, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_nans = fcmp olt float %a, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_nans = select nsz i1 %cmp_nans, float %a, float %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_nans, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_two_uses = fcmp nnan nsz olt float %a, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_two_uses = select nnan nsz i1 %cmp_two_uses, float %a, float %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_two_uses, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i1 %cmp_two_uses, ptr addrspace(1) %p, align 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_f64 = fcmp nnan nsz olt double %x, %y
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %min_f64 = select nnan nsz i1 %cmp_f64, double %x, double %y
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double %min_f64, ptr addrspace(1) %p, align 8
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_v2f16 = fcmp nnan nsz olt <2 x half> %v, %w
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_v2f16 = select nnan nsz <2 x i1> %cmp_v2f16, <2 x half> %v, <2 x half> %w
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <2 x half> %min_v2f16, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_bf16 = fcmp nnan nsz olt bfloat %h0, %h1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_bf16 = select nnan nsz i1 %cmp_bf16, bfloat %h0, bfloat %h1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile bfloat %min_bf16, ptr addrspace(1) %p, align 2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX942-LABEL: 'fcmp_select_min_max'
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_min = fcmp nnan nsz olt float %a, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min = select nnan nsz i1 %cmp_min, float %a, float %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %min, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_max = fcmp nnan ogt float %a, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %max = select nsz i1 %cmp_max, float %a, float %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %max, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_swapped = fcmp nnan nsz ogt float %a, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_swapped = select nnan nsz i1 %cmp_swapped, float %b, float %a
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %min_swapped, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_signed_zeros = fcmp nnan olt float %a, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_signed_zeros = select nnan i1 %cmp_signed_zeros, float %a, float %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_signed_zeros, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_nans = fcmp olt float %a, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_nans = select nsz i1 %cmp_nans, float %a, float %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_nans, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_two_uses = fcmp nnan nsz olt float %a, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_two_uses = select nnan nsz i1 %cmp_two_uses, float %a, float %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_two_uses, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i1 %cmp_two_uses, ptr addrspace(1) %p, align 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_f64 = fcmp nnan nsz olt double %x, %y
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_f64 = select nnan nsz i1 %cmp_f64, double %x, double %y
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double %min_f64, ptr addrspace(1) %p, align 8
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_v2f16 = fcmp nnan nsz olt <2 x half> %v, %w
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_v2f16 = select nnan nsz <2 x i1> %cmp_v2f16, <2 x half> %v, <2 x half> %w
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <2 x half> %min_v2f16, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_bf16 = fcmp nnan nsz olt bfloat %h0, %h1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_bf16 = select nnan nsz i1 %cmp_bf16, bfloat %h0, bfloat %h1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile bfloat %min_bf16, ptr addrspace(1) %p, align 2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX1100-LABEL: 'fcmp_select_min_max'
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_min = fcmp nnan nsz olt float %a, %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min = select nnan nsz i1 %cmp_min, float %a, float %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %min, ptr addrspace(1) %p, align 4
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_max = fcmp nnan ogt float %a, %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %max = select nsz i1 %cmp_max, float %a, float %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %max, ptr addrspace(1) %p, align 4
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_swapped = fcmp nnan nsz ogt float %a, %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_swapped = select nnan nsz i1 %cmp_swapped, float %b, float %a
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %min_swapped, ptr addrspace(1) %p, align 4
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_signed_zeros = fcmp nnan olt float %a, %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_signed_zeros = select nnan i1 %cmp_signed_zeros, float %a, float %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_signed_zeros, ptr addrspace(1) %p, align 4
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_nans = fcmp olt float %a, %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_nans = select nsz i1 %cmp_nans, float %a, float %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_nans, ptr addrspace(1) %p, align 4
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_two_uses = fcmp nnan nsz olt float %a, %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %select_two_uses = select nnan nsz i1 %cmp_two_uses, float %a, float %b
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile float %select_two_uses, ptr addrspace(1) %p, align 4
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i1 %cmp_two_uses, ptr addrspace(1) %p, align 1
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_f64 = fcmp nnan nsz olt double %x, %y
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %min_f64 = select nnan nsz i1 %cmp_f64, double %x, double %y
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile double %min_f64, ptr addrspace(1) %p, align 8
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %cmp_v2f16 = fcmp nnan nsz olt <2 x half> %v, %w
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_v2f16 = select nnan nsz <2 x i1> %cmp_v2f16, <2 x half> %v, <2 x half> %w
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile <2 x half> %min_v2f16, ptr addrspace(1) %p, align 4
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cmp_bf16 = fcmp nnan nsz olt bfloat %h0, %h1
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %min_bf16 = select nnan nsz i1 %cmp_bf16, bfloat %h0, bfloat %h1
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile bfloat %min_bf16, ptr addrspace(1) %p, align 2
+; GFX1100-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+  %cmp_min = fcmp nnan nsz olt float %a, %b
+  %min = select nnan nsz i1 %cmp_min, float %a, float %b
+  store volatile float %min, ptr addrspace(1) %p
+  %cmp_max = fcmp nnan ogt float %a, %b
+  %max = select nsz i1 %cmp_max, float %a, float %b
+  store volatile float %max, ptr addrspace(1) %p
+  %cmp_swapped = fcmp nnan nsz ogt float %a, %b
+  %min_swapped = select nnan nsz i1 %cmp_swapped, float %b, float %a
+  store volatile float %min_swapped, ptr addrspace(1) %p
+  %cmp_signed_zeros = fcmp nnan olt float %a, %b
+  %select_signed_zeros = select nnan i1 %cmp_signed_zeros, float %a, float %b
+  store volatile float %select_signed_zeros, ptr addrspace(1) %p
+  %cmp_nans = fcmp olt float %a, %b
+  %select_nans = select nsz i1 %cmp_nans, float %a, float %b
+  store volatile float %select_nans, ptr addrspace(1) %p
+  %cmp_two_uses = fcmp nnan nsz olt float %a, %b
+  %select_two_uses = select nnan nsz i1 %cmp_two_uses, float %a, float %b
+  store volatile float %select_two_uses, ptr addrspace(1) %p
+  store volatile i1 %cmp_two_uses, ptr addrspace(1) %p
+  %cmp_f64 = fcmp nnan nsz olt double %x, %y
+  %min_f64 = select nnan nsz i1 %cmp_f64, double %x, double %y
+  store volatile double %min_f64, ptr addrspace(1) %p
+  %cmp_v2f16 = fcmp nnan nsz olt <2 x half> %v, %w
+  %min_v2f16 = select nnan nsz <2 x i1> %cmp_v2f16, <2 x half> %v, <2 x half> %w
+  store volatile <2 x half> %min_v2f16, ptr addrspace(1) %p
+  %cmp_bf16 = fcmp nnan nsz olt bfloat %h0, %h1
+  %min_bf16 = select nnan nsz i1 %cmp_bf16, bfloat %h0, bfloat %h1
+  store volatile bfloat %min_bf16, ptr addrspace(1) %p
+  ret void
+}
