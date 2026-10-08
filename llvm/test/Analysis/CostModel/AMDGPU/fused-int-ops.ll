@@ -4,6 +4,7 @@
 ; RUN: opt -passes="print<cost-model>" 2>&1 -disable-output -mtriple=amdgcn-amd-amdhsa -mcpu=gfx942 < %s | FileCheck -check-prefixes=GFX942 %s
 ; RUN: opt -passes="print<cost-model>" 2>&1 -disable-output -mtriple=amdgcn-amd-amdhsa -mcpu=gfx950 < %s | FileCheck -check-prefixes=GFX950 %s
 ; RUN: opt -passes="print<cost-model>" 2>&1 -disable-output -mtriple=amdgcn-amd-amdhsa -mcpu=gfx1030 < %s | FileCheck -check-prefixes=GFX1030 %s
+; RUN: opt -passes="print<cost-model>" 2>&1 -disable-output -mtriple=amdgcn-amd-amdhsa -mcpu=gfx1251 < %s | FileCheck -check-prefixes=GFX1251 %s
 
 define void @three_input_i32(i32 %a, i32 %b, i32 %c, ptr addrspace(1) %p) {
 ; GFX8-LABEL: 'three_input_i32'
@@ -156,6 +157,36 @@ define void @three_input_i32(i32 %a, i32 %b, i32 %c, ptr addrspace(1) %p) {
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %xor3, ptr addrspace(1) %p, align 4
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
+; GFX1251-LABEL: 'three_input_i32'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %add0 = add i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add3 = add i32 %add0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add3, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %shl0 = shl i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshl_add = add i32 %shl0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %lshl_add, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %add1 = add i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_lshl = shl i32 %add1, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_lshl, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add2 = add i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %shl_amt = shl i32 %c, %add2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %shl_amt, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %shl1 = shl i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshl_or = or i32 %shl1, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %lshl_or, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %and0 = and i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_or = or i32 %and0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %and_or, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %or0 = or i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or3 = or i32 %or0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %or3, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %xor0 = xor i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %xad = add i32 %xor0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %xad, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %xor1 = xor i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %xor3 = xor i32 %xor1, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %xor3, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
   %add0 = add i32 %a, %b
   %add3 = add i32 %add0, %c
   store volatile i32 %add3, ptr addrspace(1) %p
@@ -272,6 +303,23 @@ define void @three_input_chain_i32(i32 %a, i32 %b, i32 %c, i32 %d, i32 %e, ptr a
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %z2, ptr addrspace(1) %p, align 4
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
+; GFX1251-LABEL: 'three_input_chain_i32'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x0 = add i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x1 = add i32 %x0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x2 = add i32 %x1, %d
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x3 = add i32 %x2, %e
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %x3, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %y0 = add i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %y1 = add i32 %c, %d
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %y2 = add i32 %y0, %y1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %y2, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %z0 = add i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %z1 = add i32 %z0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %z2 = add i32 %z0, %d
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %z1, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %z2, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
   %x0 = add i32 %a, %b
   %x1 = add i32 %x0, %c
   %x2 = add i32 %x1, %d
@@ -354,6 +402,19 @@ define void @bitop3_i32(i32 %a, i32 %b, i32 %c, i32 %d, ptr addrspace(1) %p) {
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %chain = or i32 %xor0, %d
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %chain, ptr addrspace(1) %p, align 4
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX1251-LABEL: 'bitop3_i32'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %and0 = and i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_xor = xor i32 %and0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %and_xor, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %or0 = or i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or_and = and i32 %or0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %or_and, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and1 = and i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %xor0 = xor i32 %and1, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %chain = or i32 %xor0, %d
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %chain, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
   %and0 = and i32 %a, %b
   %and_xor = xor i32 %and0, %c
@@ -539,6 +600,40 @@ define void @bitfield_i32(i32 %a, i32 %b, i32 %c, ptr addrspace(1) %p) {
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %ubfe, ptr addrspace(1) %p, align 4
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
+; GFX1251-LABEL: 'bitfield_i32'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %bfi_l = and i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %not0 = xor i32 %a, -1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %bfi_r = and i32 %not0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bfi = or i32 %bfi_l, %bfi_r
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %bfi, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %bfi_cl = and i32 %a, 16711935
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %bfi_cr = and i32 %b, -16711936
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bfi_c = or i32 %bfi_cl, %bfi_cr
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %bfi_c, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ch_x = xor i32 %b, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ch_a = and i32 %a, %ch_x
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ch = xor i32 %c, %ch_a
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %ch, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %not1 = xor i32 %a, -1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %andn = and i32 %b, %not1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %andn, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %not2 = xor i32 %a, -1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %orn = or i32 %b, %not2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %orn, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %srl = lshr i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bfe = and i32 %srl, 255
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %bfe, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sra = ashr i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sra_mask = and i32 %sra, 255
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %sra_mask, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %shl = shl i32 %a, 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sbfe = ashr i32 %shl, 20
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %sbfe, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask = and i32 %a, 65280
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ubfe = lshr i32 %mask, 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %ubfe, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
   %bfi_l = and i32 %a, %b
   %not0 = xor i32 %a, -1
   %bfi_r = and i32 %not0, %c
@@ -704,6 +799,32 @@ define void @fold_i64(i64 %a, i64 %b, i64 %c, ptr addrspace(1) %p) {
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %bfe_cross, ptr addrspace(1) %p, align 8
 ; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
+; GFX1251-LABEL: 'fold_i64'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %or0 = or i64 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %or3 = or i64 %or0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %or3, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %shl3 = shl i64 %a, 3
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshl_add3 = add i64 %shl3, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %lshl_add3, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %shl5 = shl i64 %a, 5
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshl_add5 = add i64 %shl5, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %lshl_add5, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %bfi_l = and i64 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %not = xor i64 %a, -1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %bfi_r = and i64 %not, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bfi = or i64 %bfi_l, %bfi_r
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %bfi, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %srl8 = lshr i64 %a, 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bfe_lo = and i64 %srl8, 255
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %bfe_lo, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %srl40 = lshr i64 %a, 40
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bfe_hi = and i64 %srl40, 255
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %bfe_hi, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %srl28 = lshr i64 %a, 28
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bfe_cross = and i64 %srl28, 255
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %bfe_cross, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
   %or0 = or i64 %a, %b
   %or3 = or i64 %or0, %c
   store volatile i64 %or3, ptr addrspace(1) %p
@@ -727,5 +848,294 @@ define void @fold_i64(i64 %a, i64 %b, i64 %c, ptr addrspace(1) %p) {
   %srl28 = lshr i64 %a, 28
   %bfe_cross = and i64 %srl28, 255
   store volatile i64 %bfe_cross, ptr addrspace(1) %p
+  ret void
+}
+
+define void @mul_i32(i32 %a, i32 %b, i32 %c, i16 %h, ptr addrspace(1) %p) {
+; GFX8-LABEL: 'mul_i32'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i32 %a, 16777215
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_b = and i32 %b, 16777215
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_u24 = mul i32 %mask_a, %mask_b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_u24 = add i32 %mul_u24, %c
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad_u24, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sext_h = sext i16 %h to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_i24 = mul i32 %sext_h, -100
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mul_i24, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul = mul i32 %a, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mad = add i32 %mul, %c
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_two_uses = mul i32 %a, %c
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_a = add i32 %mul_two_uses, %a
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_a, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_b = add i32 %mul_two_uses, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_b, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX900-LABEL: 'mul_i32'
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i32 %a, 16777215
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_b = and i32 %b, 16777215
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_u24 = mul i32 %mask_a, %mask_b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_u24 = add i32 %mul_u24, %c
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad_u24, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sext_h = sext i16 %h to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_i24 = mul i32 %sext_h, -100
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mul_i24, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul = mul i32 %a, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad = add i32 %mul, %c
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_two_uses = mul i32 %a, %c
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_a = add i32 %mul_two_uses, %a
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_a, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_b = add i32 %mul_two_uses, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_b, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX942-LABEL: 'mul_i32'
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i32 %a, 16777215
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_b = and i32 %b, 16777215
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_u24 = mul i32 %mask_a, %mask_b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_u24 = add i32 %mul_u24, %c
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad_u24, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sext_h = sext i16 %h to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_i24 = mul i32 %sext_h, -100
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mul_i24, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul = mul i32 %a, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad = add i32 %mul, %c
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_two_uses = mul i32 %a, %c
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_a = add i32 %mul_two_uses, %a
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_a, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_b = add i32 %mul_two_uses, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_b, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX950-LABEL: 'mul_i32'
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i32 %a, 16777215
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_b = and i32 %b, 16777215
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_u24 = mul i32 %mask_a, %mask_b
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_u24 = add i32 %mul_u24, %c
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad_u24, ptr addrspace(1) %p, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sext_h = sext i16 %h to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_i24 = mul i32 %sext_h, -100
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mul_i24, ptr addrspace(1) %p, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul = mul i32 %a, %b
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad = add i32 %mul, %c
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad, ptr addrspace(1) %p, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_two_uses = mul i32 %a, %c
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_a = add i32 %mul_two_uses, %a
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_a, ptr addrspace(1) %p, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_b = add i32 %mul_two_uses, %b
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_b, ptr addrspace(1) %p, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX1030-LABEL: 'mul_i32'
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i32 %a, 16777215
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_b = and i32 %b, 16777215
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_u24 = mul i32 %mask_a, %mask_b
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_u24 = add i32 %mul_u24, %c
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad_u24, ptr addrspace(1) %p, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sext_h = sext i16 %h to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_i24 = mul i32 %sext_h, -100
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mul_i24, ptr addrspace(1) %p, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul = mul i32 %a, %b
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad = add i32 %mul, %c
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad, ptr addrspace(1) %p, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_two_uses = mul i32 %a, %c
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_a = add i32 %mul_two_uses, %a
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_a, ptr addrspace(1) %p, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_b = add i32 %mul_two_uses, %b
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_b, ptr addrspace(1) %p, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX1251-LABEL: 'mul_i32'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i32 %a, 16777215
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_b = and i32 %b, 16777215
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_u24 = mul i32 %mask_a, %mask_b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_u24 = add i32 %mul_u24, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad_u24, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sext_h = sext i16 %h to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mul_i24 = mul i32 %sext_h, -100
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mul_i24, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul = mul i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad = add i32 %mul, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %mad, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_two_uses = mul i32 %a, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_a = add i32 %mul_two_uses, %a
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_a, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %add_b = add i32 %mul_two_uses, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %add_b, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+  %mask_a = and i32 %a, 16777215
+  %mask_b = and i32 %b, 16777215
+  %mul_u24 = mul i32 %mask_a, %mask_b
+  %mad_u24 = add i32 %mul_u24, %c
+  store volatile i32 %mad_u24, ptr addrspace(1) %p
+  %sext_h = sext i16 %h to i32
+  %mul_i24 = mul i32 %sext_h, -100
+  store volatile i32 %mul_i24, ptr addrspace(1) %p
+  %mul = mul i32 %a, %b
+  %mad = add i32 %mul, %c
+  store volatile i32 %mad, ptr addrspace(1) %p
+  %mul_two_uses = mul i32 %a, %c
+  %add_a = add i32 %mul_two_uses, %a
+  store volatile i32 %add_a, ptr addrspace(1) %p
+  %add_b = add i32 %mul_two_uses, %b
+  store volatile i32 %add_b, ptr addrspace(1) %p
+  ret void
+}
+
+define void @mul_i64(i64 %a, i64 %b, i32 %x, i32 %y, i16 %h, ptr addrspace(1) %p) {
+; GFX8-LABEL: 'mul_i64'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i64 %a, 16777215
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_h = zext i16 %h to i64
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %mul_u24 = mul i64 %mask_a, %zext_h
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u24, ptr addrspace(1) %p, align 8
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_x = zext i32 %x to i64
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_u32 = mul i64 %zext_x, 1000
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u32, ptr addrspace(1) %p, align 8
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x = sext i32 %x to i64
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y = sext i32 %y to i64
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32 = mul i64 %sext_x, %sext_y
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_i32, ptr addrspace(1) %p, align 8
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x2 = sext i32 %x to i64
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y2 = sext i32 %y to i64
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32_add = mul i64 %sext_x2, %sext_y2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_i32 = add i64 %mul_i32_add, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad_i32, ptr addrspace(1) %p, align 8
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %mul = mul i64 %a, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad = add i64 %mul, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad, ptr addrspace(1) %p, align 8
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX900-LABEL: 'mul_i64'
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i64 %a, 16777215
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_h = zext i16 %h to i64
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %mul_u24 = mul i64 %mask_a, %zext_h
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u24, ptr addrspace(1) %p, align 8
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_x = zext i32 %x to i64
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_u32 = mul i64 %zext_x, 1000
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u32, ptr addrspace(1) %p, align 8
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x = sext i32 %x to i64
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y = sext i32 %y to i64
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32 = mul i64 %sext_x, %sext_y
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_i32, ptr addrspace(1) %p, align 8
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x2 = sext i32 %x to i64
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y2 = sext i32 %y to i64
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32_add = mul i64 %sext_x2, %sext_y2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_i32 = add i64 %mul_i32_add, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad_i32, ptr addrspace(1) %p, align 8
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %mul = mul i64 %a, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad = add i64 %mul, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad, ptr addrspace(1) %p, align 8
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX942-LABEL: 'mul_i64'
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i64 %a, 16777215
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_h = zext i16 %h to i64
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %mul_u24 = mul i64 %mask_a, %zext_h
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u24, ptr addrspace(1) %p, align 8
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_x = zext i32 %x to i64
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_u32 = mul i64 %zext_x, 1000
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u32, ptr addrspace(1) %p, align 8
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x = sext i32 %x to i64
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y = sext i32 %y to i64
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32 = mul i64 %sext_x, %sext_y
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_i32, ptr addrspace(1) %p, align 8
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x2 = sext i32 %x to i64
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y2 = sext i32 %y to i64
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32_add = mul i64 %sext_x2, %sext_y2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_i32 = add i64 %mul_i32_add, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad_i32, ptr addrspace(1) %p, align 8
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %mul = mul i64 %a, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad = add i64 %mul, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad, ptr addrspace(1) %p, align 8
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX950-LABEL: 'mul_i64'
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i64 %a, 16777215
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_h = zext i16 %h to i64
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %mul_u24 = mul i64 %mask_a, %zext_h
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u24, ptr addrspace(1) %p, align 8
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_x = zext i32 %x to i64
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_u32 = mul i64 %zext_x, 1000
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u32, ptr addrspace(1) %p, align 8
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x = sext i32 %x to i64
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y = sext i32 %y to i64
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32 = mul i64 %sext_x, %sext_y
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_i32, ptr addrspace(1) %p, align 8
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x2 = sext i32 %x to i64
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y2 = sext i32 %y to i64
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32_add = mul i64 %sext_x2, %sext_y2
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_i32 = add i64 %mul_i32_add, %b
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad_i32, ptr addrspace(1) %p, align 8
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %mul = mul i64 %a, %b
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad = add i64 %mul, %b
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad, ptr addrspace(1) %p, align 8
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX1030-LABEL: 'mul_i64'
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i64 %a, 16777215
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_h = zext i16 %h to i64
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %mul_u24 = mul i64 %mask_a, %zext_h
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u24, ptr addrspace(1) %p, align 8
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_x = zext i32 %x to i64
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_u32 = mul i64 %zext_x, 1000
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u32, ptr addrspace(1) %p, align 8
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x = sext i32 %x to i64
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y = sext i32 %y to i64
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32 = mul i64 %sext_x, %sext_y
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_i32, ptr addrspace(1) %p, align 8
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x2 = sext i32 %x to i64
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y2 = sext i32 %y to i64
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32_add = mul i64 %sext_x2, %sext_y2
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_i32 = add i64 %mul_i32_add, %b
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad_i32, ptr addrspace(1) %p, align 8
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %mul = mul i64 %a, %b
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad = add i64 %mul, %b
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad, ptr addrspace(1) %p, align 8
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX1251-LABEL: 'mul_i64'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mask_a = and i64 %a, 16777215
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %zext_h = zext i16 %h to i64
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %mul_u24 = mul i64 %mask_a, %zext_h
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u24, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %zext_x = zext i32 %x to i64
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_u32 = mul i64 %zext_x, 1000
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_u32, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sext_x = sext i32 %x to i64
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %sext_y = sext i32 %y to i64
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32 = mul i64 %sext_x, %sext_y
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mul_i32, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_x2 = sext i32 %x to i64
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %sext_y2 = sext i32 %y to i64
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul_i32_add = mul i64 %sext_x2, %sext_y2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %mad_i32 = add i64 %mul_i32_add, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad_i32, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %mul = mul i64 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %mad = add i64 %mul, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %mad, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+  %mask_a = and i64 %a, 16777215
+  %zext_h = zext i16 %h to i64
+  %mul_u24 = mul i64 %mask_a, %zext_h
+  store volatile i64 %mul_u24, ptr addrspace(1) %p
+  %zext_x = zext i32 %x to i64
+  %mul_u32 = mul i64 %zext_x, 1000
+  store volatile i64 %mul_u32, ptr addrspace(1) %p
+  %sext_x = sext i32 %x to i64
+  %sext_y = sext i32 %y to i64
+  %mul_i32 = mul i64 %sext_x, %sext_y
+  store volatile i64 %mul_i32, ptr addrspace(1) %p
+  %sext_x2 = sext i32 %x to i64
+  %sext_y2 = sext i32 %y to i64
+  %mul_i32_add = mul i64 %sext_x2, %sext_y2
+  %mad_i32 = add i64 %mul_i32_add, %b
+  store volatile i64 %mad_i32, ptr addrspace(1) %p
+  %mul = mul i64 %a, %b
+  %mad = add i64 %mul, %b
+  store volatile i64 %mad, ptr addrspace(1) %p
   ret void
 }

@@ -809,6 +809,70 @@ static bool isFoldedIntoIntUser(const GCNSubtarget &ST, const Instruction &I,
   return Folds && (Depth == MaxDepth || !isFoldedIntoIntUser(ST, U, Depth + 1));
 }
 
+/// \returns true if the multiply operands \p LHS and \p RHS both fit in
+/// \p Bits bits as unsigned or as signed values.
+static bool isNarrowMul(const Value *LHS, const Value *RHS, unsigned Bits,
+                        const DataLayout &DL) {
+  return (computeKnownBits(LHS, DL).countMaxActiveBits() <= Bits &&
+          computeKnownBits(RHS, DL).countMaxActiveBits() <= Bits) ||
+         (ComputeMaxSignificantBits(LHS, DL) <= Bits &&
+          ComputeMaxSignificantBits(RHS, DL) <= Bits);
+}
+
+/// \returns true if \p V is a 64-bit multiply that selects to 24 or 32-bit
+/// multiplies of the low halves of its operands.
+static bool isMul64OfLowHalves(const GCNSubtarget &ST, const Value *V) {
+  using namespace PatternMatch;
+  const Value *A, *B;
+  if (!V->getType()->isIntegerTy(64) ||
+      !match(V, m_Mul(m_Value(A), m_Value(B))))
+    return false;
+  const auto *Mul = cast<Instruction>(V);
+  const DataLayout &DL = Mul->getDataLayout();
+  if (isNarrowMul(A, B, 24, DL))
+    return true;
+  return isNarrowMul(A, B, 32, DL) &&
+         (!ST.useVMulU64Inst() ||
+          (isOneUseInBlock(Mul, Mul->getParent()) &&
+           match(Mul->user_back(), m_Add(m_Value(), m_Value()))));
+}
+
+/// \returns true if every user of \p I is such a multiply in the same block,
+/// which reads only the low half of \p I.
+static bool isLowHalfOfMul64(const GCNSubtarget &ST, const Instruction &I) {
+  return !I.use_empty() && all_of(I.users(), [&](const User *U) {
+    return cast<Instruction>(U)->getParent() == I.getParent() &&
+           isMul64OfLowHalves(ST, U);
+  });
+}
+
+/// \returns true if instruction selection folds a one use multiply operand
+/// of the add \p I into a v_mad instruction, or drops the mask \p I of a
+/// 24-bit multiply operand.
+static bool isFoldedIntoMul(const GCNSubtarget &ST, const Instruction &I) {
+  using namespace PatternMatch;
+  const DataLayout &DL = I.getDataLayout();
+  const Value *A, *B;
+  if (match(&I, m_And(m_Value(), m_SpecificInt(0xffffff))))
+    return isOneUseInBlock(&I, I.getParent()) &&
+           match(I.user_back(), m_Mul(m_Value(A), m_Value(B))) &&
+           isNarrowMul(A, B, 24, DL);
+  if (I.getOpcode() != Instruction::Add)
+    return false;
+  const unsigned Bits = I.getType()->getScalarSizeInBits();
+  if (Bits == 64 ? I.getType()->isVectorTy() : Bits != 16 && Bits != 32)
+    return false;
+  return any_of(I.operands(), [&](const Value *Op) {
+    if (!isOneUseInBlock(Op, I.getParent()) ||
+        !match(Op, m_Mul(m_Value(A), m_Value(B))))
+      return false;
+    if (Bits != 64)
+      return ST.hasGFX9Insts() || (Bits == 32 && isNarrowMul(A, B, 24, DL));
+    return !isNarrowMul(A, B, 24, DL) &&
+           (!ST.useVMulU64Inst() || isNarrowMul(A, B, 32, DL));
+  });
+}
+
 static unsigned getNumIRElts(Type *Ty) {
   auto *VTy = dyn_cast<FixedVectorType>(Ty);
   return VTy ? VTy->getNumElements() : 1;
@@ -830,7 +894,8 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
 
   MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
 
-  if (CtxI && CtxI->getOpcode() == Opcode && isFoldedIntoIntUser(*ST, *CtxI))
+  if (CtxI && CtxI->getOpcode() == Opcode &&
+      (isFoldedIntoIntUser(*ST, *CtxI) || isFoldedIntoMul(*ST, *CtxI)))
     return TargetTransformInfo::TCC_Free;
 
   switch (ISD) {
@@ -880,8 +945,15 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       return getArithmeticInstrCost(Instruction::Shl, Ty, CostKind);
 
     const int QuarterRateCost = getQuarterRateInstrCost(CostKind);
+    const DataLayout &DL = getDataLayout();
+    const bool IsMul24 =
+        Args.size() == 2 && isNarrowMul(Args[0], Args[1], 24, DL);
     if (SLT == MVT::i64) {
-      if (ST->useVMulU64Inst())
+      // v_mul_u32_u24 and v_mul_hi_u32_u24.
+      if (IsMul24)
+        return 2 * getFullRateInstrCost() * LT.first * NElts;
+      if (ST->useVMulU64Inst() ||
+          (Args.size() == 2 && isNarrowMul(Args[0], Args[1], 32, DL)))
         return QuarterRateCost * LT.first * NElts;
       // v_mad_u64_u32 plus the high half cross products.
       int Cost = (Op2Info.isConstant() ? 2 : 3) * QuarterRateCost +
@@ -897,7 +969,8 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     }
 
     // i32
-    return QuarterRateCost * NElts * LT.first;
+    return (IsMul24 ? getFullRateInstrCost() : QuarterRateCost) * NElts *
+           LT.first;
   }
   case ISD::UDIV:
   case ISD::SDIV:
@@ -1784,7 +1857,8 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       const bool IsSigned = Opcode == Instruction::SExt;
       if (NElts == 1) {
         const bool FromLoad = I && isa<LoadInst>(I->getOperand(0));
-        if (IsSigned && DstBits == 64 && !FromLoad)
+        if (IsSigned && DstBits == 64 && !FromLoad &&
+            !(I && isLowHalfOfMul64(*ST, *I)))
           return 2 * getFullRateInstrCost();
         if (!IsSigned && SrcBits == 16 && ST->useRealTrue16Insts() && !FromLoad)
           return getFullRateInstrCost();
@@ -1804,6 +1878,10 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       return InstructionCost(NumOps) * getFullRateInstrCost();
     }
   }
+
+  if (I && Opcode == Instruction::SExt && Src->isIntegerTy(32) &&
+      Dst->isIntegerTy(64) && isLowHalfOfMul64(*ST, *I))
+    return TargetTransformInfo::TCC_Free;
 
   const int ISD = TLI->InstructionOpcodeToISD(Opcode);
   switch (ISD) {
