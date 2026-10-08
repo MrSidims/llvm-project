@@ -1139,3 +1139,306 @@ define void @mul_i64(i64 %a, i64 %b, i32 %x, i32 %y, i16 %h, ptr addrspace(1) %p
   store volatile i64 %mad, ptr addrspace(1) %p
   ret void
 }
+
+define i32 @dot4_u8_i32(ptr addrspace(1) %pa, ptr addrspace(1) %pb, i32 %acc) {
+; GFX8-LABEL: 'dot4_u8_i32'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a0 = load i8, ptr addrspace(1) %pa, align 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b0 = load i8, ptr addrspace(1) %pb, align 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a0z = zext i8 %a0 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b0z = zext i8 %b0 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m0 = mul i32 %a0z, %b0z
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s0 = add i32 %m0, %acc
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %pa1 = getelementptr i8, ptr addrspace(1) %pa, i64 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %pb1 = getelementptr i8, ptr addrspace(1) %pb, i64 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = load i8, ptr addrspace(1) %pa1, align 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b1 = load i8, ptr addrspace(1) %pb1, align 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1z = zext i8 %a1 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b1z = zext i8 %b1 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = mul i32 %a1z, %b1z
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s1 = add i32 %m1, %s0
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %pa2 = getelementptr i8, ptr addrspace(1) %pa, i64 2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %pb2 = getelementptr i8, ptr addrspace(1) %pb, i64 2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a2 = load i8, ptr addrspace(1) %pa2, align 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b2 = load i8, ptr addrspace(1) %pb2, align 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a2z = zext i8 %a2 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b2z = zext i8 %b2 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m2 = mul i32 %a2z, %b2z
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s2 = add i32 %m2, %s1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %pa3 = getelementptr i8, ptr addrspace(1) %pa, i64 3
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %pb3 = getelementptr i8, ptr addrspace(1) %pb, i64 3
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a3 = load i8, ptr addrspace(1) %pa3, align 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b3 = load i8, ptr addrspace(1) %pb3, align 1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a3z = zext i8 %a3 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b3z = zext i8 %b3 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = mul i32 %a3z, %b3z
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s3 = add i32 %m3, %s2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %s3
+;
+; GFX900-LABEL: 'dot4_u8_i32'
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a0 = load i8, ptr addrspace(1) %pa, align 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b0 = load i8, ptr addrspace(1) %pb, align 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a0z = zext i8 %a0 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b0z = zext i8 %b0 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m0 = mul i32 %a0z, %b0z
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s0 = add i32 %m0, %acc
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa1 = getelementptr i8, ptr addrspace(1) %pa, i64 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb1 = getelementptr i8, ptr addrspace(1) %pb, i64 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = load i8, ptr addrspace(1) %pa1, align 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b1 = load i8, ptr addrspace(1) %pb1, align 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1z = zext i8 %a1 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b1z = zext i8 %b1 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = mul i32 %a1z, %b1z
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s1 = add i32 %m1, %s0
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa2 = getelementptr i8, ptr addrspace(1) %pa, i64 2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb2 = getelementptr i8, ptr addrspace(1) %pb, i64 2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a2 = load i8, ptr addrspace(1) %pa2, align 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b2 = load i8, ptr addrspace(1) %pb2, align 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a2z = zext i8 %a2 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b2z = zext i8 %b2 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m2 = mul i32 %a2z, %b2z
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s2 = add i32 %m2, %s1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa3 = getelementptr i8, ptr addrspace(1) %pa, i64 3
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb3 = getelementptr i8, ptr addrspace(1) %pb, i64 3
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a3 = load i8, ptr addrspace(1) %pa3, align 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b3 = load i8, ptr addrspace(1) %pb3, align 1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a3z = zext i8 %a3 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b3z = zext i8 %b3 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = mul i32 %a3z, %b3z
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s3 = add i32 %m3, %s2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %s3
+;
+; GFX942-LABEL: 'dot4_u8_i32'
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a0 = load i8, ptr addrspace(1) %pa, align 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b0 = load i8, ptr addrspace(1) %pb, align 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a0z = zext i8 %a0 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b0z = zext i8 %b0 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m0 = mul i32 %a0z, %b0z
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s0 = add i32 %m0, %acc
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa1 = getelementptr i8, ptr addrspace(1) %pa, i64 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb1 = getelementptr i8, ptr addrspace(1) %pb, i64 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = load i8, ptr addrspace(1) %pa1, align 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b1 = load i8, ptr addrspace(1) %pb1, align 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1z = zext i8 %a1 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b1z = zext i8 %b1 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m1 = mul i32 %a1z, %b1z
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s1 = add i32 %m1, %s0
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa2 = getelementptr i8, ptr addrspace(1) %pa, i64 2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb2 = getelementptr i8, ptr addrspace(1) %pb, i64 2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a2 = load i8, ptr addrspace(1) %pa2, align 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b2 = load i8, ptr addrspace(1) %pb2, align 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a2z = zext i8 %a2 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b2z = zext i8 %b2 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m2 = mul i32 %a2z, %b2z
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s2 = add i32 %m2, %s1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa3 = getelementptr i8, ptr addrspace(1) %pa, i64 3
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb3 = getelementptr i8, ptr addrspace(1) %pb, i64 3
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a3 = load i8, ptr addrspace(1) %pa3, align 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b3 = load i8, ptr addrspace(1) %pb3, align 1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a3z = zext i8 %a3 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b3z = zext i8 %b3 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m3 = mul i32 %a3z, %b3z
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s3 = add i32 %m3, %s2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %s3
+;
+; GFX950-LABEL: 'dot4_u8_i32'
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a0 = load i8, ptr addrspace(1) %pa, align 1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b0 = load i8, ptr addrspace(1) %pb, align 1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a0z = zext i8 %a0 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b0z = zext i8 %b0 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m0 = mul i32 %a0z, %b0z
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s0 = add i32 %m0, %acc
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa1 = getelementptr i8, ptr addrspace(1) %pa, i64 1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb1 = getelementptr i8, ptr addrspace(1) %pb, i64 1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = load i8, ptr addrspace(1) %pa1, align 1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b1 = load i8, ptr addrspace(1) %pb1, align 1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1z = zext i8 %a1 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b1z = zext i8 %b1 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m1 = mul i32 %a1z, %b1z
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s1 = add i32 %m1, %s0
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa2 = getelementptr i8, ptr addrspace(1) %pa, i64 2
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb2 = getelementptr i8, ptr addrspace(1) %pb, i64 2
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a2 = load i8, ptr addrspace(1) %pa2, align 1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b2 = load i8, ptr addrspace(1) %pb2, align 1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a2z = zext i8 %a2 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b2z = zext i8 %b2 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m2 = mul i32 %a2z, %b2z
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s2 = add i32 %m2, %s1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa3 = getelementptr i8, ptr addrspace(1) %pa, i64 3
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb3 = getelementptr i8, ptr addrspace(1) %pb, i64 3
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a3 = load i8, ptr addrspace(1) %pa3, align 1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b3 = load i8, ptr addrspace(1) %pb3, align 1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a3z = zext i8 %a3 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b3z = zext i8 %b3 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m3 = mul i32 %a3z, %b3z
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s3 = add i32 %m3, %s2
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %s3
+;
+; GFX1030-LABEL: 'dot4_u8_i32'
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a0 = load i8, ptr addrspace(1) %pa, align 1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b0 = load i8, ptr addrspace(1) %pb, align 1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a0z = zext i8 %a0 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b0z = zext i8 %b0 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m0 = mul i32 %a0z, %b0z
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s0 = add i32 %m0, %acc
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa1 = getelementptr i8, ptr addrspace(1) %pa, i64 1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb1 = getelementptr i8, ptr addrspace(1) %pb, i64 1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = load i8, ptr addrspace(1) %pa1, align 1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b1 = load i8, ptr addrspace(1) %pb1, align 1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1z = zext i8 %a1 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b1z = zext i8 %b1 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m1 = mul i32 %a1z, %b1z
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s1 = add i32 %m1, %s0
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa2 = getelementptr i8, ptr addrspace(1) %pa, i64 2
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb2 = getelementptr i8, ptr addrspace(1) %pb, i64 2
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a2 = load i8, ptr addrspace(1) %pa2, align 1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b2 = load i8, ptr addrspace(1) %pb2, align 1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a2z = zext i8 %a2 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b2z = zext i8 %b2 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m2 = mul i32 %a2z, %b2z
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s2 = add i32 %m2, %s1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa3 = getelementptr i8, ptr addrspace(1) %pa, i64 3
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb3 = getelementptr i8, ptr addrspace(1) %pb, i64 3
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a3 = load i8, ptr addrspace(1) %pa3, align 1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b3 = load i8, ptr addrspace(1) %pb3, align 1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a3z = zext i8 %a3 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b3z = zext i8 %b3 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m3 = mul i32 %a3z, %b3z
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s3 = add i32 %m3, %s2
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %s3
+;
+; GFX1251-LABEL: 'dot4_u8_i32'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a0 = load i8, ptr addrspace(1) %pa, align 1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b0 = load i8, ptr addrspace(1) %pb, align 1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a0z = zext i8 %a0 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b0z = zext i8 %b0 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m0 = mul i32 %a0z, %b0z
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s0 = add i32 %m0, %acc
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa1 = getelementptr i8, ptr addrspace(1) %pa, i64 1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb1 = getelementptr i8, ptr addrspace(1) %pb, i64 1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a1 = load i8, ptr addrspace(1) %pa1, align 1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b1 = load i8, ptr addrspace(1) %pb1, align 1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a1z = zext i8 %a1 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b1z = zext i8 %b1 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m1 = mul i32 %a1z, %b1z
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s1 = add i32 %m1, %s0
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa2 = getelementptr i8, ptr addrspace(1) %pa, i64 2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb2 = getelementptr i8, ptr addrspace(1) %pb, i64 2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a2 = load i8, ptr addrspace(1) %pa2, align 1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b2 = load i8, ptr addrspace(1) %pb2, align 1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a2z = zext i8 %a2 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b2z = zext i8 %b2 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m2 = mul i32 %a2z, %b2z
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s2 = add i32 %m2, %s1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pa3 = getelementptr i8, ptr addrspace(1) %pa, i64 3
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %pb3 = getelementptr i8, ptr addrspace(1) %pb, i64 3
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %a3 = load i8, ptr addrspace(1) %pa3, align 1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %b3 = load i8, ptr addrspace(1) %pb3, align 1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %a3z = zext i8 %a3 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %b3z = zext i8 %b3 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m3 = mul i32 %a3z, %b3z
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %s3 = add i32 %m3, %s2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %s3
+;
+  %a0 = load i8, ptr addrspace(1) %pa
+  %b0 = load i8, ptr addrspace(1) %pb
+  %a0z = zext i8 %a0 to i32
+  %b0z = zext i8 %b0 to i32
+  %m0 = mul i32 %a0z, %b0z
+  %s0 = add i32 %m0, %acc
+  %pa1 = getelementptr i8, ptr addrspace(1) %pa, i64 1
+  %pb1 = getelementptr i8, ptr addrspace(1) %pb, i64 1
+  %a1 = load i8, ptr addrspace(1) %pa1
+  %b1 = load i8, ptr addrspace(1) %pb1
+  %a1z = zext i8 %a1 to i32
+  %b1z = zext i8 %b1 to i32
+  %m1 = mul i32 %a1z, %b1z
+  %s1 = add i32 %m1, %s0
+  %pa2 = getelementptr i8, ptr addrspace(1) %pa, i64 2
+  %pb2 = getelementptr i8, ptr addrspace(1) %pb, i64 2
+  %a2 = load i8, ptr addrspace(1) %pa2
+  %b2 = load i8, ptr addrspace(1) %pb2
+  %a2z = zext i8 %a2 to i32
+  %b2z = zext i8 %b2 to i32
+  %m2 = mul i32 %a2z, %b2z
+  %s2 = add i32 %m2, %s1
+  %pa3 = getelementptr i8, ptr addrspace(1) %pa, i64 3
+  %pb3 = getelementptr i8, ptr addrspace(1) %pb, i64 3
+  %a3 = load i8, ptr addrspace(1) %pa3
+  %b3 = load i8, ptr addrspace(1) %pb3
+  %a3z = zext i8 %a3 to i32
+  %b3z = zext i8 %b3 to i32
+  %m3 = mul i32 %a3z, %b3z
+  %s3 = add i32 %m3, %s2
+  ret i32 %s3
+}
+
+define i8 @dot4_i8_unpacked(i8 %a0, i8 %a1, i8 %a2, i8 %a3, i8 %b0, i8 %b1, i8 %b2, i8 %b3) {
+; GFX8-LABEL: 'dot4_i8_unpacked'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m0 = mul i8 %a0, %b0
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = mul i8 %a1, %b1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s0 = add i8 %m0, %m1
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m2 = mul i8 %a2, %b2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s1 = add i8 %s0, %m2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = mul i8 %a3, %b3
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s2 = add i8 %s1, %m3
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i8 %s2
+;
+; GFX900-LABEL: 'dot4_i8_unpacked'
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m0 = mul i8 %a0, %b0
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = mul i8 %a1, %b1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s0 = add i8 %m0, %m1
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m2 = mul i8 %a2, %b2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s1 = add i8 %s0, %m2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = mul i8 %a3, %b3
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s2 = add i8 %s1, %m3
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i8 %s2
+;
+; GFX942-LABEL: 'dot4_i8_unpacked'
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m0 = mul i8 %a0, %b0
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = mul i8 %a1, %b1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s0 = add i8 %m0, %m1
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m2 = mul i8 %a2, %b2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s1 = add i8 %s0, %m2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = mul i8 %a3, %b3
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s2 = add i8 %s1, %m3
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i8 %s2
+;
+; GFX950-LABEL: 'dot4_i8_unpacked'
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m0 = mul i8 %a0, %b0
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = mul i8 %a1, %b1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s0 = add i8 %m0, %m1
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m2 = mul i8 %a2, %b2
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s1 = add i8 %s0, %m2
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = mul i8 %a3, %b3
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s2 = add i8 %s1, %m3
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i8 %s2
+;
+; GFX1030-LABEL: 'dot4_i8_unpacked'
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m0 = mul i8 %a0, %b0
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = mul i8 %a1, %b1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s0 = add i8 %m0, %m1
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m2 = mul i8 %a2, %b2
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s1 = add i8 %s0, %m2
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = mul i8 %a3, %b3
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s2 = add i8 %s1, %m3
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i8 %s2
+;
+; GFX1251-LABEL: 'dot4_i8_unpacked'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m0 = mul i8 %a0, %b0
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = mul i8 %a1, %b1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s0 = add i8 %m0, %m1
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m2 = mul i8 %a2, %b2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s1 = add i8 %s0, %m2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = mul i8 %a3, %b3
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %s2 = add i8 %s1, %m3
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i8 %s2
+;
+  %m0 = mul i8 %a0, %b0
+  %m1 = mul i8 %a1, %b1
+  %s0 = add i8 %m0, %m1
+  %m2 = mul i8 %a2, %b2
+  %s1 = add i8 %s0, %m2
+  %m3 = mul i8 %a3, %b3
+  %s2 = add i8 %s1, %m3
+  ret i8 %s2
+}

@@ -873,6 +873,62 @@ static bool isFoldedIntoMul(const GCNSubtarget &ST, const Instruction &I) {
   });
 }
 
+/// \returns true if \p V is a byte that v_dot4 reads in place, a loaded byte
+/// or a byte of a wider value.
+static bool isPackedByte(const Value *V) {
+  using namespace PatternMatch;
+  const Value *Src = V;
+  match(V, m_ZExtOrSExt(m_Value(Src)));
+  return isa<LoadInst, ExtractElementInst, TruncInst>(Src) ||
+         match(Src, m_And(m_Value(), m_SpecificInt(255)));
+}
+
+/// \returns true if \p V is a one use multiply of two packed bytes.
+static bool isByteMul(const Value *V, const BasicBlock *BB) {
+  using namespace PatternMatch;
+  const Value *A, *B;
+  return isOneUseInBlock(V, BB) && match(V, m_Mul(m_Value(A), m_Value(B))) &&
+         isPackedByte(A) && isPackedByte(B) &&
+         isNarrowMul(A, B, 8, cast<Instruction>(V)->getDataLayout());
+}
+
+/// \returns true if the scalar byte multiply \p I is selected into a v_dot4
+/// along with the chain of adds it feeds.
+static bool isFoldedIntoDot4(const GCNSubtarget &ST, const Instruction &I) {
+  using namespace PatternMatch;
+  const BasicBlock *BB = I.getParent();
+  if (!ST.hasDot7Insts() || !(ST.hasDot1Insts() || ST.hasDot8Insts()) ||
+      I.getType()->isVectorTy() || I.getType()->getScalarSizeInBits() > 32 ||
+      !isByteMul(&I, BB))
+    return false;
+  const auto *U = cast<Instruction>(I.user_back());
+  if (!match(U, m_Add(m_Value(), m_Value())))
+    return false;
+  const Value *Other = U->getOperand(U->getOperand(0) == &I ? 1 : 0);
+  auto HasByteMulOperand = [&](const Value *V) {
+    return match(V, m_Add(m_Value(), m_Value())) &&
+           any_of(cast<Instruction>(V)->operands(),
+                  [&](const Value *Op) { return isByteMul(Op, BB); });
+  };
+  return isByteMul(Other, BB) || HasByteMulOperand(Other) ||
+         (isOneUseInBlock(U, BB) && HasByteMulOperand(U->user_back()));
+}
+
+/// \returns true if the scalar add \p I continues a chain of adds of byte
+/// multiplies that is selected into v_dot4 instructions.
+static bool isDot4ChainAdd(const GCNSubtarget &ST, const Instruction &I) {
+  using namespace PatternMatch;
+  const Value *A, *B;
+  if (I.getType()->isVectorTy() || !match(&I, m_Add(m_Value(A), m_Value(B))))
+    return false;
+  auto IsFoldedMul = [&](const Value *V) {
+    const auto *Mul = dyn_cast<Instruction>(V);
+    return Mul && isFoldedIntoDot4(ST, *Mul);
+  };
+  return (IsFoldedMul(A) && match(B, m_Add(m_Value(), m_Value()))) ||
+         (IsFoldedMul(B) && match(A, m_Add(m_Value(), m_Value())));
+}
+
 /// \returns true if the select \p Sel and its compare become one fminnum or
 /// fmaxnum, returned in \p IID.
 static bool isFMinMaxSelect(const Instruction *Sel, Intrinsic::ID &IID) {
@@ -983,7 +1039,9 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
   MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
 
   if (CtxI && CtxI->getOpcode() == Opcode &&
-      (isFoldedIntoIntUser(*ST, *CtxI) || isFoldedIntoMul(*ST, *CtxI)))
+      (isFoldedIntoIntUser(*ST, *CtxI) || isFoldedIntoMul(*ST, *CtxI) ||
+       (!Ty->isVectorTy() &&
+        (isFoldedIntoDot4(*ST, *CtxI) || isDot4ChainAdd(*ST, *CtxI)))))
     return TargetTransformInfo::TCC_Free;
 
   switch (ISD) {
