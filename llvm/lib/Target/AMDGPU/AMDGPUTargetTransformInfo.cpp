@@ -976,6 +976,12 @@ static bool hasPerElementUsersOnly(const Instruction &I) {
   });
 }
 
+/// \returns true if VOP2 16-bit instructions read each byte of a dword through
+/// SDWA.
+static bool hasSDWAByteLanes(const GCNSubtarget &ST) {
+  return ST.hasSDWA() && ST.hasGCN3Encoding();
+}
+
 /// \returns the cost of taking the elements of an i8 vector, or of an i16
 /// vector without packed math, out of their dwords for an operation done on
 /// each element and of packing the results back. \p CtxI tells whether the
@@ -987,7 +993,7 @@ static unsigned getSubDwordLaneCost(const GCNSubtarget &ST, int ISD, Type *Ty,
   if (!VTy || !isa_and_nonnull<BinaryOperator>(CtxI))
     return 0;
   const unsigned Bits = VTy->getScalarSizeInBits();
-  const bool HasSDWALanes = ST.hasSDWA() && ST.hasGCN3Encoding();
+  const bool HasSDWALanes = hasSDWAByteLanes(ST);
   if (Bits != 8 && (Bits != 16 || !HasSDWALanes || ST.hasVOP3PInsts()))
     return 0;
   const unsigned NElts = VTy->getNumElements();
@@ -2361,6 +2367,24 @@ GCNTTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
   }
 
   auto *VTy = dyn_cast<FixedVectorType>(Ty);
+  if (VTy && isPowerOf2_32(VTy->getNumElements()) &&
+      VTy->getElementType()->isIntegerTy(8)) {
+    const unsigned NElts = VTy->getNumElements();
+    switch (Opcode) {
+    case Instruction::Add:
+    case Instruction::Mul:
+      return getFullRateInstrCost() *
+             (NElts - 1 + (hasSDWAByteLanes(*ST) ? 0 : NElts / 2));
+    case Instruction::And:
+    case Instruction::Or:
+    case Instruction::Xor:
+      return getFullRateInstrCost() *
+             (divideCeil(NElts, 4) - 1 +
+              (ST->hasSDWA() ? 1 : 2) * Log2_32(std::min(NElts, 4u)));
+    default:
+      break;
+    }
+  }
   if (!VTy || !isPowerOf2_32(VTy->getNumElements()) ||
       VTy->getElementType()->isIntegerTy(1) ||
       VTy->getElementType()->isIntegerTy(8))
@@ -2395,6 +2419,15 @@ GCNTTIImpl::getMinMaxReductionCost(Intrinsic::ID IID, VectorType *Ty,
                                    FastMathFlags FMF,
                                    TTI::TargetCostKind CostKind) const {
   auto *VTy = dyn_cast<FixedVectorType>(Ty);
+  const bool IsSigned = IID == Intrinsic::smin || IID == Intrinsic::smax;
+  if (VTy && isPowerOf2_32(VTy->getNumElements()) &&
+      VTy->getElementType()->isIntegerTy(8) &&
+      (IsSigned || IID == Intrinsic::umin || IID == Intrinsic::umax)) {
+    const unsigned NElts = VTy->getNumElements();
+    return getFullRateInstrCost() *
+           (NElts - 1 + (IsSigned ? NElts : NElts / 2) +
+            (hasSDWAByteLanes(*ST) ? 0 : NElts / 2));
+  }
   if (!VTy || !isPowerOf2_32(VTy->getNumElements()) ||
       VTy->getElementType()->isIntegerTy(1) ||
       VTy->getElementType()->isIntegerTy(8))
