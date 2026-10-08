@@ -893,6 +893,17 @@ static bool isFMinMaxSelect(const Instruction *Sel, Intrinsic::ID &IID) {
   return true;
 }
 
+/// \returns true if the numerator of the division is one. Without \p Args
+/// a uniform constant numerator is read from \p CtxI.
+static bool isOneOverX(unsigned Opcode, TTI::OperandValueInfo Op1Info,
+                       ArrayRef<const Value *> Args, const Instruction *CtxI) {
+  const Value *Numerator = Args.empty() ? nullptr : Args[0];
+  if (!Numerator && CtxI && CtxI->getOpcode() == Opcode &&
+      Op1Info.isUniform() && Op1Info.isConstant())
+    Numerator = CtxI->getOperand(0);
+  return Numerator && match(Numerator, PatternMatch::m_FPOne());
+}
+
 static unsigned getNumIRElts(Type *Ty) {
   auto *VTy = dyn_cast<FixedVectorType>(Ty);
   return VTy ? VTy->getNumElements() : 1;
@@ -1119,7 +1130,7 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     if (Ty->getScalarType()->isBFloatTy()) {
       unsigned NumElts = getNumIRElts(Ty);
       if (ISD == ISD::FDIV && ST->hasBF16TransInsts()) {
-        if (!Args.empty() && match(Args[0], PatternMatch::m_FPOne()))
+        if (isOneOverX(Opcode, Op1Info, Args, CtxI))
           return NumElts * getTransInstrCost(CostKind);
         if (CtxI && (CtxI->hasApproxFunc() || CtxI->hasAllowReciprocal()))
           return NumElts *
@@ -1142,11 +1153,19 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       return LT.first * Cost * NElts;
     }
 
-    if (!Args.empty() && match(Args[0], PatternMatch::m_FPOne())) {
-      // TODO: This is more complicated, unsafe flags etc.
-      if ((SLT == MVT::f32 && !HasFP32Denormals) ||
-          (SLT == MVT::f16 && ST->has16BitInsts())) {
+    if (ISD == ISD::FDIV && isOneOverX(Opcode, Op1Info, Args, CtxI)) {
+      if (SLT == MVT::f16 && ST->has16BitInsts())
         return LT.first * getTransInstrCost(CostKind) * NElts;
+      if (SLT == MVT::f32 && CtxI) {
+        if (CtxI->hasApproxFunc())
+          return LT.first * getTransInstrCost(CostKind) * NElts;
+        const auto *FPOp = dyn_cast<FPMathOperator>(CtxI);
+        if (FPOp && FPOp->getFPAccuracy() >= 1.0f) {
+          int Cost = getTransInstrCost(CostKind);
+          if (HasFP32Denormals)
+            Cost += 4 * getFullRateInstrCost();
+          return LT.first * Cost * NElts;
+        }
       }
     }
 

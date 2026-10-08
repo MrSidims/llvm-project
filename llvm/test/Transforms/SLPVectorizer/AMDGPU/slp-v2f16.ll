@@ -116,6 +116,33 @@ bb:
   ret void
 }
 
+define void @rcp_combine_v2f16(ptr addrspace(1) %arg) {
+; GCN-LABEL: define void @rcp_combine_v2f16(
+; GCN-SAME: ptr addrspace(1) [[ARG:%.*]]) {
+; GCN-NEXT:  [[BB:.*:]]
+; GCN-NEXT:    [[TMP:%.*]] = tail call i32 @llvm.amdgcn.workitem.id.x()
+; GCN-NEXT:    [[ITMP1:%.*]] = zext i32 [[TMP]] to i64
+; GCN-NEXT:    [[ITMP2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[ARG]], i64 [[ITMP1]]
+; GCN-NEXT:    [[TMP0:%.*]] = load <2 x half>, ptr addrspace(1) [[ITMP2]], align 2
+; GCN-NEXT:    [[TMP1:%.*]] = fdiv <2 x half> splat (half 1.000000e+00), [[TMP0]]
+; GCN-NEXT:    store <2 x half> [[TMP1]], ptr addrspace(1) [[ITMP2]], align 2
+; GCN-NEXT:    ret void
+;
+bb:
+  %tmp = tail call i32 @llvm.amdgcn.workitem.id.x()
+  %tmp1 = zext i32 %tmp to i64
+  %tmp2 = getelementptr inbounds half, ptr addrspace(1) %arg, i64 %tmp1
+  %tmp3 = load half, ptr addrspace(1) %tmp2, align 2
+  %tmp4 = fdiv half 1.000000e+00, %tmp3
+  store half %tmp4, ptr addrspace(1) %tmp2, align 2
+  %tmp5 = add nuw nsw i64 %tmp1, 1
+  %tmp6 = getelementptr inbounds half, ptr addrspace(1) %arg, i64 %tmp5
+  %tmp7 = load half, ptr addrspace(1) %tmp6, align 2
+  %tmp8 = fdiv half 1.000000e+00, %tmp7
+  store half %tmp8, ptr addrspace(1) %tmp6, align 2
+  ret void
+}
+
 define void @frem_combine_v2f16(ptr addrspace(1) %arg) {
 ; GCN-LABEL: define void @frem_combine_v2f16(
 ; GCN-SAME: ptr addrspace(1) [[ARG:%.*]]) {
