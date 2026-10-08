@@ -138,6 +138,16 @@ public:
   }
 
   unsigned getNumberOfRegisters(unsigned RCID) const override;
+  InstructionCost
+  getRegisterClassSpillCost(unsigned ClassID,
+                            TTI::TargetCostKind CostKind) const override {
+    return TTI::TCC_Free;
+  }
+  InstructionCost
+  getRegisterClassReloadCost(unsigned ClassID,
+                             TTI::TargetCostKind CostKind) const override {
+    return TTI::TCC_Free;
+  }
   TypeSize
   getRegisterBitWidth(TargetTransformInfo::RegisterKind Vector) const override;
   unsigned getMinVectorRegisterBitWidth() const override;
