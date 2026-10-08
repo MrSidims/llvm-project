@@ -1503,6 +1503,66 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     return InstructionCost(Ops) * getFullRateInstrCost();
   }
 
+  if (Opcode == Instruction::FPExt || Opcode == Instruction::FPTrunc) {
+    const bool IsExt = Opcode == Instruction::FPExt;
+    Type *WideTy = (IsExt ? Dst : Src)->getScalarType();
+    Type *NarrowTy = (IsExt ? Src : Dst)->getScalarType();
+    const unsigned NElts = getNumIRElts(Src);
+    const InstructionCost FP64Cost = NElts * get64BitInstrCost(CostKind);
+    if (WideTy->isDoubleTy() && NarrowTy->isFloatTy())
+      return FP64Cost;
+    if (WideTy->isDoubleTy() && NarrowTy->isHalfTy()) {
+      if (IsExt)
+        return FP64Cost + NElts * getFullRateInstrCost();
+      // Unless approximate, rounding twice is avoided by an integer expansion.
+      if (ST->has16BitInsts() && I && isa<FPMathOperator>(I) &&
+          I->hasApproxFunc())
+        return FP64Cost + getCastInstrCost(Opcode, Dst,
+                                           Dst->getWithNewType(Type::getFloatTy(
+                                               Dst->getContext())),
+                                           CCH, CostKind);
+      return InstructionCost(NElts) * (ST->hasVOP3Literal() ? 35 : 38) *
+             getFullRateInstrCost();
+    }
+    if (!IsExt && WideTy->isFloatTy() && NarrowTy->isBFloatTy())
+      return getBF16RoundCost(NElts);
+  }
+
+  // Integer lanes narrower than 32 bits are packed in registers.
+  if (Src->isIntOrIntVectorTy() &&
+      (Opcode == Instruction::Trunc || Opcode == Instruction::ZExt ||
+       Opcode == Instruction::SExt)) {
+    const unsigned SrcBits = Src->getScalarSizeInBits();
+    const unsigned DstBits = Dst->getScalarSizeInBits();
+    const unsigned NarrowBits = std::min(SrcBits, DstBits);
+    const unsigned WideBits = std::max(SrcBits, DstBits);
+    const unsigned NElts = getNumIRElts(Src);
+    if ((NarrowBits == 8 || NarrowBits == 16) && isPowerOf2_32(WideBits) &&
+        WideBits <= 64) {
+      if (Opcode == Instruction::Trunc)
+        return getIntTruncCost(NElts, SrcBits, DstBits);
+      const bool IsSigned = Opcode == Instruction::SExt;
+      if (NElts == 1) {
+        if (IsSigned && DstBits == 64 &&
+            !(I && isa<LoadInst>(I->getOperand(0))))
+          return 2 * getFullRateInstrCost();
+        return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
+      }
+      // Bytes are repacked as 16 bit pairs, and real true16 writes either half
+      // of a pair in place. A wider lane is selected out of its register, which
+      // SDWA folds into an unsigned user. A sign extended i64 lane also needs
+      // its high half.
+      unsigned NumOps;
+      if (DstBits == 16)
+        NumOps = IsSigned ? 2 * NElts
+                          : NElts + NElts / (ST->useRealTrue16Insts() ? 4 : 2);
+      else
+        NumOps = (IsSigned || !ST->hasSDWA() ? NElts : 0) +
+                 (IsSigned && DstBits == 64 ? NElts : 0);
+      return InstructionCost(NumOps) * getFullRateInstrCost();
+    }
+  }
+
   const int ISD = TLI->InstructionOpcodeToISD(Opcode);
   switch (ISD) {
   case ISD::SINT_TO_FP:
@@ -1677,6 +1737,17 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       return FPTy->isHalfTy() ? FloatCost + Scale(1) : FloatCost;
     }
 
+    if (SrcBits == 32) {
+      if (FPTy->isDoubleTy())
+        return Scale(0, 1);
+      if (FPTy->isHalfTy())
+        return Scale(1) + getCastInstrCost(Instruction::FPTrunc, Dst,
+                                           Dst->getWithNewType(Type::getFloatTy(
+                                               Dst->getContext())),
+                                           CCH, CostKind);
+      return Scale(1);
+    }
+
     return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
   }
 
@@ -1701,6 +1772,25 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       return Scale(1 + (IsSigned64 ? 13 : 6)) + SlowFMACost;
     }
     return Scale(3);
+  }
+
+  // Each lane is converted to i32 and then packed. A bf16 lane, and a half
+  // lane without a direct conversion, is extended to f32 first.
+  if (DstBits == 8 || DstBits == 16 || DstBits == 32) {
+    if (FPTy->isHalfTy() && DstBits < 32 && ST->has16BitInsts()) {
+      if (DstBits == 8)
+        return Scale(1) + getIntTruncCost(NElts, 32, DstBits);
+      return Scale(1) +
+             InstructionCost(ST->useRealTrue16Insts() ? 0 : NElts / 2) *
+                 getFullRateInstrCost();
+    }
+    const InstructionCost ExtCost =
+        FPTy->isHalfTy() || FPTy->isBFloatTy() ? Scale(1) : 0;
+    if (DstBits == 16 && !FPTy->isDoubleTy() && ST->hasVCvtPkIU16F32())
+      return ExtCost +
+             InstructionCost(divideCeil(NElts, 2)) * getFullRateInstrCost();
+    return ExtCost + (FPTy->isDoubleTy() ? Scale(0, 1) : Scale(1)) +
+           getIntTruncCost(NElts, 32, DstBits);
   }
 
   return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
@@ -2541,6 +2631,20 @@ InstructionCost GCNTTIImpl::getBF16RoundCost(unsigned NumElts) const {
                           : !ST->has16BitInsts()       ? NumElts
                           : ST->hasGFX9Insts()         ? 6 * NumElts
                                                        : 7 * NumElts;
+  return InstructionCost(NumOps) * getFullRateInstrCost();
+}
+
+InstructionCost GCNTTIImpl::getIntTruncCost(unsigned NumElts, unsigned SrcBits,
+                                            unsigned DstBits) const {
+  if (NumElts == 1 || DstBits >= 32)
+    return 0;
+  // A pair of 16 bit lanes packs with one instruction. Bytes taken from 32 bit
+  // lanes are shifted into place one at a time.
+  const unsigned SrcRegs = divideCeil(NumElts * std::min(SrcBits, 32u), 32);
+  const unsigned DstRegs = divideCeil(NumElts * DstBits, 32);
+  const unsigned NumOps = DstBits == 8 && SrcBits >= 32
+                              ? NumElts
+                              : std::max(SrcRegs - DstRegs, DstRegs);
   return InstructionCost(NumOps) * getFullRateInstrCost();
 }
 

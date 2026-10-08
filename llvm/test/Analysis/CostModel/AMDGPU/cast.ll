@@ -56,47 +56,47 @@ define i32 @zext_sext(<8 x i1> %in) {
 ; NOSDWA-LABEL: 'zext_sext'
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %Z = zext <8 x i1> %in to <8 x i32>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %S = sext <8 x i1> %in to <8 x i32>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A = sext <8 x i16> poison to <8 x i32>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %B = zext <8 x i16> poison to <8 x i32>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %B = zext <8 x i16> poison to <8 x i32>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C = sext <4 x i32> poison to <4 x i64>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v8i8.z = zext <8 x i8> poison to <8 x i32>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v8i8.z = zext <8 x i8> poison to <8 x i32>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v8i8.s = sext <8 x i8> poison to <8 x i32>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i16.z = zext <4 x i16> poison to <4 x i64>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i8.z = zext <4 x i8> poison to <4 x i64>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i16.z = zext <4 x i16> poison to <4 x i64>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i8.z = zext <4 x i8> poison to <4 x i64>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D = zext <4 x i32> poison to <4 x i64>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D1 = zext <8 x i32> poison to <8 x i64>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = sext <8 x i32> poison to <8 x i64>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D3 = zext <16 x i16> poison to <16 x i32>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D4 = zext <16 x i8> poison to <16 x i32>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D3 = zext <16 x i16> poison to <16 x i32>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D4 = zext <16 x i8> poison to <16 x i32>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D5 = zext <16 x i1> poison to <16 x i32>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %E = trunc <4 x i64> poison to <4 x i32>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G = trunc <8 x i64> poison to <8 x i32>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 poison
 ;
 ; FAST-LABEL: 'zext_sext'
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %Z = zext <8 x i1> %in to <8 x i32>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %S = sext <8 x i1> %in to <8 x i32>
-; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
-; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
+; FAST-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
+; FAST-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A = sext <8 x i16> poison to <8 x i32>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %B = zext <8 x i16> poison to <8 x i32>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C = sext <4 x i32> poison to <4 x i64>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v8i8.z = zext <8 x i8> poison to <8 x i32>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v8i8.s = sext <8 x i8> poison to <8 x i32>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i16.z = zext <4 x i16> poison to <4 x i64>
-; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
+; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i8.z = zext <4 x i8> poison to <4 x i64>
-; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
+; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D = zext <4 x i32> poison to <4 x i64>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D1 = zext <8 x i32> poison to <8 x i64>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = sext <8 x i32> poison to <8 x i64>
@@ -104,29 +104,29 @@ define i32 @zext_sext(<8 x i1> %in) {
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D4 = zext <16 x i8> poison to <16 x i32>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D5 = zext <16 x i1> poison to <16 x i32>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %E = trunc <4 x i64> poison to <4 x i32>
-; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
-; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
-; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
-; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
+; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
+; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
+; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
+; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G = trunc <8 x i64> poison to <8 x i32>
-; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
-; FAST-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
+; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
+; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 poison
 ;
 ; SLOW-LABEL: 'zext_sext'
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %Z = zext <8 x i1> %in to <8 x i32>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %S = sext <8 x i1> %in to <8 x i32>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A = sext <8 x i16> poison to <8 x i32>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %B = zext <8 x i16> poison to <8 x i32>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C = sext <4 x i32> poison to <4 x i64>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v8i8.z = zext <8 x i8> poison to <8 x i32>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v8i8.s = sext <8 x i8> poison to <8 x i32>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i16.z = zext <4 x i16> poison to <4 x i64>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i8.z = zext <4 x i8> poison to <4 x i64>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i16.z = zext <4 x i16> poison to <4 x i64>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i8.z = zext <4 x i8> poison to <4 x i64>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D = zext <4 x i32> poison to <4 x i64>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D1 = zext <8 x i32> poison to <8 x i64>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = sext <8 x i32> poison to <8 x i64>
@@ -134,59 +134,59 @@ define i32 @zext_sext(<8 x i1> %in) {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D4 = zext <16 x i8> poison to <16 x i32>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D5 = zext <16 x i1> poison to <16 x i32>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %E = trunc <4 x i64> poison to <4 x i32>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G = trunc <8 x i64> poison to <8 x i32>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 poison
 ;
 ; NOSDWA-SIZE-LABEL: 'zext_sext'
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %Z = zext <8 x i1> %in to <8 x i32>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %S = sext <8 x i1> %in to <8 x i32>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A = sext <8 x i16> poison to <8 x i32>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %B = zext <8 x i16> poison to <8 x i32>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %B = zext <8 x i16> poison to <8 x i32>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C = sext <4 x i32> poison to <4 x i64>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v8i8.z = zext <8 x i8> poison to <8 x i32>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v8i8.z = zext <8 x i8> poison to <8 x i32>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v8i8.s = sext <8 x i8> poison to <8 x i32>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i16.z = zext <4 x i16> poison to <4 x i64>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i8.z = zext <4 x i8> poison to <4 x i64>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i16.z = zext <4 x i16> poison to <4 x i64>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i8.z = zext <4 x i8> poison to <4 x i64>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D = zext <4 x i32> poison to <4 x i64>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D1 = zext <8 x i32> poison to <8 x i64>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = sext <8 x i32> poison to <8 x i64>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D3 = zext <16 x i16> poison to <16 x i32>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D4 = zext <16 x i8> poison to <16 x i32>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D3 = zext <16 x i16> poison to <16 x i32>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D4 = zext <16 x i8> poison to <16 x i32>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D5 = zext <16 x i1> poison to <16 x i32>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %E = trunc <4 x i64> poison to <4 x i32>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G = trunc <8 x i64> poison to <8 x i32>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 poison
 ;
 ; FAST-SIZE-LABEL: 'zext_sext'
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %Z = zext <8 x i1> %in to <8 x i32>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %S = sext <8 x i1> %in to <8 x i32>
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A = sext <8 x i16> poison to <8 x i32>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %B = zext <8 x i16> poison to <8 x i32>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C = sext <4 x i32> poison to <4 x i64>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v8i8.z = zext <8 x i8> poison to <8 x i32>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v8i8.s = sext <8 x i8> poison to <8 x i32>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i16.z = zext <4 x i16> poison to <4 x i64>
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i8.z = zext <4 x i8> poison to <4 x i64>
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D = zext <4 x i32> poison to <4 x i64>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D1 = zext <8 x i32> poison to <8 x i64>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = sext <8 x i32> poison to <8 x i64>
@@ -194,29 +194,29 @@ define i32 @zext_sext(<8 x i1> %in) {
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D4 = zext <16 x i8> poison to <16 x i32>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D5 = zext <16 x i1> poison to <16 x i32>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %E = trunc <4 x i64> poison to <4 x i32>
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G = trunc <8 x i64> poison to <8 x i32>
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 poison
 ;
 ; SLOW-SIZE-LABEL: 'zext_sext'
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %Z = zext <8 x i1> %in to <8 x i32>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %S = sext <8 x i1> %in to <8 x i32>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %A1 = zext <16 x i8> poison to <16 x i16>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %A2 = sext <16 x i8> poison to <16 x i16>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A = sext <8 x i16> poison to <8 x i32>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %B = zext <8 x i16> poison to <8 x i32>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C = sext <4 x i32> poison to <4 x i64>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v8i8.z = zext <8 x i8> poison to <8 x i32>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v8i8.s = sext <8 x i8> poison to <8 x i32>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i16.z = zext <4 x i16> poison to <4 x i64>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %C.v4i8.z = zext <4 x i8> poison to <4 x i64>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i16.z = zext <4 x i16> poison to <4 x i64>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i16.s = sext <4 x i16> poison to <4 x i64>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C.v4i8.z = zext <4 x i8> poison to <4 x i64>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C.v4i8.s = sext <4 x i8> poison to <4 x i64>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D = zext <4 x i32> poison to <4 x i64>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %D1 = zext <8 x i32> poison to <8 x i64>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = sext <8 x i32> poison to <8 x i64>
@@ -224,13 +224,13 @@ define i32 @zext_sext(<8 x i1> %in) {
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D4 = zext <16 x i8> poison to <16 x i32>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D5 = zext <16 x i1> poison to <16 x i32>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %E = trunc <4 x i64> poison to <4 x i32>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F = trunc <8 x i32> poison to <8 x i16>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F1 = trunc <16 x i16> poison to <16 x i8>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %F2 = trunc <8 x i32> poison to <8 x i8>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F3 = trunc <4 x i64> poison to <4 x i8>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G = trunc <8 x i64> poison to <8 x i32>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %G1 = trunc <16 x i32> poison to <16 x i16>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %G2 = trunc <16 x i32> poison to <16 x i8>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 poison
 ;
   %Z = zext <8 x i1> %in to <8 x i32>
@@ -312,8 +312,8 @@ define void @sitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %B2 = sitofp <4 x i8> %b to <4 x double>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C1 = sitofp <4 x i16> %c to <4 x float>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %C2 = sitofp <4 x i16> %c to <4 x double>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FAST-QUARTER64-LABEL: 'sitofp4'
@@ -323,8 +323,8 @@ define void @sitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %B2 = sitofp <4 x i8> %b to <4 x double>
 ; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C1 = sitofp <4 x i16> %c to <4 x float>
 ; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %C2 = sitofp <4 x i16> %c to <4 x double>
-; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
-; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
+; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
+; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
 ; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FULL64-LABEL: 'sitofp4'
@@ -334,7 +334,7 @@ define void @sitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; FULL64-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %B2 = sitofp <4 x i8> %b to <4 x double>
 ; FULL64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C1 = sitofp <4 x i16> %c to <4 x float>
 ; FULL64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C2 = sitofp <4 x i16> %c to <4 x double>
-; FULL64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
+; FULL64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
 ; FULL64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
 ; FULL64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
@@ -345,8 +345,8 @@ define void @sitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %B2 = sitofp <4 x i8> %b to <4 x double>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C1 = sitofp <4 x i16> %c to <4 x float>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %C2 = sitofp <4 x i16> %c to <4 x double>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; NOSDWA-SIZE-LABEL: 'sitofp4'
@@ -356,8 +356,8 @@ define void @sitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %B2 = sitofp <4 x i8> %b to <4 x double>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C1 = sitofp <4 x i16> %c to <4 x float>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %C2 = sitofp <4 x i16> %c to <4 x double>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FAST-QUARTER64-SIZE-LABEL: 'sitofp4'
@@ -367,8 +367,8 @@ define void @sitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %B2 = sitofp <4 x i8> %b to <4 x double>
 ; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C1 = sitofp <4 x i16> %c to <4 x float>
 ; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %C2 = sitofp <4 x i16> %c to <4 x double>
-; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
-; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
+; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
+; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
 ; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FULL64-SIZE-LABEL: 'sitofp4'
@@ -378,7 +378,7 @@ define void @sitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %B2 = sitofp <4 x i8> %b to <4 x double>
 ; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C1 = sitofp <4 x i16> %c to <4 x float>
 ; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C2 = sitofp <4 x i16> %c to <4 x double>
-; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
+; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
 ; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
 ; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
@@ -389,8 +389,8 @@ define void @sitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %B2 = sitofp <4 x i8> %b to <4 x double>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C1 = sitofp <4 x i16> %c to <4 x float>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %C2 = sitofp <4 x i16> %c to <4 x double>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = sitofp <4 x i32> %d to <4 x float>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = sitofp <4 x i32> %d to <4 x double>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %A1 = sitofp <4 x i1> %a to <4 x float>
@@ -462,8 +462,8 @@ define void @uitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %B2 = uitofp <4 x i8> %b to <4 x double>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C1 = uitofp <4 x i16> %c to <4 x float>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %C2 = uitofp <4 x i16> %c to <4 x double>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
-; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
+; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
 ; NOSDWA-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FAST-QUARTER64-LABEL: 'uitofp4'
@@ -473,8 +473,8 @@ define void @uitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %B2 = uitofp <4 x i8> %b to <4 x double>
 ; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C1 = uitofp <4 x i16> %c to <4 x float>
 ; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %C2 = uitofp <4 x i16> %c to <4 x double>
-; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
-; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
+; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
+; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
 ; FAST-QUARTER64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FULL64-LABEL: 'uitofp4'
@@ -484,7 +484,7 @@ define void @uitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; FULL64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %B2 = uitofp <4 x i8> %b to <4 x double>
 ; FULL64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C1 = uitofp <4 x i16> %c to <4 x float>
 ; FULL64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C2 = uitofp <4 x i16> %c to <4 x double>
-; FULL64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
+; FULL64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
 ; FULL64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
 ; FULL64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
@@ -495,8 +495,8 @@ define void @uitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %B2 = uitofp <4 x i8> %b to <4 x double>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C1 = uitofp <4 x i16> %c to <4 x float>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %C2 = uitofp <4 x i16> %c to <4 x double>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; NOSDWA-SIZE-LABEL: 'uitofp4'
@@ -506,8 +506,8 @@ define void @uitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %B2 = uitofp <4 x i8> %b to <4 x double>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C1 = uitofp <4 x i16> %c to <4 x float>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %C2 = uitofp <4 x i16> %c to <4 x double>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
-; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
+; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
 ; NOSDWA-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FAST-QUARTER64-SIZE-LABEL: 'uitofp4'
@@ -517,8 +517,8 @@ define void @uitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %B2 = uitofp <4 x i8> %b to <4 x double>
 ; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C1 = uitofp <4 x i16> %c to <4 x float>
 ; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %C2 = uitofp <4 x i16> %c to <4 x double>
-; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
-; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
+; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
+; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
 ; FAST-QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FULL64-SIZE-LABEL: 'uitofp4'
@@ -528,7 +528,7 @@ define void @uitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %B2 = uitofp <4 x i8> %b to <4 x double>
 ; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %C1 = uitofp <4 x i16> %c to <4 x float>
 ; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C2 = uitofp <4 x i16> %c to <4 x double>
-; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
+; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
 ; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
 ; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
@@ -539,8 +539,8 @@ define void @uitofp4(<4 x i1> %a, <4 x i8> %b, <4 x i16> %c, <4 x i32> %d) {
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %B2 = uitofp <4 x i8> %b to <4 x double>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %C1 = uitofp <4 x i16> %c to <4 x float>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %C2 = uitofp <4 x i16> %c to <4 x double>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %D1 = uitofp <4 x i32> %d to <4 x float>
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %D2 = uitofp <4 x i32> %d to <4 x double>
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %A1 = uitofp <4 x i1> %a to <4 x float>
@@ -769,19 +769,33 @@ define void @uitofp_i64(i64 %a, <4 x i64> %b) {
 }
 
 define void @fp_conv(<8 x float> %a, <16 x float>%b, <4 x float> %c) {
-; ALL-LABEL: 'fp_conv'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %A1 = fpext <4 x float> %c to <4 x double>
-; ALL-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A2 = fpext <8 x float> %a to <8 x double>
-; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %A3 = fptrunc <4 x double> poison to <4 x float>
-; ALL-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A4 = fptrunc <8 x double> poison to <8 x float>
-; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; QUARTER64-LABEL: 'fp_conv'
+; QUARTER64-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A1 = fpext <4 x float> %c to <4 x double>
+; QUARTER64-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %A2 = fpext <8 x float> %a to <8 x double>
+; QUARTER64-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A3 = fptrunc <4 x double> poison to <4 x float>
+; QUARTER64-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %A4 = fptrunc <8 x double> poison to <8 x float>
+; QUARTER64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
-; ALL-SIZE-LABEL: 'fp_conv'
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %A1 = fpext <4 x float> %c to <4 x double>
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A2 = fpext <8 x float> %a to <8 x double>
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %A3 = fptrunc <4 x double> poison to <4 x float>
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A4 = fptrunc <8 x double> poison to <8 x float>
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+; FULL64-LABEL: 'fp_conv'
+; FULL64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %A1 = fpext <4 x float> %c to <4 x double>
+; FULL64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A2 = fpext <8 x float> %a to <8 x double>
+; FULL64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %A3 = fptrunc <4 x double> poison to <4 x float>
+; FULL64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A4 = fptrunc <8 x double> poison to <8 x float>
+; FULL64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; QUARTER64-SIZE-LABEL: 'fp_conv'
+; QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A1 = fpext <4 x float> %c to <4 x double>
+; QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A2 = fpext <8 x float> %a to <8 x double>
+; QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A3 = fptrunc <4 x double> poison to <4 x float>
+; QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %A4 = fptrunc <8 x double> poison to <8 x float>
+; QUARTER64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; FULL64-SIZE-LABEL: 'fp_conv'
+; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %A1 = fpext <4 x float> %c to <4 x double>
+; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A2 = fpext <8 x float> %a to <8 x double>
+; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %A3 = fptrunc <4 x double> poison to <4 x float>
+; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %A4 = fptrunc <8 x double> poison to <8 x float>
+; FULL64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %A1 = fpext <4 x float> %c to <4 x double>
   %A2 = fpext <8 x float> %a to <8 x double>

@@ -103,6 +103,10 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
   // Cost of rounding f32 lanes to bf16.
   InstructionCost getBF16RoundCost(unsigned NumElts) const;
 
+  // Cost of packing vector lanes into narrower integer lanes.
+  InstructionCost getIntTruncCost(unsigned NumElts, unsigned SrcBits,
+                                  unsigned DstBits) const;
+
   // Cost of a bf16 operation computed in f32 with extended sources and a
   // rounded result.
   InstructionCost getBF16EmulationCost(unsigned NumElts, unsigned NumSrcs,

@@ -73,38 +73,38 @@ define void @fptrunc_f32_to_f16(float %s, <2 x float> %v2, <3 x float> %v3, <4 x
 define void @fptrunc_other(<4 x float> %v4, <4 x double> %d4) {
 ; NO16BIT-LABEL: 'fptrunc_other'
 ; NO16BIT-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
-; NO16BIT-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
-; NO16BIT-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
+; NO16BIT-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
+; NO16BIT-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
 ; NO16BIT-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX9-LABEL: 'fptrunc_other'
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX11-FAKE16-LABEL: 'fptrunc_other'
-; GFX11-FAKE16-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
-; GFX11-FAKE16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
-; GFX11-FAKE16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
+; GFX11-FAKE16-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
+; GFX11-FAKE16-NEXT:  Cost Model: Found an estimated cost of 140 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
+; GFX11-FAKE16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
 ; GFX11-FAKE16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX11-TRUE16-LABEL: 'fptrunc_other'
-; GFX11-TRUE16-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
-; GFX11-TRUE16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
-; GFX11-TRUE16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
+; GFX11-TRUE16-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
+; GFX11-TRUE16-NEXT:  Cost Model: Found an estimated cost of 140 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
+; GFX11-TRUE16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
 ; GFX11-TRUE16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX950-LABEL: 'fptrunc_other'
-; GFX950-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
-; GFX950-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
 ; GFX950-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
 ; GFX950-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1250-LABEL: 'fptrunc_other'
-; GFX1250-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
-; GFX1250-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
-; GFX1250-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
+; GFX1250-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
+; GFX1250-NEXT:  Cost Model: Found an estimated cost of 140 for instruction: %h4 = fptrunc <4 x double> %d4 to <4 x half>
+; GFX1250-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %f4 = fptrunc <4 x double> %d4 to <4 x float>
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
   %bf4 = fptrunc <4 x float> %v4 to <4 x bfloat>
