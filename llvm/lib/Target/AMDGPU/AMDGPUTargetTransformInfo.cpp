@@ -608,6 +608,49 @@ static bool isFusedFMul(const SITargetLowering &TLI, Type *Ty,
          canFuseFMulWithFAddSub(TLI, Ty, FMul, Outer);
 }
 
+/// With aggressive fusion every fadd or fsub user of \p FMul gets its own copy
+/// of the multiply. A negation in between becomes a source modifier.
+static bool isFMulFusedIntoAllUsers(const SITargetLowering &TLI, Type *Ty,
+                                    const Instruction *FMul,
+                                    const Instruction *I) {
+  using namespace PatternMatch;
+  return !I->use_empty() && all_of(I->users(), [&](const User *U) {
+    const auto *UI = cast<Instruction>(U);
+    if (UI->getParent() != FMul->getParent())
+      return false;
+    if (match(UI, m_FNeg(m_Value())))
+      return isFMulFusedIntoAllUsers(TLI, Ty, FMul, UI);
+    if (UI->getOpcode() != Instruction::FAdd &&
+        UI->getOpcode() != Instruction::FSub)
+      return false;
+    const Value *Other = UI->getOperand(UI->getOperand(0) == I ? 1 : 0);
+    return !match(Other, m_FMul(m_Value(), m_Value())) &&
+           canFuseFMulWithFAddSub(TLI, Ty, FMul, UI);
+  });
+}
+
+/// \returns true if \p V is an fadd, fsub, fmul or fma in \p BB. These carry
+/// a clamp bit and have v_fma_mix forms.
+static bool isFoldableFPOp(const Value *V, const BasicBlock *BB) {
+  using namespace PatternMatch;
+  const auto *I = dyn_cast<Instruction>(V);
+  return I && I->getParent() == BB &&
+         (match(I, m_FAdd(m_Value(), m_Value())) ||
+          match(I, m_FSub(m_Value(), m_Value())) ||
+          match(I, m_FMul(m_Value(), m_Value())) ||
+          match(I, m_Intrinsic<Intrinsic::fma>()) ||
+          match(I, m_Intrinsic<Intrinsic::fmuladd>()));
+}
+
+/// \returns true if \p V clamps \p X to [0, 1] with a minnum and a maxnum.
+static bool isClampOf(const Value *V, Value *&X) {
+  using namespace PatternMatch;
+  return match(V, m_FMinNum(m_OneUse(m_FMaxNum(m_Value(X), m_PosZeroFP())),
+                            m_FPOne())) ||
+         match(V, m_FMaxNum(m_OneUse(m_FMinNum(m_Value(X), m_FPOne())),
+                            m_PosZeroFP()));
+}
+
 static unsigned getNumIRElts(Type *Ty) {
   auto *VTy = dyn_cast<FixedVectorType>(Ty);
   return VTy ? VTy->getNumElements() : 1;
@@ -756,14 +799,17 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     // fmul(b,c) supposing the fadd|fsub will get estimated cost for the whole
     // fused operation. A vector fmul priced with a scalar context fuses with
     // the scalar fadd|fsub only when it is emitted lane by lane.
-    if (CtxI && CtxI->hasOneUse() &&
-        (CtxI->getType() == Ty ||
-         getMaximumVF(Ty->getScalarSizeInBits(), Opcode) == 1)) {
-      const auto *FAddSub = dyn_cast<BinaryOperator>(*CtxI->user_begin());
-      if (FAddSub &&
-          (FAddSub->getOpcode() == Instruction::FAdd ||
-           FAddSub->getOpcode() == Instruction::FSub) &&
-          isFusedFMul(*TLI, Ty, CtxI, FAddSub))
+    if (CtxI && (CtxI->getType() == Ty ||
+                 getMaximumVF(Ty->getScalarSizeInBits(), Opcode) == 1)) {
+      if (CtxI->hasOneUse()) {
+        const auto *FAddSub = dyn_cast<BinaryOperator>(*CtxI->user_begin());
+        if (FAddSub &&
+            (FAddSub->getOpcode() == Instruction::FAdd ||
+             FAddSub->getOpcode() == Instruction::FSub) &&
+            isFusedFMul(*TLI, Ty, CtxI, FAddSub))
+          return TargetTransformInfo::TCC_Free;
+      }
+      if (isFMulFusedIntoAllUsers(*TLI, Ty, CtxI, CtxI))
         return TargetTransformInfo::TCC_Free;
     }
     [[fallthrough]];
@@ -1326,19 +1372,39 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   case Intrinsic::maximumnum:
   case Intrinsic::minnum:
   case Intrinsic::maxnum: {
+    unsigned BaseRate =
+        SLT == MVT::f64 ? get64BitInstrCost(CostKind) : getFullRateInstrCost();
+    Type *EltTy = RetTy->getScalarType();
+    const IntrinsicInst *II = ICA.getInst();
+    if (II &&
+        (EltTy->isFloatTy() || EltTy->isDoubleTy() ||
+         (EltTy->isHalfTy() && ST->has16BitInsts())) &&
+        SIModeRegisterDefaults(*II->getFunction(), *ST).DX10Clamp) {
+      Value *X;
+      if (II->hasOneUse() && isClampOf(II->user_back(), X))
+        return TargetTransformInfo::TCC_Free;
+      if (isClampOf(II, X)) {
+        const bool IsPacked =
+            RetTy->isVectorTy() &&
+            ((EltTy->isFloatTy() && ST->hasAnyPackedFP32Ops()) ||
+             (EltTy->isDoubleTy() && ST->hasAnyPackedFP64Ops()));
+        if (!IsPacked && X->hasOneUse() && isFoldableFPOp(X, II->getParent()))
+          return TargetTransformInfo::TCC_Free;
+        return LT.first * NElts * BaseRate;
+      }
+    }
+
     // Instruction + 2 canonicalizes. For cases that need type promotion, we the
     // promotion takes the place of the canonicalize.
     unsigned NumOps =
         ST->hasIEEEMinimumMaximumInsts() || ICA.getFlags().noNaNs() ? 1 : 3;
-    if (const IntrinsicInst *II = ICA.getInst()) {
+    if (II) {
       // Directly legal with ieee=0
       // TODO: Not directly legal with strictfp
       if (fpenvIEEEMode(*II) == KnownIEEEMode::Off)
         NumOps = 1;
     }
 
-    unsigned BaseRate =
-        SLT == MVT::f64 ? get64BitInstrCost(CostKind) : getFullRateInstrCost();
     InstRate = BaseRate * NumOps;
     break;
   }
@@ -1527,6 +1593,18 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     }
     if (!IsExt && WideTy->isFloatTy() && NarrowTy->isBFloatTy())
       return getBF16RoundCost(NElts);
+    // v_fma_mix reads half sources and v_fma_mixlo_f16 rounds its result to
+    // half.
+    if (I && !Src->isVectorTy() && WideTy->isFloatTy() &&
+        NarrowTy->isHalfTy() && ST->hasFmaMixInsts() &&
+        (IsExt ? !I->use_empty() && all_of(I->users(),
+                                           [&](const User *U) {
+                                             return isFoldableFPOp(
+                                                 U, I->getParent());
+                                           })
+               : I->getOperand(0)->hasOneUse() &&
+                     isFoldableFPOp(I->getOperand(0), I->getParent())))
+      return TargetTransformInfo::TCC_Free;
   }
 
   // Integer lanes narrower than 32 bits are packed in registers.

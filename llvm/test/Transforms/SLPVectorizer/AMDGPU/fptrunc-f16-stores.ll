@@ -62,16 +62,97 @@ define void @fptrunc_stores(ptr addrspace(1) %in, ptr addrspace(1) %out) {
 ; Four 16 bit lanes of one i64 go through uitofp, an fma and fptrunc into
 ; four adjacent half stores.
 define void @unpack_fma_fptrunc_stores(ptr addrspace(1) %in, ptr addrspace(1) %out) {
-; GCN-LABEL: define void @unpack_fma_fptrunc_stores(
-; GCN-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
-; GCN-NEXT:    [[X:%.*]] = load i64, ptr addrspace(1) [[IN]], align 8
-; GCN-NEXT:    [[TMP1:%.*]] = bitcast i64 [[X]] to <4 x i16>
-; GCN-NEXT:    [[TMP2:%.*]] = uitofp <4 x i16> [[TMP1]] to <4 x float>
-; GCN-NEXT:    [[TMP3:%.*]] = fmul nnan contract <4 x float> [[TMP2]], splat (float f0x37800000)
-; GCN-NEXT:    [[TMP4:%.*]] = fadd contract <4 x float> [[TMP3]], splat (float f0x37800000)
-; GCN-NEXT:    [[TMP5:%.*]] = fptrunc <4 x float> [[TMP4]] to <4 x half>
-; GCN-NEXT:    store <4 x half> [[TMP5]], ptr addrspace(1) [[OUT]], align 8
-; GCN-NEXT:    ret void
+; GFX90A-LABEL: define void @unpack_fma_fptrunc_stores(
+; GFX90A-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
+; GFX90A-NEXT:    [[Q1:%.*]] = getelementptr half, ptr addrspace(1) [[OUT]], i32 1
+; GFX90A-NEXT:    [[Q2:%.*]] = getelementptr half, ptr addrspace(1) [[OUT]], i32 2
+; GFX90A-NEXT:    [[Q3:%.*]] = getelementptr half, ptr addrspace(1) [[OUT]], i32 3
+; GFX90A-NEXT:    [[X:%.*]] = load i64, ptr addrspace(1) [[IN]], align 8
+; GFX90A-NEXT:    [[S1:%.*]] = lshr i64 [[X]], 16
+; GFX90A-NEXT:    [[S2:%.*]] = lshr i64 [[X]], 32
+; GFX90A-NEXT:    [[S3:%.*]] = lshr i64 [[X]], 48
+; GFX90A-NEXT:    [[T0:%.*]] = trunc i64 [[X]] to i16
+; GFX90A-NEXT:    [[T1:%.*]] = trunc i64 [[S1]] to i16
+; GFX90A-NEXT:    [[T2:%.*]] = trunc i64 [[S2]] to i16
+; GFX90A-NEXT:    [[T3:%.*]] = trunc nuw i64 [[S3]] to i16
+; GFX90A-NEXT:    [[F0:%.*]] = uitofp i16 [[T0]] to float
+; GFX90A-NEXT:    [[F1:%.*]] = uitofp i16 [[T1]] to float
+; GFX90A-NEXT:    [[F2:%.*]] = uitofp i16 [[T2]] to float
+; GFX90A-NEXT:    [[F3:%.*]] = uitofp i16 [[T3]] to float
+; GFX90A-NEXT:    [[M0:%.*]] = fmul nnan contract float [[F0]], f0x37800000
+; GFX90A-NEXT:    [[M1:%.*]] = fmul nnan contract float [[F1]], f0x37800000
+; GFX90A-NEXT:    [[M2:%.*]] = fmul nnan contract float [[F2]], f0x37800000
+; GFX90A-NEXT:    [[M3:%.*]] = fmul nnan contract float [[F3]], f0x37800000
+; GFX90A-NEXT:    [[A0:%.*]] = fadd contract float [[M0]], f0x37800000
+; GFX90A-NEXT:    [[A1:%.*]] = fadd contract float [[M1]], f0x37800000
+; GFX90A-NEXT:    [[A2:%.*]] = fadd contract float [[M2]], f0x37800000
+; GFX90A-NEXT:    [[A3:%.*]] = fadd contract float [[M3]], f0x37800000
+; GFX90A-NEXT:    [[H0:%.*]] = fptrunc contract float [[A0]] to half
+; GFX90A-NEXT:    [[H1:%.*]] = fptrunc contract float [[A1]] to half
+; GFX90A-NEXT:    [[H2:%.*]] = fptrunc contract float [[A2]] to half
+; GFX90A-NEXT:    [[H3:%.*]] = fptrunc contract float [[A3]] to half
+; GFX90A-NEXT:    store half [[H0]], ptr addrspace(1) [[OUT]], align 8
+; GFX90A-NEXT:    store half [[H1]], ptr addrspace(1) [[Q1]], align 2
+; GFX90A-NEXT:    store half [[H2]], ptr addrspace(1) [[Q2]], align 4
+; GFX90A-NEXT:    store half [[H3]], ptr addrspace(1) [[Q3]], align 2
+; GFX90A-NEXT:    ret void
+;
+; GFX950-LABEL: define void @unpack_fma_fptrunc_stores(
+; GFX950-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
+; GFX950-NEXT:    [[X:%.*]] = load i64, ptr addrspace(1) [[IN]], align 8
+; GFX950-NEXT:    [[TMP1:%.*]] = bitcast i64 [[X]] to <4 x i16>
+; GFX950-NEXT:    [[TMP2:%.*]] = uitofp <4 x i16> [[TMP1]] to <4 x float>
+; GFX950-NEXT:    [[TMP3:%.*]] = fmul nnan contract <4 x float> [[TMP2]], splat (float f0x37800000)
+; GFX950-NEXT:    [[TMP4:%.*]] = fadd contract <4 x float> [[TMP3]], splat (float f0x37800000)
+; GFX950-NEXT:    [[TMP5:%.*]] = fptrunc <4 x float> [[TMP4]] to <4 x half>
+; GFX950-NEXT:    store <4 x half> [[TMP5]], ptr addrspace(1) [[OUT]], align 8
+; GFX950-NEXT:    ret void
+;
+; GFX11-LABEL: define void @unpack_fma_fptrunc_stores(
+; GFX11-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
+; GFX11-NEXT:    [[Q1:%.*]] = getelementptr half, ptr addrspace(1) [[OUT]], i32 1
+; GFX11-NEXT:    [[Q2:%.*]] = getelementptr half, ptr addrspace(1) [[OUT]], i32 2
+; GFX11-NEXT:    [[Q3:%.*]] = getelementptr half, ptr addrspace(1) [[OUT]], i32 3
+; GFX11-NEXT:    [[X:%.*]] = load i64, ptr addrspace(1) [[IN]], align 8
+; GFX11-NEXT:    [[S1:%.*]] = lshr i64 [[X]], 16
+; GFX11-NEXT:    [[S2:%.*]] = lshr i64 [[X]], 32
+; GFX11-NEXT:    [[S3:%.*]] = lshr i64 [[X]], 48
+; GFX11-NEXT:    [[T0:%.*]] = trunc i64 [[X]] to i16
+; GFX11-NEXT:    [[T1:%.*]] = trunc i64 [[S1]] to i16
+; GFX11-NEXT:    [[T2:%.*]] = trunc i64 [[S2]] to i16
+; GFX11-NEXT:    [[T3:%.*]] = trunc nuw i64 [[S3]] to i16
+; GFX11-NEXT:    [[F0:%.*]] = uitofp i16 [[T0]] to float
+; GFX11-NEXT:    [[F1:%.*]] = uitofp i16 [[T1]] to float
+; GFX11-NEXT:    [[F2:%.*]] = uitofp i16 [[T2]] to float
+; GFX11-NEXT:    [[F3:%.*]] = uitofp i16 [[T3]] to float
+; GFX11-NEXT:    [[M0:%.*]] = fmul nnan contract float [[F0]], f0x37800000
+; GFX11-NEXT:    [[M1:%.*]] = fmul nnan contract float [[F1]], f0x37800000
+; GFX11-NEXT:    [[M2:%.*]] = fmul nnan contract float [[F2]], f0x37800000
+; GFX11-NEXT:    [[M3:%.*]] = fmul nnan contract float [[F3]], f0x37800000
+; GFX11-NEXT:    [[A0:%.*]] = fadd contract float [[M0]], f0x37800000
+; GFX11-NEXT:    [[A1:%.*]] = fadd contract float [[M1]], f0x37800000
+; GFX11-NEXT:    [[A2:%.*]] = fadd contract float [[M2]], f0x37800000
+; GFX11-NEXT:    [[A3:%.*]] = fadd contract float [[M3]], f0x37800000
+; GFX11-NEXT:    [[H0:%.*]] = fptrunc contract float [[A0]] to half
+; GFX11-NEXT:    [[H1:%.*]] = fptrunc contract float [[A1]] to half
+; GFX11-NEXT:    [[H2:%.*]] = fptrunc contract float [[A2]] to half
+; GFX11-NEXT:    [[H3:%.*]] = fptrunc contract float [[A3]] to half
+; GFX11-NEXT:    store half [[H0]], ptr addrspace(1) [[OUT]], align 8
+; GFX11-NEXT:    store half [[H1]], ptr addrspace(1) [[Q1]], align 2
+; GFX11-NEXT:    store half [[H2]], ptr addrspace(1) [[Q2]], align 4
+; GFX11-NEXT:    store half [[H3]], ptr addrspace(1) [[Q3]], align 2
+; GFX11-NEXT:    ret void
+;
+; GFX1250-LABEL: define void @unpack_fma_fptrunc_stores(
+; GFX1250-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
+; GFX1250-NEXT:    [[X:%.*]] = load i64, ptr addrspace(1) [[IN]], align 8
+; GFX1250-NEXT:    [[TMP1:%.*]] = bitcast i64 [[X]] to <4 x i16>
+; GFX1250-NEXT:    [[TMP2:%.*]] = uitofp <4 x i16> [[TMP1]] to <4 x float>
+; GFX1250-NEXT:    [[TMP3:%.*]] = fmul nnan contract <4 x float> [[TMP2]], splat (float f0x37800000)
+; GFX1250-NEXT:    [[TMP4:%.*]] = fadd contract <4 x float> [[TMP3]], splat (float f0x37800000)
+; GFX1250-NEXT:    [[TMP5:%.*]] = fptrunc <4 x float> [[TMP4]] to <4 x half>
+; GFX1250-NEXT:    store <4 x half> [[TMP5]], ptr addrspace(1) [[OUT]], align 8
+; GFX1250-NEXT:    ret void
 ;
   %q1 = getelementptr half, ptr addrspace(1) %out, i32 1
   %q2 = getelementptr half, ptr addrspace(1) %out, i32 2
@@ -106,3 +187,5 @@ define void @unpack_fma_fptrunc_stores(ptr addrspace(1) %in, ptr addrspace(1) %o
   store half %h3, ptr addrspace(1) %q3, align 2
   ret void
 }
+;; NOTE: These prefixes are unused and the list is autogenerated. Do not add tests below this line:
+; GCN: {{.*}}
