@@ -1442,3 +1442,39 @@ define i8 @dot4_i8_unpacked(i8 %a0, i8 %a1, i8 %a2, i8 %a3, i8 %b0, i8 %b1, i8 %
   %s2 = add i8 %s1, %m3
   ret i8 %s2
 }
+
+define i32 @and_chain_ret(i32 %a, i32 %b, i32 %c) {
+; GFX8-LABEL: 'and_chain_ret'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and0 = and i32 %a, %b
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and1 = and i32 %and0, %c
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %and1
+;
+; GFX900-LABEL: 'and_chain_ret'
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and0 = and i32 %a, %b
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and1 = and i32 %and0, %c
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %and1
+;
+; GFX942-LABEL: 'and_chain_ret'
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and0 = and i32 %a, %b
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and1 = and i32 %and0, %c
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %and1
+;
+; GFX950-LABEL: 'and_chain_ret'
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %and0 = and i32 %a, %b
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and1 = and i32 %and0, %c
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %and1
+;
+; GFX1030-LABEL: 'and_chain_ret'
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and0 = and i32 %a, %b
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and1 = and i32 %and0, %c
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %and1
+;
+; GFX1251-LABEL: 'and_chain_ret'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %and0 = and i32 %a, %b
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and1 = and i32 %and0, %c
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %and1
+;
+  %and0 = and i32 %a, %b
+  %and1 = and i32 %and0, %c
+  ret i32 %and1
+}

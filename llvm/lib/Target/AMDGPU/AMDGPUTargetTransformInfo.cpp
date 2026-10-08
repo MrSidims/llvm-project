@@ -678,7 +678,9 @@ static bool isBFIAnd(const Instruction &I, const Value **Absorbed = nullptr) {
   if (!match(&I, m_And(m_Value(A), m_Value(B))) ||
       !isOneUseInBlock(&I, I.getParent()))
     return false;
-  const auto *U = cast<Instruction>(I.user_back());
+  const auto *U = dyn_cast<BinaryOperator>(I.user_back());
+  if (!U)
+    return false;
   const BasicBlock *BB = I.getParent();
   const Value *Other = U->getOperand(U->getOperand(0) == &I ? 1 : 0);
   const Value *Inner = nullptr;
