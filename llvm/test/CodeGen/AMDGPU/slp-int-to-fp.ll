@@ -185,20 +185,19 @@ define float @sitofp_i8_sum_to_float(ptr addrspace(1) noalias %in) {
 ; GFX90A-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
 ; GFX90A-NEXT:    global_load_dwordx2 v[0:1], v[0:1], off
 ; GFX90A-NEXT:    s_waitcnt vmcnt(0)
-; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v2, sext(v0) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_0
-; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v3, sext(v0) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_1
-; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v4, sext(v0) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_2
-; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v0, sext(v0) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_3
-; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v5, sext(v1) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_0
-; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v6, sext(v1) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_1
-; GFX90A-NEXT:    v_add_f32_e32 v2, v2, v3
-; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v7, sext(v1) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_2
-; GFX90A-NEXT:    v_add_f32_e32 v2, v2, v4
-; GFX90A-NEXT:    v_add_f32_e32 v0, v2, v0
-; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v1, sext(v1) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_3
-; GFX90A-NEXT:    v_add_f32_e32 v0, v0, v5
-; GFX90A-NEXT:    v_add_f32_e32 v0, v0, v6
-; GFX90A-NEXT:    v_add_f32_e32 v0, v0, v7
+; GFX90A-NEXT:    v_ashrrev_i16_e32 v5, 8, v0
+; GFX90A-NEXT:    v_ashrrev_i16_e32 v3, 8, v1
+; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v2, sext(v1) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_0
+; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v4, sext(v0) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_0
+; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v7, sext(v0) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_3
+; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v6, sext(v0) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_2
+; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v9, sext(v1) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_3
+; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v8, sext(v1) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:BYTE_2
+; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v3, sext(v3) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:WORD_0
+; GFX90A-NEXT:    v_cvt_f32_i32_sdwa v5, sext(v5) dst_sel:DWORD dst_unused:UNUSED_PAD src0_sel:WORD_0
+; GFX90A-NEXT:    v_pk_add_f32 v[0:1], v[6:7], v[8:9]
+; GFX90A-NEXT:    v_pk_add_f32 v[2:3], v[4:5], v[2:3]
+; GFX90A-NEXT:    v_pk_add_f32 v[0:1], v[2:3], v[0:1]
 ; GFX90A-NEXT:    v_add_f32_e32 v0, v0, v1
 ; GFX90A-NEXT:    s_setpc_b64 s[30:31]
 ;
@@ -246,36 +245,29 @@ define float @sitofp_i8_sum_to_float(ptr addrspace(1) noalias %in) {
 ; GFX1250-NEXT:    s_wait_kmcnt 0x0
 ; GFX1250-NEXT:    global_load_b64 v[0:1], v[0:1], off
 ; GFX1250-NEXT:    s_wait_loadcnt 0x0
-; GFX1250-NEXT:    v_bfe_i32 v2, v0, 0, 8
-; GFX1250-NEXT:    v_bfe_i32 v3, v0, 8, 8
-; GFX1250-NEXT:    v_bfe_i32 v4, v0, 16, 8
-; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_3) | instskip(NEXT) | instid1(VALU_DEP_3)
+; GFX1250-NEXT:    v_ashrrev_i16 v6.l, 8, v0.l
+; GFX1250-NEXT:    v_ashrrev_i16 v4.l, 8, v1.l
+; GFX1250-NEXT:    v_dual_ashrrev_i32 v3, 24, v1 :: v_dual_ashrrev_i32 v5, 24, v0
+; GFX1250-NEXT:    v_bfe_i32 v2, v1, 0, 8
+; GFX1250-NEXT:    v_bfe_i32 v7, v0, 0, 8
+; GFX1250-NEXT:    v_bfe_i32 v8, v0, 16, 8
+; GFX1250-NEXT:    v_bfe_i32 v10, v1, 16, 8
+; GFX1250-NEXT:    v_bfe_i32 v11, v4, 0, 16
+; GFX1250-NEXT:    v_bfe_i32 v12, v6, 0, 16
 ; GFX1250-NEXT:    v_cvt_f32_i32_e32 v2, v2
-; GFX1250-NEXT:    v_cvt_f32_i32_e32 v3, v3
-; GFX1250-NEXT:    v_ashrrev_i32_e32 v5, 24, v0
-; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_4) | instskip(NEXT) | instid1(VALU_DEP_3)
-; GFX1250-NEXT:    v_cvt_f32_i32_e32 v4, v4
-; GFX1250-NEXT:    v_add_f32_e32 v2, v2, v3
-; GFX1250-NEXT:    v_bfe_i32 v3, v1, 0, 8
-; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_4) | instskip(NEXT) | instid1(VALU_DEP_3)
-; GFX1250-NEXT:    v_cvt_f32_i32_e32 v5, v5
-; GFX1250-NEXT:    v_add_f32_e32 v2, v2, v4
-; GFX1250-NEXT:    v_bfe_i32 v4, v1, 8, 8
-; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_4) | instskip(NEXT) | instid1(VALU_DEP_3)
-; GFX1250-NEXT:    v_cvt_f32_i32_e32 v3, v3
-; GFX1250-NEXT:    v_add_f32_e32 v2, v2, v5
-; GFX1250-NEXT:    v_bfe_i32 v5, v1, 16, 8
-; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_4) | instskip(NEXT) | instid1(VALU_DEP_3)
-; GFX1250-NEXT:    v_cvt_f32_i32_e32 v4, v4
-; GFX1250-NEXT:    v_add_f32_e32 v2, v2, v3
+; GFX1250-NEXT:    v_cvt_f32_i32_e32 v4, v7
+; GFX1250-NEXT:    v_cvt_f32_i32_e32 v7, v5
+; GFX1250-NEXT:    v_cvt_f32_i32_e32 v6, v8
+; GFX1250-NEXT:    v_cvt_f32_i32_e32 v9, v3
+; GFX1250-NEXT:    v_cvt_f32_i32_e32 v8, v10
+; GFX1250-NEXT:    v_cvt_f32_i32_e32 v3, v11
+; GFX1250-NEXT:    v_cvt_f32_i32_e32 v5, v12
 ; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_3) | instskip(NEXT) | instid1(VALU_DEP_2)
-; GFX1250-NEXT:    v_cvt_f32_i32_e32 v3, v5
-; GFX1250-NEXT:    v_dual_add_f32 v2, v2, v4 :: v_dual_ashrrev_i32 v4, 24, v1
-; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_1) | instskip(NEXT) | instid1(VALU_DEP_2)
-; GFX1250-NEXT:    v_add_f32_e32 v2, v2, v3
-; GFX1250-NEXT:    v_cvt_f32_i32_e32 v3, v4
+; GFX1250-NEXT:    v_pk_add_f32 v[6:7], v[6:7], v[8:9]
+; GFX1250-NEXT:    v_pk_add_f32 v[2:3], v[4:5], v[2:3]
+; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_1) | instskip(SKIP_1) | instid1(VALU_DEP_1)
+; GFX1250-NEXT:    v_pk_add_f32 v[2:3], v[2:3], v[6:7]
 ; GFX1250-NEXT:    s_wait_xcnt 0x0
-; GFX1250-NEXT:    s_delay_alu instid0(VALU_DEP_1)
 ; GFX1250-NEXT:    v_add_f32_e32 v0, v2, v3
 ; GFX1250-NEXT:    s_set_pc_i64 s[30:31]
   %x0 = load i8, ptr addrspace(1) %in, align 1

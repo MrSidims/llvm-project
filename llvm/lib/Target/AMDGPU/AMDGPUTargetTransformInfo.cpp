@@ -1796,6 +1796,30 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
   return BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
 }
 
+// Without native bf16 min and max or a cheap rounding to bf16, a compare and
+// select is shorter than a bf16 min or max.
+static bool hasSlowBF16MinMax(const GCNSubtarget *ST) {
+  return !ST->hasBF16PackedInsts() && !ST->hasBF16ConversionInsts();
+}
+
+// Each level of a tree reduction applies the operation to half of the
+// remaining lanes. With a three input form a pair of levels costs as much as
+// the wider level alone.
+static InstructionCost
+getLevelwiseReductionCost(FixedVectorType *Ty, bool HasThreeInputOp,
+                          function_ref<InstructionCost(Type *)> LevelCost) {
+  Type *EltTy = Ty->getElementType();
+  InstructionCost Cost = 0;
+  bool Fused = false;
+  for (unsigned Width = Ty->getNumElements() / 2; Width; Width /= 2) {
+    if (!Fused)
+      Cost +=
+          LevelCost(Width == 1 ? EltTy : FixedVectorType::get(EltTy, Width));
+    Fused = HasThreeInputOp && !Fused;
+  }
+  return Cost;
+}
+
 InstructionCost
 GCNTTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
                                        std::optional<FastMathFlags> FMF,
@@ -1811,30 +1835,105 @@ GCNTTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
              getFullRateInstrCost();
   }
 
-  EVT OrigTy = TLI->getValueType(DL, Ty);
-
-  // Computes cost on targets that have packed math instructions(which support
-  // 16-bit types only).
-  if (!ST->hasVOP3PInsts() || OrigTy.getScalarSizeInBits() != 16)
+  auto *VTy = dyn_cast<FixedVectorType>(Ty);
+  if (!VTy || !isPowerOf2_32(VTy->getNumElements()) ||
+      VTy->getElementType()->isIntegerTy(1) ||
+      VTy->getElementType()->isIntegerTy(8))
     return BaseT::getArithmeticReductionCost(Opcode, Ty, FMF, CostKind);
 
-  std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(Ty);
-  return LT.first * getFullRateInstrCost();
+  Type *EltTy = VTy->getElementType();
+  bool HasThreeInputOp = false;
+  switch (Opcode) {
+  case Instruction::Add:
+    HasThreeInputOp = EltTy->isIntegerTy(32) && ST->hasGFX9Insts();
+    break;
+  case Instruction::Or:
+    HasThreeInputOp = (EltTy->isIntegerTy(32) || EltTy->isIntegerTy(64)) &&
+                      ST->hasGFX9Insts();
+    break;
+  case Instruction::Xor:
+    HasThreeInputOp = EltTy->isIntegerTy(32) && ST->hasGFX10Insts();
+    break;
+  case Instruction::And:
+    HasThreeInputOp = EltTy->isIntegerTy(32) && ST->hasBitOp3Insts();
+    break;
+  default:
+    break;
+  }
+  return getLevelwiseReductionCost(VTy, HasThreeInputOp, [&](Type *LevelTy) {
+    return getArithmeticInstrCost(Opcode, LevelTy, CostKind);
+  });
 }
 
 InstructionCost
 GCNTTIImpl::getMinMaxReductionCost(Intrinsic::ID IID, VectorType *Ty,
                                    FastMathFlags FMF,
                                    TTI::TargetCostKind CostKind) const {
-  EVT OrigTy = TLI->getValueType(DL, Ty);
-
-  // Computes cost on targets that have packed math instructions(which support
-  // 16-bit types only).
-  if (!ST->hasVOP3PInsts() || OrigTy.getScalarSizeInBits() != 16)
+  auto *VTy = dyn_cast<FixedVectorType>(Ty);
+  if (!VTy || !isPowerOf2_32(VTy->getNumElements()) ||
+      VTy->getElementType()->isIntegerTy(1) ||
+      VTy->getElementType()->isIntegerTy(8))
     return BaseT::getMinMaxReductionCost(IID, Ty, FMF, CostKind);
 
-  std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(Ty);
-  return LT.first * getHalfRateInstrCost(CostKind);
+  Type *EltTy = VTy->getElementType();
+  bool HasThreeInputOp = false;
+  switch (IID) {
+  case Intrinsic::smin:
+  case Intrinsic::smax:
+  case Intrinsic::umin:
+  case Intrinsic::umax:
+    HasThreeInputOp = EltTy->isIntegerTy(32);
+    break;
+  case Intrinsic::minnum:
+  case Intrinsic::maxnum:
+    HasThreeInputOp = EltTy->isFloatTy();
+    break;
+  case Intrinsic::minimum:
+  case Intrinsic::maximum:
+    HasThreeInputOp = EltTy->isFloatTy() && ST->hasMinimum3Maximum3F32();
+    break;
+  default:
+    break;
+  }
+
+  if ((IID == Intrinsic::minnum || IID == Intrinsic::maxnum) &&
+      EltTy->isBFloatTy() && FMF.noNaNs() && hasSlowBF16MinMax(ST)) {
+    return getLevelwiseReductionCost(VTy, false, [&](Type *LevelTy) {
+      Type *CondTy = CmpInst::makeCmpResultType(LevelTy);
+      return getCmpSelInstrCost(Instruction::FCmp, LevelTy, CondTy,
+                                CmpInst::FCMP_OLT, CostKind) +
+             getCmpSelInstrCost(Instruction::Select, LevelTy, CondTy,
+                                CmpInst::BAD_ICMP_PREDICATE, CostKind);
+    });
+  }
+
+  // Signaling NaN inputs are quieted before the tree instead of at every level.
+  // A min3 or max3 tree quiets only the pair that starts it.
+  FastMathFlags LevelFMF = FMF;
+  InstructionCost QuietCost = 0;
+  if ((IID == Intrinsic::minnum || IID == Intrinsic::maxnum) && !FMF.noNaNs()) {
+    LevelFMF.setNoNaNs();
+    QuietCost =
+        getIntrinsicInstrCost({IID, EltTy, {EltTy, EltTy}, FMF}, CostKind) -
+        getIntrinsicInstrCost({IID, EltTy, {EltTy, EltTy}, LevelFMF}, CostKind);
+    if (!EltTy->isFloatTy() && !(EltTy->isHalfTy() && ST->hasMin3Max3_16()))
+      QuietCost = QuietCost * VTy->getNumElements() / 2;
+  }
+  return QuietCost +
+         getLevelwiseReductionCost(VTy, HasThreeInputOp, [&](Type *LevelTy) {
+           return getIntrinsicInstrCost(
+               {IID, LevelTy, {LevelTy, LevelTy}, LevelFMF}, CostKind);
+         });
+}
+
+bool GCNTTIImpl::shouldExpandReduction(const IntrinsicInst *II) const {
+  switch (II->getIntrinsicID()) {
+  case Intrinsic::vector_reduce_fmax:
+  case Intrinsic::vector_reduce_fmin:
+    return II->getType()->isBFloatTy() && hasSlowBF16MinMax(ST);
+  default:
+    return true;
+  }
 }
 
 InstructionCost GCNTTIImpl::getVectorInstrCost(
