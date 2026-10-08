@@ -293,4 +293,51 @@ define amdgpu_kernel void @and() #0 {
   ret void
 }
 
+
+define void @const_i64(i64 %a) {
+; SLOW16-LABEL: 'const_i64'
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_lo32 = and i64 %a, 4294967295
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_hi32 = and i64 %a, -4294967296
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %and_lo8 = and i64 %a, 255
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or_lo8 = or i64 %a, 255
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %xor_hi = xor i64 %a, -4294967296
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %xor_all = xor i64 %a, -1
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; FAST16-LABEL: 'const_i64'
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_lo32 = and i64 %a, 4294967295
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_hi32 = and i64 %a, -4294967296
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %and_lo8 = and i64 %a, 255
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or_lo8 = or i64 %a, 255
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %xor_hi = xor i64 %a, -4294967296
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %xor_all = xor i64 %a, -1
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; SLOW16-SIZE-LABEL: 'const_i64'
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_lo32 = and i64 %a, 4294967295
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_hi32 = and i64 %a, -4294967296
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %and_lo8 = and i64 %a, 255
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or_lo8 = or i64 %a, 255
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %xor_hi = xor i64 %a, -4294967296
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %xor_all = xor i64 %a, -1
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; FAST16-SIZE-LABEL: 'const_i64'
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_lo32 = and i64 %a, 4294967295
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_hi32 = and i64 %a, -4294967296
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %and_lo8 = and i64 %a, 255
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or_lo8 = or i64 %a, 255
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %xor_hi = xor i64 %a, -4294967296
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %xor_all = xor i64 %a, -1
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %and_lo32 = and i64 %a, 4294967295
+  %and_hi32 = and i64 %a, -4294967296
+  %and_lo8 = and i64 %a, 255
+  %or_lo8 = or i64 %a, 255
+  %xor_hi = xor i64 %a, -4294967296
+  %xor_all = xor i64 %a, -1
+  ret void
+}
+
 attributes #0 = { nounwind }

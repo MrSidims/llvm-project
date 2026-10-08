@@ -353,4 +353,100 @@ define amdgpu_kernel void @ashr() #0 {
   ret void
 }
 
+define void @const_i64(i64 %a, <2 x i64> %v) {
+; FAST64-LABEL: 'const_i64'
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %shl16 = shl i64 %a, 16
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %shl32 = shl i64 %a, 32
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %shl40 = shl i64 %a, 40
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %lshr16 = lshr i64 %a, 16
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshr32 = lshr i64 %a, 32
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %lshr40 = lshr i64 %a, 40
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %ashr16 = ashr i64 %a, 16
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ashr32 = ashr i64 %a, 32
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %ashr40 = ashr i64 %a, 40
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2lshr48 = lshr <2 x i64> %v, splat (i64 48)
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr32_lo = lshr i64 %a, 32
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr32_trunc = trunc i64 %lshr32_lo to i32
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ashr40_lo = ashr i64 %a, 40
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ashr40_trunc = trunc i64 %ashr40_lo to i32
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshr8_lo = lshr i64 %a, 8
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr8_trunc = trunc i64 %lshr8_lo to i16
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; SLOW64-LABEL: 'const_i64'
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %shl16 = shl i64 %a, 16
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %shl32 = shl i64 %a, 32
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %shl40 = shl i64 %a, 40
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %lshr16 = lshr i64 %a, 16
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshr32 = lshr i64 %a, 32
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %lshr40 = lshr i64 %a, 40
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %ashr16 = ashr i64 %a, 16
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ashr32 = ashr i64 %a, 32
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %ashr40 = ashr i64 %a, 40
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2lshr48 = lshr <2 x i64> %v, splat (i64 48)
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr32_lo = lshr i64 %a, 32
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr32_trunc = trunc i64 %lshr32_lo to i32
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ashr40_lo = ashr i64 %a, 40
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ashr40_trunc = trunc i64 %ashr40_lo to i32
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshr8_lo = lshr i64 %a, 8
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr8_trunc = trunc i64 %lshr8_lo to i16
+; SLOW64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; FAST64-SIZE-LABEL: 'const_i64'
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %shl16 = shl i64 %a, 16
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %shl32 = shl i64 %a, 32
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %shl40 = shl i64 %a, 40
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %lshr16 = lshr i64 %a, 16
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshr32 = lshr i64 %a, 32
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %lshr40 = lshr i64 %a, 40
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %ashr16 = ashr i64 %a, 16
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ashr32 = ashr i64 %a, 32
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %ashr40 = ashr i64 %a, 40
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2lshr48 = lshr <2 x i64> %v, splat (i64 48)
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr32_lo = lshr i64 %a, 32
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr32_trunc = trunc i64 %lshr32_lo to i32
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ashr40_lo = ashr i64 %a, 40
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ashr40_trunc = trunc i64 %ashr40_lo to i32
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshr8_lo = lshr i64 %a, 8
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr8_trunc = trunc i64 %lshr8_lo to i16
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; SLOW64-SIZE-LABEL: 'const_i64'
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %shl16 = shl i64 %a, 16
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %shl32 = shl i64 %a, 32
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %shl40 = shl i64 %a, 40
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %lshr16 = lshr i64 %a, 16
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshr32 = lshr i64 %a, 32
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %lshr40 = lshr i64 %a, 40
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %ashr16 = ashr i64 %a, 16
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ashr32 = ashr i64 %a, 32
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %ashr40 = ashr i64 %a, 40
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2lshr48 = lshr <2 x i64> %v, splat (i64 48)
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr32_lo = lshr i64 %a, 32
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr32_trunc = trunc i64 %lshr32_lo to i32
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %ashr40_lo = ashr i64 %a, 40
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %ashr40_trunc = trunc i64 %ashr40_lo to i32
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %lshr8_lo = lshr i64 %a, 8
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %lshr8_trunc = trunc i64 %lshr8_lo to i16
+; SLOW64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %shl16 = shl i64 %a, 16
+  %shl32 = shl i64 %a, 32
+  %shl40 = shl i64 %a, 40
+  %lshr16 = lshr i64 %a, 16
+  %lshr32 = lshr i64 %a, 32
+  %lshr40 = lshr i64 %a, 40
+  %ashr16 = ashr i64 %a, 16
+  %ashr32 = ashr i64 %a, 32
+  %ashr40 = ashr i64 %a, 40
+  %v2lshr48 = lshr <2 x i64> %v, splat (i64 48)
+  %lshr32_lo = lshr i64 %a, 32
+  %lshr32_trunc = trunc i64 %lshr32_lo to i32
+  %ashr40_lo = ashr i64 %a, 40
+  %ashr40_trunc = trunc i64 %ashr40_lo to i32
+  %lshr8_lo = lshr i64 %a, 8
+  %lshr8_trunc = trunc i64 %lshr8_lo to i16
+  ret void
+}
+
 attributes #0 = { nounwind }

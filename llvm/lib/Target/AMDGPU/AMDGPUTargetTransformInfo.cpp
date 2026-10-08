@@ -902,8 +902,24 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
   case ISD::SHL:
   case ISD::SRL:
   case ISD::SRA:
-    if (SLT == MVT::i64)
+    if (SLT == MVT::i64) {
+      const APInt *Amt;
+      if (Args.size() == 2 &&
+          PatternMatch::match(Args[1], PatternMatch::m_APInt(Amt)) &&
+          Amt->ult(64)) {
+        const bool Is32 = *Amt == 32;
+        if (CtxI && !CtxI->use_empty() &&
+            all_of(CtxI->users(), [](const User *U) {
+              return isa<TruncInst>(U) &&
+                     U->getType()->getScalarSizeInBits() <= 32;
+            }))
+          return (Is32 && ISD != ISD::SHL ? 0 : 1) * getFullRateInstrCost() *
+                 LT.first * NElts;
+        if (Amt->uge(32))
+          return (Is32 ? 1 : 2) * getFullRateInstrCost() * LT.first * NElts;
+      }
       return get64BitInstrCost(CostKind) * LT.first * NElts;
+    }
 
     if (ST->hasVOP3PInsts() && SLT == MVT::i16)
       NElts = (NElts + 1) / 2;
@@ -929,7 +945,16 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
   case ISD::XOR:
     if (SLT == MVT::i64) {
       // and, or and xor are typically split into 2 VALU instructions.
-      return 2 * getFullRateInstrCost() * LT.first * NElts;
+      unsigned NumHalves = 2;
+      const APInt *C;
+      if (Args.size() == 2 &&
+          PatternMatch::match(Args[1], PatternMatch::m_APInt(C))) {
+        const APInt Identity =
+            ISD == ISD::AND ? APInt::getAllOnes(32) : APInt::getZero(32);
+        NumHalves =
+            (C->trunc(32) != Identity) + (C->extractBits(32, 32) != Identity);
+      }
+      return NumHalves * getFullRateInstrCost() * LT.first * NElts;
     }
 
     // i8 vectors are operated on as packed dwords.
