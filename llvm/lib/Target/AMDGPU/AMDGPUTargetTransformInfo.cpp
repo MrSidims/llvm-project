@@ -1213,9 +1213,10 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     if (IsPacked || TLI->isOperationLegal(Opc, LT.second.getScalarType()))
       Cost = SLT == MVT::f64 ? get64BitInstrCost(CostKind)
                              : getFullRateInstrCost();
+    else if (SLT == MVT::f64)
+      Cost = 2 * get64BitInstrCost(CostKind) + 2 * getFullRateInstrCost();
     else
-      Cost = (SLT == MVT::f64 ? get64BitInstrCost(CostKind) : 0) +
-             3 * getFullRateInstrCost();
+      Cost = 3 * getFullRateInstrCost();
     return LT.first * NElts * Cost;
   }
   case Intrinsic::ctlz:

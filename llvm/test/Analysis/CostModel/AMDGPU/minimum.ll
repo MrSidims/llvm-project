@@ -218,21 +218,21 @@ define void @minimum_f64() {
 ; GFX90A-FASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FASTF64-LABEL: 'minimum_f64'
-; FASTF64-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %f64 = call double @llvm.minimum.f64(double undef, double undef)
-; FASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %v2f64 = call <2 x double> @llvm.minimum.v2f64(<2 x double> undef, <2 x double> undef)
-; FASTF64-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %v3f64 = call <3 x double> @llvm.minimum.v3f64(<3 x double> undef, <3 x double> undef)
-; FASTF64-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v4f64 = call <4 x double> @llvm.minimum.v4f64(<4 x double> undef, <4 x double> undef)
-; FASTF64-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f64 = call <8 x double> @llvm.minimum.v8f64(<8 x double> undef, <8 x double> undef)
-; FASTF64-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v16f64 = call <16 x double> @llvm.minimum.v16f64(<16 x double> undef, <16 x double> undef)
+; FASTF64-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %f64 = call double @llvm.minimum.f64(double undef, double undef)
+; FASTF64-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2f64 = call <2 x double> @llvm.minimum.v2f64(<2 x double> undef, <2 x double> undef)
+; FASTF64-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v3f64 = call <3 x double> @llvm.minimum.v3f64(<3 x double> undef, <3 x double> undef)
+; FASTF64-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v4f64 = call <4 x double> @llvm.minimum.v4f64(<4 x double> undef, <4 x double> undef)
+; FASTF64-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimum.v8f64(<8 x double> undef, <8 x double> undef)
+; FASTF64-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16f64 = call <16 x double> @llvm.minimum.v16f64(<16 x double> undef, <16 x double> undef)
 ; FASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SLOWF64-LABEL: 'minimum_f64'
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %f64 = call double @llvm.minimum.f64(double undef, double undef)
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %v2f64 = call <2 x double> @llvm.minimum.v2f64(<2 x double> undef, <2 x double> undef)
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %v3f64 = call <3 x double> @llvm.minimum.v3f64(<3 x double> undef, <3 x double> undef)
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v4f64 = call <4 x double> @llvm.minimum.v4f64(<4 x double> undef, <4 x double> undef)
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %v8f64 = call <8 x double> @llvm.minimum.v8f64(<8 x double> undef, <8 x double> undef)
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %v16f64 = call <16 x double> @llvm.minimum.v16f64(<16 x double> undef, <16 x double> undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %f64 = call double @llvm.minimum.f64(double undef, double undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v2f64 = call <2 x double> @llvm.minimum.v2f64(<2 x double> undef, <2 x double> undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 30 for instruction: %v3f64 = call <3 x double> @llvm.minimum.v3f64(<3 x double> undef, <3 x double> undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v4f64 = call <4 x double> @llvm.minimum.v4f64(<4 x double> undef, <4 x double> undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v8f64 = call <8 x double> @llvm.minimum.v8f64(<8 x double> undef, <8 x double> undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v16f64 = call <16 x double> @llvm.minimum.v16f64(<16 x double> undef, <16 x double> undef)
 ; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX950-SIZE-LABEL: 'minimum_f64'
@@ -254,21 +254,21 @@ define void @minimum_f64() {
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX900-SIZE-LABEL: 'minimum_f64'
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %f64 = call double @llvm.minimum.f64(double undef, double undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %v2f64 = call <2 x double> @llvm.minimum.v2f64(<2 x double> undef, <2 x double> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %v3f64 = call <3 x double> @llvm.minimum.v3f64(<3 x double> undef, <3 x double> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v4f64 = call <4 x double> @llvm.minimum.v4f64(<4 x double> undef, <4 x double> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f64 = call <8 x double> @llvm.minimum.v8f64(<8 x double> undef, <8 x double> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v16f64 = call <16 x double> @llvm.minimum.v16f64(<16 x double> undef, <16 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %f64 = call double @llvm.minimum.f64(double undef, double undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2f64 = call <2 x double> @llvm.minimum.v2f64(<2 x double> undef, <2 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v3f64 = call <3 x double> @llvm.minimum.v3f64(<3 x double> undef, <3 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v4f64 = call <4 x double> @llvm.minimum.v4f64(<4 x double> undef, <4 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimum.v8f64(<8 x double> undef, <8 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16f64 = call <16 x double> @llvm.minimum.v16f64(<16 x double> undef, <16 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SLOW-SIZE-LABEL: 'minimum_f64'
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %f64 = call double @llvm.minimum.f64(double undef, double undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %v2f64 = call <2 x double> @llvm.minimum.v2f64(<2 x double> undef, <2 x double> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %v3f64 = call <3 x double> @llvm.minimum.v3f64(<3 x double> undef, <3 x double> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v4f64 = call <4 x double> @llvm.minimum.v4f64(<4 x double> undef, <4 x double> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f64 = call <8 x double> @llvm.minimum.v8f64(<8 x double> undef, <8 x double> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v16f64 = call <16 x double> @llvm.minimum.v16f64(<16 x double> undef, <16 x double> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %f64 = call double @llvm.minimum.f64(double undef, double undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2f64 = call <2 x double> @llvm.minimum.v2f64(<2 x double> undef, <2 x double> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v3f64 = call <3 x double> @llvm.minimum.v3f64(<3 x double> undef, <3 x double> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v4f64 = call <4 x double> @llvm.minimum.v4f64(<4 x double> undef, <4 x double> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimum.v8f64(<8 x double> undef, <8 x double> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16f64 = call <16 x double> @llvm.minimum.v16f64(<16 x double> undef, <16 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f64 = call double @llvm.minimum.f64(double undef, double undef)
