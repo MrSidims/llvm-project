@@ -2143,21 +2143,30 @@ InstructionCost GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
 
   unsigned MaxBytes = 16;
   bool HasDwordx3 = ST->hasDwordx3LoadStores();
+  bool HasUnalignedAccess = ST->hasUnalignedBufferAccessEnabled();
   switch (AddressSpace) {
   case AMDGPUAS::PRIVATE_ADDRESS:
     MaxBytes = ST->getMaxPrivateElementSize();
+    HasUnalignedAccess = ST->hasUnalignedScratchAccessEnabled();
     break;
   case AMDGPUAS::FLAT_ADDRESS:
     if (!ST->hasMultiDwordFlatScratchAddressing())
       MaxBytes = ST->getMaxPrivateElementSize();
+    HasUnalignedAccess = ST->hasUnalignedScratchAccessEnabled();
     break;
   case AMDGPUAS::LOCAL_ADDRESS:
   case AMDGPUAS::REGION_ADDRESS:
-    HasDwordx3 = ST->hasDS96AndDS128();
+    HasUnalignedAccess = ST->hasUnalignedDSAccessEnabled();
+    if (Alignment >= 4 && Alignment < 8)
+      MaxBytes = 8;
+    HasDwordx3 = ST->hasDS96AndDS128() &&
+                 (Alignment >= 16 || (Alignment < 4 && HasUnalignedAccess));
     break;
   default:
     break;
   }
+  if (Alignment < 4 && !HasUnalignedAccess)
+    MaxBytes = std::min<unsigned>(MaxBytes, Alignment.value());
 
   return getNumMemoryInsts(DL.getTypeStoreSize(Src), MaxBytes, HasDwordx3);
 }
