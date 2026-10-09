@@ -2353,11 +2353,21 @@ static unsigned getNumMemoryInsts(unsigned Bytes, unsigned MaxBytes,
                                   bool HasDwordx3) {
   unsigned NumInsts = Bytes / MaxBytes;
   unsigned Rem = Bytes % MaxBytes;
-  if (HasDwordx3 && Rem >= 12) {
+  if (HasDwordx3 && Rem % 16 >= 12) {
     ++NumInsts;
     Rem -= 12;
   }
   return NumInsts + llvm::popcount(Rem);
+}
+
+static bool hasUniformPointerOperand(const Instruction *I) {
+  const auto *LI = dyn_cast_or_null<LoadInst>(I);
+  if (!LI)
+    return false;
+  const Value *Ptr = LI->getPointerOperand()->stripInBoundsConstantOffsets();
+  if (const auto *Arg = dyn_cast<Argument>(Ptr))
+    return AMDGPU::isArgPassedInSGPR(Arg);
+  return isa<Constant>(Ptr);
 }
 
 InstructionCost
@@ -2417,6 +2427,14 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
     return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
                                   CostKind, OpInfo, I);
 
+  unsigned Bytes = DL.getTypeStoreSize(Src);
+  if (Opcode == Instruction::Load &&
+      (AddressSpace == AMDGPUAS::CONSTANT_ADDRESS ||
+       AddressSpace == AMDGPUAS::CONSTANT_ADDRESS_32BIT) &&
+      Alignment >= std::min(Bytes, 4u) && hasUniformPointerOperand(I))
+    return getNumMemoryInsts(alignTo(Bytes, 4), 64,
+                             ST->hasScalarDwordx3Loads() || Alignment >= 8);
+
   unsigned MaxBytes = 16;
   bool HasDwordx3 = ST->hasDwordx3LoadStores();
   bool HasUnalignedAccess = ST->hasUnalignedBufferAccessEnabled();
@@ -2444,7 +2462,7 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
   if (Alignment < 4 && !HasUnalignedAccess)
     MaxBytes = std::min<unsigned>(MaxBytes, Alignment.value());
 
-  return getNumMemoryInsts(DL.getTypeStoreSize(Src), MaxBytes, HasDwordx3);
+  return getNumMemoryInsts(Bytes, MaxBytes, HasDwordx3);
 }
 
 unsigned GCNTTIImpl::getNumberOfParts(Type *Tp) const {
