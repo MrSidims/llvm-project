@@ -2446,12 +2446,14 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
   case AMDGPUAS::FLAT_ADDRESS:
     if (!ST->hasMultiDwordFlatScratchAddressing())
       MaxBytes = ST->getMaxPrivateElementSize();
+    if (ST->hasLDSMisalignedBugInWGPMode())
+      MaxBytes = std::clamp<uint64_t>(Alignment.value(), 4, MaxBytes);
     HasUnalignedAccess = ST->hasUnalignedScratchAccessEnabled();
     break;
   case AMDGPUAS::LOCAL_ADDRESS:
   case AMDGPUAS::REGION_ADDRESS:
     HasUnalignedAccess = ST->hasUnalignedDSAccessEnabled();
-    if (Alignment >= 4 && Alignment < 8)
+    if ((Alignment >= 4 || ST->hasLDSMisalignedBugInWGPMode()) && Alignment < 8)
       MaxBytes = 8;
     HasDwordx3 = ST->hasDS96AndDS128() &&
                  (Alignment >= 16 || (Alignment < 4 && HasUnalignedAccess));

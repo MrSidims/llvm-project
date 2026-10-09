@@ -124,24 +124,43 @@ define void @stores_i16(i32 %arg) {
 ; GFX90APLUS-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 8
 ; GFX90APLUS-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
-; GFX10-LABEL: 'stores_i16'
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 2
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 1
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 1
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 1
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 1
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX10-WGP-LABEL: 'stores_i16'
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 2
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 1
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 1
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 1
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <4 x i16> poison, ptr poison, align 1
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <4 x i16> poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX10-CU-LABEL: 'stores_i16'
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 2
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 1
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 1
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 1
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 1
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i16 poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i16> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i16> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
   store i16 poison, ptr poison
   store <2 x i16> poison, ptr poison
@@ -213,28 +232,51 @@ define void @stores_i32(i32 %arg) {
 ; GFX90APLUS-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 16
 ; GFX90APLUS-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
-; GFX10-LABEL: 'stores_i32'
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 16
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 16
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 1
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 1
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 1
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 1
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 16
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 16
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 16
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 16
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX10-WGP-LABEL: 'stores_i32'
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 16
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 16
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 1
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <2 x i32> poison, ptr poison, align 1
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: store <3 x i32> poison, ptr poison, align 1
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store <4 x i32> poison, ptr poison, align 1
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <2 x i32> poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: store <3 x i32> poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store <4 x i32> poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i32> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <4 x i32> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 16
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 16
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 16
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 16
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX10-CU-LABEL: 'stores_i32'
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 16
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 16
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 1
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 1
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 1
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 1
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr poison, align 16
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr poison, align 16
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 16
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 16
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
   store i32 poison, ptr poison
   store <2 x i32> poison, ptr poison
@@ -709,18 +751,31 @@ define void @stores_underaligned(i32 %arg) {
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 8
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
-; GFX10-LABEL: 'stores_underaligned'
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr addrspace(3) poison, align 1
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i32> poison, ptr addrspace(3) poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i32> poison, ptr addrspace(3) poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <4 x i32> poison, ptr addrspace(3) poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store <4 x i32> poison, ptr addrspace(5) poison, align 1
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i64> poison, ptr addrspace(3) poison, align 2
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i64 poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 4
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 8
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX10-WGP-LABEL: 'stores_underaligned'
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i32> poison, ptr addrspace(3) poison, align 1
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i32> poison, ptr addrspace(3) poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i32> poison, ptr addrspace(3) poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <4 x i32> poison, ptr addrspace(3) poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store <4 x i32> poison, ptr addrspace(5) poison, align 1
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <2 x i64> poison, ptr addrspace(3) poison, align 2
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store i64 poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i32> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store <4 x i32> poison, ptr poison, align 4
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <4 x i32> poison, ptr poison, align 8
+; GFX10-WGP-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX10-CU-LABEL: 'stores_underaligned'
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr addrspace(3) poison, align 1
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i32> poison, ptr addrspace(3) poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i32> poison, ptr addrspace(3) poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <4 x i32> poison, ptr addrspace(3) poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store <4 x i32> poison, ptr addrspace(5) poison, align 1
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i64> poison, ptr addrspace(3) poison, align 2
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i64 poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 4
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr poison, align 8
+; GFX10-CU-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX12-LABEL: 'stores_underaligned'
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr addrspace(3) poison, align 1
@@ -747,6 +802,3 @@ define void @stores_underaligned(i32 %arg) {
   store <4 x i32> poison, ptr poison, align 8
   ret void
 }
-;; NOTE: These prefixes are unused and the list is autogenerated. Do not add tests below this line:
-; GFX10-CU: {{.*}}
-; GFX10-WGP: {{.*}}
