@@ -2349,6 +2349,17 @@ static Type *getWidenedLaneType(ArrayRef<const Value *> Scalars,
   return WidestTy;
 }
 
+static unsigned getNumMemoryInsts(unsigned Bytes, unsigned MaxBytes,
+                                  bool HasDwordx3) {
+  unsigned NumInsts = Bytes / MaxBytes;
+  unsigned Rem = Bytes % MaxBytes;
+  if (HasDwordx3 && Rem >= 12) {
+    ++NumInsts;
+    Rem -= 12;
+  }
+  return NumInsts + llvm::popcount(Rem);
+}
+
 InstructionCost
 GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                             unsigned AddressSpace, TTI::TargetCostKind CostKind,
@@ -2394,16 +2405,37 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
     }
   }
 
-  if (VectorType *VecTy = dyn_cast<VectorType>(Src)) {
-    if ((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
-        CostKind != TTI::TCK_Latency &&
-        VecTy->getElementType()->isIntegerTy(8)) {
-      return divideCeil(DL.getTypeSizeInBits(VecTy) - 1,
-                        getLoadStoreVecRegBitWidth(AddressSpace));
-    }
+  Type *EltTy = Src->getScalarType();
+  if ((Opcode != Instruction::Load && Opcode != Instruction::Store) ||
+      CostKind == TTI::TCK_Latency || isa<ScalableVectorType>(Src) ||
+      (!EltTy->isIntOrPtrTy() && !EltTy->isFloatingPointTy()))
+    return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
+                                  CostKind, OpInfo, I);
+
+  unsigned EltBits = DL.getTypeSizeInBits(EltTy);
+  if (EltBits < 8 || !isPowerOf2_32(EltBits))
+    return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
+                                  CostKind, OpInfo, I);
+
+  unsigned MaxBytes = 16;
+  bool HasDwordx3 = ST->hasDwordx3LoadStores();
+  switch (AddressSpace) {
+  case AMDGPUAS::PRIVATE_ADDRESS:
+    MaxBytes = ST->getMaxPrivateElementSize();
+    break;
+  case AMDGPUAS::FLAT_ADDRESS:
+    if (!ST->hasMultiDwordFlatScratchAddressing())
+      MaxBytes = ST->getMaxPrivateElementSize();
+    break;
+  case AMDGPUAS::LOCAL_ADDRESS:
+  case AMDGPUAS::REGION_ADDRESS:
+    HasDwordx3 = ST->hasDS96AndDS128();
+    break;
+  default:
+    break;
   }
-  return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace, CostKind,
-                                OpInfo, I);
+
+  return getNumMemoryInsts(DL.getTypeStoreSize(Src), MaxBytes, HasDwordx3);
 }
 
 unsigned GCNTTIImpl::getNumberOfParts(Type *Tp) const {
