@@ -2456,6 +2456,12 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
     HasDwordx3 = ST->hasDS96AndDS128() &&
                  (Alignment >= 16 || (Alignment < 4 && HasUnalignedAccess));
     break;
+  case AMDGPUAS::BUFFER_FAT_POINTER:
+    if (Src->isVectorTy() && !ST->hasRelaxedBufferOOBMode())
+      MaxBytes = EltBits % 32
+                     ? EltBits / 8
+                     : std::clamp<uint64_t>(Alignment.value(), 4, MaxBytes);
+    break;
   default:
     break;
   }
