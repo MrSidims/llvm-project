@@ -2148,36 +2148,30 @@ static const Instruction *findFMulAccumulator(const Value *V, unsigned Depth,
   return nullptr;
 }
 
-/// \returns true if \p From reaches \p To through at most \p MaxLinks fadds,
-/// each the only use of the one before.
-static bool accumulatesInto(const Instruction *From, const Instruction *To,
-                            unsigned MaxLinks) {
-  for (unsigned Link = 0; From != To; ++Link) {
-    if (Link == MaxLinks || !From->hasOneUse())
-      return false;
-    From = cast<Instruction>(From->user_back());
-    if (From->getOpcode() != Instruction::FAdd)
-      return false;
-  }
-  return true;
-}
-
-/// \returns true if the loads \p Scalars feed fmuls that one contract fadd
-/// chain without reassoc accumulates. The scalar fmuls fuse into that chain,
-/// the fmuls of its vectorized ordered reduction do not.
+/// \returns true if two of the loads \p Scalars feed fmuls that one contract
+/// fadd chain without reassoc accumulates. The scalar fmuls fuse into that
+/// chain, the fmuls of its vectorized ordered reduction do not.
 static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars) {
-  const Instruction *PrevFMul = nullptr, *PrevAdd = nullptr;
+  SmallDenseMap<const Instruction *, const Instruction *, 16> FMulOfAdd;
   for (const Value *V : Scalars) {
     const Instruction *FMul = nullptr;
     const Instruction *Add = findFMulAccumulator(V, /*Depth=*/3, FMul);
     if (!Add)
       continue;
-    if (PrevAdd && FMul != PrevFMul &&
-        (accumulatesInto(PrevAdd, Add, Scalars.size()) ||
-         accumulatesInto(Add, PrevAdd, Scalars.size())))
+    auto [It, Inserted] = FMulOfAdd.try_emplace(Add, FMul);
+    if (!Inserted && It->second != FMul)
       return true;
-    PrevFMul = FMul;
-    PrevAdd = Add;
+  }
+  for (const Instruction *Add : make_first_range(FMulOfAdd)) {
+    const Instruction *Link = Add;
+    for (unsigned Step = 0; Step < Scalars.size() && Link->hasOneUse();
+         ++Step) {
+      Link = cast<Instruction>(Link->user_back());
+      if (Link->getOpcode() != Instruction::FAdd)
+        break;
+      if (FMulOfAdd.contains(Link))
+        return true;
+    }
   }
   return false;
 }
