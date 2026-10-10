@@ -31,6 +31,7 @@ struct VGPRThresholdParser : public cl::parser<unsigned> {
 
 extern cl::opt<unsigned, false, VGPRThresholdParser> VGPRThresholdPercentOpt;
 
+class SIInstrInfo;
 class SIMachineFunctionInfo;
 class SIRegisterInfo;
 class GCNSubtarget;
@@ -820,6 +821,36 @@ private:
   unsigned SavedVGPRThresholdPercent = 0;
   unsigned SavedVGPRExcessLimit = 0;
   unsigned SavedVGPRCriticalLimit = 0;
+};
+
+/// Post-RA strategy that fills the cycles an MFMA occupies with instructions
+/// that co-issue with it before instructions that never do.
+class GCNPostSchedStrategy final : public PostGenericScheduler {
+  const SIInstrInfo *TII = nullptr;
+  bool Enabled = false;
+  unsigned MFMAWindowEnd = 0;
+  unsigned MFMAWindowBudget = 0;
+  unsigned MFMAWindowUsed = 0;
+  bool PreferMFMA = false;
+
+  bool isMFMAWindowOpen() const;
+  bool fitsMFMAWindow(SUnit &SU) const;
+  unsigned getMFMAWindowCost(SUnit &SU) const;
+  unsigned getMFMAWindowRank(SUnit &SU) const;
+  void deferPackedPastMFMAWindow();
+
+protected:
+  bool tryCandidate(SchedCandidate &Cand, SchedCandidate &TryCand) override;
+
+public:
+  GCNPostSchedStrategy(const MachineSchedContext *C)
+      : PostGenericScheduler(C) {}
+
+  void initialize(ScheduleDAGMI *DAG) override;
+
+  SUnit *pickNode(bool &IsTopNode) override;
+
+  void schedNode(SUnit *SU, bool IsTopNode) override;
 };
 
 class GCNPostScheduleDAGMILive final : public ScheduleDAGMI {

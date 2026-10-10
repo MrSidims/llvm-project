@@ -60,6 +60,13 @@ static cl::opt<bool> DisableClusteredLowOccupancy(
              "rescheduling for ILP scheduling stage."),
     cl::init(false));
 
+static cl::opt<bool> PostSchedMFMACoissue(
+    "amdgpu-post-sched-mfma-coissue", cl::Hidden,
+    cl::desc("Schedule instructions that co-issue with an MFMA ahead of "
+             "never co-issue instructions in its shadow in post-RA "
+             "scheduling"),
+    cl::init(true));
+
 static cl::opt<unsigned> ScheduleMetricBias(
     "amdgpu-schedule-metric-bias", cl::Hidden,
     cl::desc(
@@ -3355,6 +3362,128 @@ static bool hasIGLPInstrs(ScheduleDAGInstrs *DAG) {
   return any_of(*DAG, [SII](MachineBasicBlock::iterator MI) {
     return SII->isIGLPMutationOnly(MI->getOpcode());
   });
+}
+
+static bool isUnpackablePackedF32(const MachineInstr &MI) {
+  switch (MI.getOpcode()) {
+  case AMDGPU::V_PK_ADD_F32:
+  case AMDGPU::V_PK_MUL_F32:
+  case AMDGPU::V_PK_FMA_F32:
+    return true;
+  default:
+    return false;
+  }
+}
+
+static unsigned getFirstReleaseAtCycle(const TargetSchedModel &SchedModel,
+                                       const MCSchedClassDesc *SC) {
+  if (!SC->isValid() ||
+      SchedModel.getWriteProcResBegin(SC) == SchedModel.getWriteProcResEnd(SC))
+    return 0;
+  return SchedModel.getWriteProcResBegin(SC)->ReleaseAtCycle;
+}
+
+void GCNPostSchedStrategy::initialize(ScheduleDAGMI *Dag) {
+  PostGenericScheduler::initialize(Dag);
+  const GCNSubtarget &ST = Dag->MF.getSubtarget<GCNSubtarget>();
+  TII = ST.getInstrInfo();
+  Enabled = PostSchedMFMACoissue && ST.hasGFX940Insts() && !hasIGLPInstrs(Dag);
+  MFMAWindowEnd = MFMAWindowBudget = MFMAWindowUsed = 0;
+  PreferMFMA = false;
+}
+
+bool GCNPostSchedStrategy::isMFMAWindowOpen() const {
+  return MFMAWindowUsed < MFMAWindowBudget &&
+         Top.getCurrCycle() < MFMAWindowEnd;
+}
+
+bool GCNPostSchedStrategy::fitsMFMAWindow(SUnit &SU) const {
+  MachineInstr &MI = *SU.getInstr();
+  if (!TII->isNeverCoissue(MI))
+    return true;
+  return isUnpackablePackedF32(MI) && MFMAWindowUsed + 2 < MFMAWindowBudget;
+}
+
+unsigned GCNPostSchedStrategy::getMFMAWindowCost(SUnit &SU) const {
+  if (isUnpackablePackedF32(*SU.getInstr()))
+    return 2;
+  return std::max(1u,
+                  getFirstReleaseAtCycle(*SchedModel, DAG->getSchedClass(&SU)));
+}
+
+unsigned GCNPostSchedStrategy::getMFMAWindowRank(SUnit &SU) const {
+  if (fitsMFMAWindow(SU))
+    return 2;
+  return isUnpackablePackedF32(*SU.getInstr()) ? 0 : 1;
+}
+
+void GCNPostSchedStrategy::deferPackedPastMFMAWindow() {
+  if (!MFMAWindowEnd)
+    return;
+  Top.pickOnlyChoice();
+  bool Open = isMFMAWindowOpen();
+  bool HasPacked = false;
+  for (SUnit *SU : Top.Available) {
+    MachineInstr &MI = *SU->getInstr();
+    if (SIInstrInfo::isMFMA(MI) || (Open && fitsMFMAWindow(*SU)))
+      return;
+    if (!isUnpackablePackedF32(MI))
+      return;
+    HasPacked = true;
+  }
+  if (!HasPacked)
+    return;
+  unsigned NextCycle = std::max(Top.getCurrCycle(), MFMAWindowEnd);
+  if (none_of(Top.Pending, [&](SUnit *SU) {
+        return SIInstrInfo::isMFMA(*SU->getInstr()) &&
+               SU->TopReadyCycle <= NextCycle;
+      }))
+    return;
+  if (NextCycle > Top.getCurrCycle())
+    Top.bumpCycle(NextCycle);
+  Top.releasePending();
+  PreferMFMA = true;
+}
+
+SUnit *GCNPostSchedStrategy::pickNode(bool &IsTopNode) {
+  if (Enabled && RegionPolicy.OnlyTopDown && DAG->top() != DAG->bottom())
+    deferPackedPastMFMAWindow();
+  return PostGenericScheduler::pickNode(IsTopNode);
+}
+
+bool GCNPostSchedStrategy::tryCandidate(SchedCandidate &Cand,
+                                        SchedCandidate &TryCand) {
+  if (Enabled && Cand.isValid() && Cand.AtTop && TryCand.AtTop) {
+    if (PreferMFMA && tryGreater(SIInstrInfo::isMFMA(*TryCand.SU->getInstr()),
+                                 SIInstrInfo::isMFMA(*Cand.SU->getInstr()),
+                                 TryCand, Cand, Stall))
+      return TryCand.Reason != NoCand;
+    if (isMFMAWindowOpen() &&
+        tryGreater(getMFMAWindowRank(*TryCand.SU), getMFMAWindowRank(*Cand.SU),
+                   TryCand, Cand, Stall))
+      return TryCand.Reason != NoCand;
+  }
+  return PostGenericScheduler::tryCandidate(Cand, TryCand);
+}
+
+void GCNPostSchedStrategy::schedNode(SUnit *SU, bool IsTopNode) {
+  PreferMFMA = false;
+  MachineInstr &MI = *SU->getInstr();
+  if (Enabled && IsTopNode && !MI.isMetaInstruction()) {
+    if (SIInstrInfo::isMFMA(MI)) {
+      unsigned Passes =
+          getFirstReleaseAtCycle(*SchedModel, DAG->getSchedClass(SU));
+      MFMAWindowEnd = std::max(SU->TopReadyCycle, Top.getCurrCycle()) + Passes;
+      MFMAWindowBudget = Passes ? Passes - 1 : 0;
+      MFMAWindowUsed = 0;
+    } else if (isMFMAWindowOpen()) {
+      if (fitsMFMAWindow(*SU))
+        MFMAWindowUsed += getMFMAWindowCost(*SU);
+      else
+        MFMAWindowUsed = MFMAWindowBudget;
+    }
+  }
+  PostGenericScheduler::schedNode(SU, IsTopNode);
 }
 
 GCNPostScheduleDAGMILive::GCNPostScheduleDAGMILive(
