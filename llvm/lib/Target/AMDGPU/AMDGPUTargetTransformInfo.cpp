@@ -2121,12 +2121,105 @@ GCNTTIImpl::fpenvIEEEMode(const Instruction &I) const {
                                                : KnownIEEEMode::On;
 }
 
-InstructionCost GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
-                                            Align Alignment,
-                                            unsigned AddressSpace,
-                                            TTI::TargetCostKind CostKind,
-                                            TTI::OperandValueInfo OpInfo,
-                                            const Instruction *I) const {
+/// \returns the fadd without reassoc that accumulates a one-use contract fmul
+/// reached from \p V through at most \p Depth single-user operations, and sets
+/// \p FMul to that fmul.
+static const Instruction *findFMulAccumulator(const Value *V, unsigned Depth,
+                                              const Instruction *&FMul) {
+  using namespace PatternMatch;
+  for (const User *U : V->users()) {
+    const auto *UI = dyn_cast<Instruction>(U);
+    if (!UI)
+      continue;
+    if (match(UI, m_OneUse(m_AllowContract(m_FMul(m_Value(), m_Value()))))) {
+      const auto *Add = cast<Instruction>(UI->user_back());
+      if (Add->getOpcode() == Instruction::FAdd && Add->hasAllowContract() &&
+          !Add->hasAllowReassoc()) {
+        FMul = UI;
+        return Add;
+      }
+    }
+    if (Depth == 0 || !UI->hasOneUser() ||
+        !isa<CastInst, UnaryOperator, BinaryOperator>(UI))
+      continue;
+    if (const Instruction *Add = findFMulAccumulator(UI, Depth - 1, FMul))
+      return Add;
+  }
+  return nullptr;
+}
+
+/// \returns true if \p From reaches \p To through at most \p MaxLinks fadds,
+/// each the only use of the one before.
+static bool accumulatesInto(const Instruction *From, const Instruction *To,
+                            unsigned MaxLinks) {
+  for (unsigned Link = 0; From != To; ++Link) {
+    if (Link == MaxLinks || !From->hasOneUse())
+      return false;
+    From = cast<Instruction>(From->user_back());
+    if (From->getOpcode() != Instruction::FAdd)
+      return false;
+  }
+  return true;
+}
+
+/// \returns true if the loads \p Scalars feed fmuls that one contract fadd
+/// chain without reassoc accumulates. The scalar fmuls fuse into that chain,
+/// the fmuls of its vectorized ordered reduction do not.
+static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars) {
+  const Instruction *PrevFMul = nullptr, *PrevAdd = nullptr;
+  for (const Value *V : Scalars) {
+    const Instruction *FMul = nullptr;
+    const Instruction *Add = findFMulAccumulator(V, /*Depth=*/3, FMul);
+    if (!Add)
+      continue;
+    if (PrevAdd && FMul != PrevFMul &&
+        (accumulatesInto(PrevAdd, Add, Scalars.size()) ||
+         accumulatesInto(Add, PrevAdd, Scalars.size())))
+      return true;
+    PrevFMul = FMul;
+    PrevAdd = Add;
+  }
+  return false;
+}
+
+InstructionCost
+GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
+                            unsigned AddressSpace, TTI::TargetCostKind CostKind,
+                            TTI::OperandValueInfo OpInfo, const Instruction *I,
+                            ArrayRef<const Value *> Scalars) const {
+  // The vector load saves nothing over scalar loads the backend coalesces as
+  // well. A reduction that loses the fmas of the scalars pays that saving back.
+  auto *LoadVecTy = dyn_cast<FixedVectorType>(Src);
+  if (Opcode == Instruction::Load && LoadVecTy && Scalars.size() > 1 &&
+      all_of(Scalars, IsaPred<LoadInst>)) {
+    Type *LoadTy = Scalars.front()->getType();
+    unsigned NumLoadElts = 1;
+    if (auto *ScalarVecTy = dyn_cast<FixedVectorType>(LoadTy))
+      NumLoadElts = ScalarVecTy->getNumElements();
+    if (LoadVecTy->getElementType() == LoadTy->getScalarType() &&
+        LoadVecTy->getNumElements() == Scalars.size() * NumLoadElts &&
+        all_of(Scalars,
+               [&](const Value *V) { return V->getType() == LoadTy; }) &&
+        loadsFeedFMAChain(Scalars)) {
+      InstructionCost Cost = getMemoryOpCost(Opcode, Src, Alignment,
+                                             AddressSpace, CostKind, OpInfo, I);
+      Align BestAlign = Alignment;
+      for (const Value *V : Scalars)
+        BestAlign = std::max(BestAlign, cast<LoadInst>(V)->getAlign());
+      if (!consecutiveLoadsCoalesce(LoadTy, Scalars.size(), BestAlign,
+                                    AddressSpace))
+        return Cost;
+      InstructionCost ScalarCost =
+          Scalars.size() *
+          getMemoryOpCost(Opcode, LoadTy, BestAlign, AddressSpace, CostKind);
+      InstructionCost VecCost =
+          getMemoryOpCost(Opcode, Src, BestAlign, AddressSpace, CostKind);
+      if (VecCost < ScalarCost)
+        Cost += ScalarCost - VecCost;
+      return Cost;
+    }
+  }
+
   if (VectorType *VecTy = dyn_cast<VectorType>(Src)) {
     if ((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
         CostKind != TTI::TCK_Latency &&
@@ -2137,26 +2230,6 @@ InstructionCost GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
   }
   return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace, CostKind,
                                 OpInfo, I);
-}
-
-InstructionCost
-GCNTTIImpl::getLoadCoalescingSaving(Type *LoadTy, unsigned NumLoads,
-                                    Align Alignment, unsigned AddrSpace,
-                                    TTI::TargetCostKind CostKind) const {
-  if (!consecutiveLoadsCoalesce(LoadTy, NumLoads, Alignment, AddrSpace))
-    return 0;
-  unsigned NumElts = NumLoads;
-  if (auto *LoadVecTy = dyn_cast<FixedVectorType>(LoadTy))
-    NumElts *= LoadVecTy->getNumElements();
-  InstructionCost ScalarCost =
-      NumLoads * getMemoryOpCost(Instruction::Load, LoadTy, Alignment,
-                                 AddrSpace, CostKind);
-  InstructionCost VecCost = getMemoryOpCost(
-      Instruction::Load, FixedVectorType::get(LoadTy->getScalarType(), NumElts),
-      Alignment, AddrSpace, CostKind);
-  if (VecCost >= ScalarCost)
-    return 0;
-  return ScalarCost - VecCost;
 }
 
 unsigned GCNTTIImpl::getNumberOfParts(Type *Tp) const {

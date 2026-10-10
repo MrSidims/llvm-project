@@ -1777,20 +1777,16 @@ public:
 
   /// \return The cost of Load and Store instructions. The operand info
   /// \p OpdInfo should refer to the stored value for stores and the address
-  /// for loads.
+  /// for loads. \p Scalars are the scalar memory instructions of the lanes of
+  /// a vector \p Src, if known. The target may use them to find the patterns,
+  /// which depend on their users, like the fused multiply-adds a vectorized
+  /// reduction loses.
   LLVM_ABI InstructionCost
   getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                   unsigned AddressSpace, TTI::TargetCostKind CostKind,
                   OperandValueInfo OpdInfo = {OK_AnyValue, OP_None},
-                  const Instruction *I = nullptr) const;
-
-  /// \return The cost the backend saves on \p NumLoads consecutive loads of
-  /// \p LoadTy from address space \p AddrSpace by coalescing them into one
-  /// wider access, \p Alignment being the best alignment known among them.
-  /// Zero when the loads stay separate.
-  LLVM_ABI InstructionCost
-  getLoadCoalescingSaving(Type *LoadTy, unsigned NumLoads, Align Alignment,
-                          unsigned AddrSpace, TargetCostKind CostKind) const;
+                  const Instruction *I = nullptr,
+                  ArrayRef<const Value *> Scalars = {}) const;
 
   /// \return The cost of the interleaved memory operation.
   /// \p Opcode is the memory operation code

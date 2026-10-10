@@ -116,7 +116,8 @@ public:
       unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind,
       TTI::OperandValueInfo OpInfo = {TTI::OK_AnyValue, TTI::OP_None},
-      const Instruction *I = nullptr) const override;
+      const Instruction *I = nullptr,
+      ArrayRef<const Value *> Scalars = {}) const override;
   InstructionCost
   getMemIntrinsicInstrCost(const MemIntrinsicCostAttributes &MICA,
                            TTI::TargetCostKind CostKind) const override;
