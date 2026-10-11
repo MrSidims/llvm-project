@@ -3412,26 +3412,31 @@ unsigned GCNPostSchedStrategy::getMFMAWindowCost(SUnit &SU) const {
 }
 
 unsigned GCNPostSchedStrategy::getMFMAWindowRank(SUnit &SU) const {
+  MachineInstr &MI = *SU.getInstr();
+  if (!isMFMAWindowOpen())
+    return TII->isNeverCoissue(MI) && !isUnpackablePackedF32(MI) ? 1 : 0;
   if (fitsMFMAWindow(SU))
     return 2;
-  return isUnpackablePackedF32(*SU.getInstr()) ? 0 : 1;
+  return isUnpackablePackedF32(MI) ? 0 : 1;
 }
 
-void GCNPostSchedStrategy::deferPackedPastMFMAWindow() {
+void GCNPostSchedStrategy::deferPastMFMAWindow() {
   if (!MFMAWindowEnd)
     return;
   Top.pickOnlyChoice();
   bool Open = isMFMAWindowOpen();
-  bool HasPacked = false;
+  bool HasDeferrable = false;
   for (SUnit *SU : Top.Available) {
     MachineInstr &MI = *SU->getInstr();
-    if (SIInstrInfo::isMFMA(MI) || (Open && fitsMFMAWindow(*SU)))
+    if (SIInstrInfo::isMFMA(MI))
       return;
-    if (!isUnpackablePackedF32(MI))
+    bool Packed = isUnpackablePackedF32(MI);
+    if (Open ? fitsMFMAWindow(*SU) || !Packed
+             : TII->isNeverCoissue(MI) && !Packed)
       return;
-    HasPacked = true;
+    HasDeferrable = true;
   }
-  if (!HasPacked)
+  if (!HasDeferrable)
     return;
   unsigned NextCycle = std::max(Top.getCurrCycle(), MFMAWindowEnd);
   if (none_of(Top.Pending, [&](SUnit *SU) {
@@ -3447,7 +3452,7 @@ void GCNPostSchedStrategy::deferPackedPastMFMAWindow() {
 
 SUnit *GCNPostSchedStrategy::pickNode(bool &IsTopNode) {
   if (Enabled && RegionPolicy.OnlyTopDown && DAG->top() != DAG->bottom())
-    deferPackedPastMFMAWindow();
+    deferPastMFMAWindow();
   return PostGenericScheduler::pickNode(IsTopNode);
 }
 
@@ -3458,7 +3463,7 @@ bool GCNPostSchedStrategy::tryCandidate(SchedCandidate &Cand,
                                  SIInstrInfo::isMFMA(*Cand.SU->getInstr()),
                                  TryCand, Cand, Stall))
       return TryCand.Reason != NoCand;
-    if (isMFMAWindowOpen() &&
+    if (Top.getCurrCycle() < MFMAWindowEnd &&
         tryGreater(getMFMAWindowRank(*TryCand.SU), getMFMAWindowRank(*Cand.SU),
                    TryCand, Cand, Stall))
       return TryCand.Reason != NoCand;

@@ -837,7 +837,7 @@ class GCNPostSchedStrategy final : public PostGenericScheduler {
   bool fitsMFMAWindow(SUnit &SU) const;
   unsigned getMFMAWindowCost(SUnit &SU) const;
   unsigned getMFMAWindowRank(SUnit &SU) const;
-  void deferPackedPastMFMAWindow();
+  void deferPastMFMAWindow();
 
 protected:
   bool tryCandidate(SchedCandidate &Cand, SchedCandidate &TryCand) override;
