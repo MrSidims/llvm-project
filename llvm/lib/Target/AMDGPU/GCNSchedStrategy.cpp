@@ -3398,46 +3398,35 @@ bool GCNPostSchedStrategy::isMFMAWindowOpen() const {
 }
 
 bool GCNPostSchedStrategy::fitsMFMAWindow(SUnit &SU) const {
-  MachineInstr &MI = *SU.getInstr();
-  if (!TII->isNeverCoissue(MI))
-    return true;
-  return isUnpackablePackedF32(MI) && MFMAWindowUsed + 2 < MFMAWindowBudget;
+  return !TII->isNeverCoissue(*SU.getInstr());
 }
 
 unsigned GCNPostSchedStrategy::getMFMAWindowCost(SUnit &SU) const {
-  if (isUnpackablePackedF32(*SU.getInstr()))
-    return 2;
   return std::max(1u,
                   getFirstReleaseAtCycle(*SchedModel, DAG->getSchedClass(&SU)));
 }
 
 unsigned GCNPostSchedStrategy::getMFMAWindowRank(SUnit &SU) const {
   MachineInstr &MI = *SU.getInstr();
-  if (!isMFMAWindowOpen())
-    return TII->isNeverCoissue(MI) && !isUnpackablePackedF32(MI) ? 1 : 0;
-  if (fitsMFMAWindow(SU))
-    return 2;
-  return isUnpackablePackedF32(MI) ? 0 : 1;
+  bool Open = isMFMAWindowOpen();
+  if (SIInstrInfo::isMFMA(MI))
+    return Open ? 0 : 1;
+  if (!TII->isNeverCoissue(MI))
+    return Open ? 3 : 0;
+  if (isUnpackablePackedF32(MI))
+    return Open ? 1 : 2;
+  return Open ? 2 : 3;
 }
 
 void GCNPostSchedStrategy::deferPastMFMAWindow() {
-  if (!MFMAWindowEnd)
+  if (!MFMAWindowEnd || isMFMAWindowOpen())
     return;
   Top.pickOnlyChoice();
-  bool Open = isMFMAWindowOpen();
-  bool HasDeferrable = false;
-  for (SUnit *SU : Top.Available) {
-    MachineInstr &MI = *SU->getInstr();
-    if (SIInstrInfo::isMFMA(MI))
-      return;
-    bool Packed = isUnpackablePackedF32(MI);
-    if (Open ? fitsMFMAWindow(*SU) || !Packed
-             : TII->isNeverCoissue(MI) && !Packed)
-      return;
-    HasDeferrable = true;
-  }
-  if (!HasDeferrable)
+  if (Top.Available.empty())
     return;
+  for (SUnit *SU : Top.Available)
+    if (TII->isNeverCoissue(*SU->getInstr()))
+      return;
   unsigned NextCycle = std::max(Top.getCurrCycle(), MFMAWindowEnd);
   if (none_of(Top.Pending, [&](SUnit *SU) {
         return SIInstrInfo::isMFMA(*SU->getInstr()) &&
