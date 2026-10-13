@@ -17810,7 +17810,7 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
           // target coalesces as well. A reduction that loses its fmas pays
           // that saving back.
           if (E->ReuseShuffleIndices.empty() && E->ReorderIndices.empty() &&
-              It == MinBWs.end() &&
+              It == MinBWs.end() && all_of(VL, IsaPred<LoadInst>) &&
               reductionLosesFMAs(RdxKind, RdxFMF, VectorizedVals)) {
             Align BestAlign = LI0->getAlign();
             for (Value *V : VL)

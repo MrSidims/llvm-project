@@ -947,3 +947,51 @@ entry:
   %s7 = fadd contract float %s6, %m7
   ret float %s7
 }
+
+; An ordered contract fadd reduction of four products where the third one
+; multiplies poison. The loads of the first pointer widen over the poison lane
+; into one vector load. The load saving of such a bundle is not cancelled, so
+; the products are vectorized.
+define float @dot4_ordered_poison_lane(ptr addrspace(1) noalias readonly align 16 dereferenceable(16) %a, ptr addrspace(1) noalias readonly align 16 dereferenceable(16) %b) {
+; CHECK-LABEL: define float @dot4_ordered_poison_lane(
+; CHECK-SAME: ptr addrspace(1) noalias readonly align 16 dereferenceable(16) [[A:%.*]], ptr addrspace(1) noalias readonly align 16 dereferenceable(16) [[B:%.*]]) {
+; CHECK-NEXT:  [[ENTRY:.*:]]
+; CHECK-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
+; CHECK-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr addrspace(1) [[PA0]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = freeze <4 x float> [[TMP0]]
+; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x float>, ptr addrspace(1) [[PB0]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = fmul contract <4 x float> [[TMP1]], [[TMP2]]
+; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <4 x float> [[TMP3]], i64 0
+; CHECK-NEXT:    [[TMP5:%.*]] = extractelement <4 x float> [[TMP3]], i64 1
+; CHECK-NEXT:    [[S1:%.*]] = fadd contract float [[TMP4]], [[TMP5]]
+; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <4 x float> [[TMP3]], i64 2
+; CHECK-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[TMP6]]
+; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <4 x float> [[TMP3]], i64 3
+; CHECK-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[TMP7]]
+; CHECK-NEXT:    ret float [[S3]]
+;
+entry:
+  %pa0 = getelementptr inbounds float, ptr addrspace(1) %a, i64 0
+  %la0 = load float, ptr addrspace(1) %pa0, align 4
+  %pb0 = getelementptr inbounds float, ptr addrspace(1) %b, i64 0
+  %lb0 = load float, ptr addrspace(1) %pb0, align 4
+  %m0 = fmul contract float %la0, %lb0
+  %pa1 = getelementptr inbounds float, ptr addrspace(1) %a, i64 1
+  %la1 = load float, ptr addrspace(1) %pa1, align 4
+  %pb1 = getelementptr inbounds float, ptr addrspace(1) %b, i64 1
+  %lb1 = load float, ptr addrspace(1) %pb1, align 4
+  %m1 = fmul contract float %la1, %lb1
+  %s1 = fadd contract float %m0, %m1
+  %pb2 = getelementptr inbounds float, ptr addrspace(1) %b, i64 2
+  %lb2 = load float, ptr addrspace(1) %pb2, align 4
+  %m2 = fmul contract float poison, %lb2
+  %s2 = fadd contract float %s1, %m2
+  %pa3 = getelementptr inbounds float, ptr addrspace(1) %a, i64 3
+  %la3 = load float, ptr addrspace(1) %pa3, align 4
+  %pb3 = getelementptr inbounds float, ptr addrspace(1) %b, i64 3
+  %lb3 = load float, ptr addrspace(1) %pb3, align 4
+  %m3 = fmul contract float %la3, %lb3
+  %s3 = fadd contract float %s2, %m3
+  ret float %s3
+}
