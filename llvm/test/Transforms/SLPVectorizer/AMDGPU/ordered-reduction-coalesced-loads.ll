@@ -997,151 +997,92 @@ entry:
 }
 
 ; An ordered contract fadd reduction of four products whose loaded values are
-; also scaled by three and summed pairwise into volatile stores. The products
-; would lose their fmas as vectors, so the loads lose their saving and the
-; reduction stays scalar. gfx942 and gfx950 still load pairs of values for the
-; pairwise sums.
+; also scaled by three and summed pairwise into volatile stores. Every lane of
+; the loads has a pairwise sum of its own to fuse into, so the loads keep their
+; saving although the products of the reduction lose their fmas. The loads and
+; the products are vectorized.
 define float @dot4_ordered_scaled_stores(ptr addrspace(1) noalias readonly align 4 %a, ptr addrspace(1) noalias readonly align 4 %b, ptr addrspace(1) noalias %out, float %acc) {
-; GFX90A-LABEL: define float @dot4_ordered_scaled_stores(
-; GFX90A-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], ptr addrspace(1) noalias [[OUT:%.*]], float [[ACC:%.*]]) {
-; GFX90A-NEXT:  [[ENTRY:.*:]]
-; GFX90A-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
-; GFX90A-NEXT:    [[LA0:%.*]] = load float, ptr addrspace(1) [[PA0]], align 4
-; GFX90A-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
-; GFX90A-NEXT:    [[LB0:%.*]] = load float, ptr addrspace(1) [[PB0]], align 4
-; GFX90A-NEXT:    [[M0:%.*]] = fmul contract float [[LA0]], [[LB0]]
-; GFX90A-NEXT:    [[PA1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 1
-; GFX90A-NEXT:    [[LA1:%.*]] = load float, ptr addrspace(1) [[PA1]], align 4
-; GFX90A-NEXT:    [[PB1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 1
-; GFX90A-NEXT:    [[LB1:%.*]] = load float, ptr addrspace(1) [[PB1]], align 4
-; GFX90A-NEXT:    [[M1:%.*]] = fmul contract float [[LA1]], [[LB1]]
-; GFX90A-NEXT:    [[PA2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 2
-; GFX90A-NEXT:    [[LA2:%.*]] = load float, ptr addrspace(1) [[PA2]], align 4
-; GFX90A-NEXT:    [[PB2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 2
-; GFX90A-NEXT:    [[LB2:%.*]] = load float, ptr addrspace(1) [[PB2]], align 4
-; GFX90A-NEXT:    [[M2:%.*]] = fmul contract float [[LA2]], [[LB2]]
-; GFX90A-NEXT:    [[PA3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 3
-; GFX90A-NEXT:    [[LA3:%.*]] = load float, ptr addrspace(1) [[PA3]], align 4
-; GFX90A-NEXT:    [[PB3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 3
-; GFX90A-NEXT:    [[LB3:%.*]] = load float, ptr addrspace(1) [[PB3]], align 4
-; GFX90A-NEXT:    [[M3:%.*]] = fmul contract float [[LA3]], [[LB3]]
-; GFX90A-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[M0]]
-; GFX90A-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[M1]]
-; GFX90A-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[M2]]
-; GFX90A-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[M3]]
-; GFX90A-NEXT:    [[XA0:%.*]] = fmul contract float [[LA0]], 3.000000e+00
-; GFX90A-NEXT:    [[XB0:%.*]] = fmul contract float [[LB0]], 3.000000e+00
-; GFX90A-NEXT:    [[X0:%.*]] = fadd contract float [[XA0]], [[XB0]]
-; GFX90A-NEXT:    [[PO0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 0
-; GFX90A-NEXT:    store volatile float [[X0]], ptr addrspace(1) [[PO0]], align 4
-; GFX90A-NEXT:    [[XA1:%.*]] = fmul contract float [[LA1]], 3.000000e+00
-; GFX90A-NEXT:    [[XB1:%.*]] = fmul contract float [[LB1]], 3.000000e+00
-; GFX90A-NEXT:    [[X1:%.*]] = fadd contract float [[XA1]], [[XB1]]
-; GFX90A-NEXT:    [[PO1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
-; GFX90A-NEXT:    store volatile float [[X1]], ptr addrspace(1) [[PO1]], align 4
-; GFX90A-NEXT:    [[XA2:%.*]] = fmul contract float [[LA2]], 3.000000e+00
-; GFX90A-NEXT:    [[XB2:%.*]] = fmul contract float [[LB2]], 3.000000e+00
-; GFX90A-NEXT:    [[X2:%.*]] = fadd contract float [[XA2]], [[XB2]]
-; GFX90A-NEXT:    [[PO2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
-; GFX90A-NEXT:    store volatile float [[X2]], ptr addrspace(1) [[PO2]], align 4
-; GFX90A-NEXT:    [[XA3:%.*]] = fmul contract float [[LA3]], 3.000000e+00
-; GFX90A-NEXT:    [[XB3:%.*]] = fmul contract float [[LB3]], 3.000000e+00
-; GFX90A-NEXT:    [[X3:%.*]] = fadd contract float [[XA3]], [[XB3]]
-; GFX90A-NEXT:    [[PO3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
-; GFX90A-NEXT:    store volatile float [[X3]], ptr addrspace(1) [[PO3]], align 4
-; GFX90A-NEXT:    ret float [[S4]]
-;
-; GFX942-950-LABEL: define float @dot4_ordered_scaled_stores(
-; GFX942-950-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], ptr addrspace(1) noalias [[OUT:%.*]], float [[ACC:%.*]]) {
-; GFX942-950-NEXT:  [[ENTRY:.*:]]
-; GFX942-950-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
-; GFX942-950-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
-; GFX942-950-NEXT:    [[PA2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 2
-; GFX942-950-NEXT:    [[PB2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 2
-; GFX942-950-NEXT:    [[PO0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 0
-; GFX942-950-NEXT:    [[TMP0:%.*]] = load <2 x float>, ptr addrspace(1) [[PA0]], align 4
-; GFX942-950-NEXT:    [[TMP1:%.*]] = load <2 x float>, ptr addrspace(1) [[PB0]], align 4
-; GFX942-950-NEXT:    [[TMP2:%.*]] = extractelement <2 x float> [[TMP0]], i64 0
-; GFX942-950-NEXT:    [[TMP3:%.*]] = extractelement <2 x float> [[TMP1]], i64 0
-; GFX942-950-NEXT:    [[M0:%.*]] = fmul contract float [[TMP2]], [[TMP3]]
-; GFX942-950-NEXT:    [[TMP4:%.*]] = extractelement <2 x float> [[TMP0]], i64 1
-; GFX942-950-NEXT:    [[TMP5:%.*]] = extractelement <2 x float> [[TMP1]], i64 1
-; GFX942-950-NEXT:    [[M1:%.*]] = fmul contract float [[TMP4]], [[TMP5]]
-; GFX942-950-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[M0]]
-; GFX942-950-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[M1]]
-; GFX942-950-NEXT:    [[TMP6:%.*]] = fmul contract <2 x float> [[TMP0]], splat (float 3.000000e+00)
-; GFX942-950-NEXT:    [[TMP7:%.*]] = fmul contract <2 x float> [[TMP1]], splat (float 3.000000e+00)
-; GFX942-950-NEXT:    [[TMP8:%.*]] = fadd contract <2 x float> [[TMP6]], [[TMP7]]
-; GFX942-950-NEXT:    [[TMP9:%.*]] = extractelement <2 x float> [[TMP8]], i64 0
-; GFX942-950-NEXT:    store volatile float [[TMP9]], ptr addrspace(1) [[PO0]], align 4
-; GFX942-950-NEXT:    [[PO1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
-; GFX942-950-NEXT:    [[TMP10:%.*]] = extractelement <2 x float> [[TMP8]], i64 1
-; GFX942-950-NEXT:    store volatile float [[TMP10]], ptr addrspace(1) [[PO1]], align 4
-; GFX942-950-NEXT:    [[PO2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
-; GFX942-950-NEXT:    [[TMP11:%.*]] = load <2 x float>, ptr addrspace(1) [[PA2]], align 4
-; GFX942-950-NEXT:    [[TMP12:%.*]] = load <2 x float>, ptr addrspace(1) [[PB2]], align 4
-; GFX942-950-NEXT:    [[TMP13:%.*]] = extractelement <2 x float> [[TMP11]], i64 0
-; GFX942-950-NEXT:    [[TMP14:%.*]] = extractelement <2 x float> [[TMP12]], i64 0
-; GFX942-950-NEXT:    [[M2:%.*]] = fmul contract float [[TMP13]], [[TMP14]]
-; GFX942-950-NEXT:    [[TMP15:%.*]] = extractelement <2 x float> [[TMP11]], i64 1
-; GFX942-950-NEXT:    [[TMP16:%.*]] = extractelement <2 x float> [[TMP12]], i64 1
-; GFX942-950-NEXT:    [[M3:%.*]] = fmul contract float [[TMP15]], [[TMP16]]
-; GFX942-950-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[M2]]
-; GFX942-950-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[M3]]
-; GFX942-950-NEXT:    [[TMP17:%.*]] = fmul contract <2 x float> [[TMP11]], splat (float 3.000000e+00)
-; GFX942-950-NEXT:    [[TMP18:%.*]] = fmul contract <2 x float> [[TMP12]], splat (float 3.000000e+00)
-; GFX942-950-NEXT:    [[TMP19:%.*]] = fadd contract <2 x float> [[TMP17]], [[TMP18]]
-; GFX942-950-NEXT:    [[TMP20:%.*]] = extractelement <2 x float> [[TMP19]], i64 0
-; GFX942-950-NEXT:    store volatile float [[TMP20]], ptr addrspace(1) [[PO2]], align 4
-; GFX942-950-NEXT:    [[PO3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
-; GFX942-950-NEXT:    [[TMP21:%.*]] = extractelement <2 x float> [[TMP19]], i64 1
-; GFX942-950-NEXT:    store volatile float [[TMP21]], ptr addrspace(1) [[PO3]], align 4
-; GFX942-950-NEXT:    ret float [[S4]]
+; GFX9-LABEL: define float @dot4_ordered_scaled_stores(
+; GFX9-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], ptr addrspace(1) noalias [[OUT:%.*]], float [[ACC:%.*]]) {
+; GFX9-NEXT:  [[ENTRY:.*:]]
+; GFX9-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
+; GFX9-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
+; GFX9-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr addrspace(1) [[PA0]], align 4
+; GFX9-NEXT:    [[TMP1:%.*]] = load <4 x float>, ptr addrspace(1) [[PB0]], align 4
+; GFX9-NEXT:    [[TMP2:%.*]] = fmul contract <4 x float> [[TMP0]], [[TMP1]]
+; GFX9-NEXT:    [[TMP3:%.*]] = extractelement <4 x float> [[TMP2]], i64 0
+; GFX9-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[TMP3]]
+; GFX9-NEXT:    [[TMP4:%.*]] = extractelement <4 x float> [[TMP2]], i64 1
+; GFX9-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[TMP4]]
+; GFX9-NEXT:    [[TMP5:%.*]] = extractelement <4 x float> [[TMP2]], i64 2
+; GFX9-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[TMP5]]
+; GFX9-NEXT:    [[TMP6:%.*]] = extractelement <4 x float> [[TMP2]], i64 3
+; GFX9-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[TMP6]]
+; GFX9-NEXT:    [[PO0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 0
+; GFX9-NEXT:    [[TMP7:%.*]] = shufflevector <4 x float> [[TMP0]], <4 x float> poison, <2 x i32> <i32 0, i32 1>
+; GFX9-NEXT:    [[TMP8:%.*]] = fmul contract <2 x float> [[TMP7]], splat (float 3.000000e+00)
+; GFX9-NEXT:    [[TMP9:%.*]] = shufflevector <4 x float> [[TMP1]], <4 x float> poison, <2 x i32> <i32 0, i32 1>
+; GFX9-NEXT:    [[TMP10:%.*]] = fmul contract <2 x float> [[TMP9]], splat (float 3.000000e+00)
+; GFX9-NEXT:    [[TMP11:%.*]] = fadd contract <2 x float> [[TMP8]], [[TMP10]]
+; GFX9-NEXT:    [[TMP12:%.*]] = extractelement <2 x float> [[TMP11]], i64 0
+; GFX9-NEXT:    store volatile float [[TMP12]], ptr addrspace(1) [[PO0]], align 4
+; GFX9-NEXT:    [[PO1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
+; GFX9-NEXT:    [[TMP13:%.*]] = extractelement <2 x float> [[TMP11]], i64 1
+; GFX9-NEXT:    store volatile float [[TMP13]], ptr addrspace(1) [[PO1]], align 4
+; GFX9-NEXT:    [[PO2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
+; GFX9-NEXT:    [[TMP14:%.*]] = shufflevector <4 x float> [[TMP0]], <4 x float> poison, <2 x i32> <i32 2, i32 3>
+; GFX9-NEXT:    [[TMP15:%.*]] = fmul contract <2 x float> [[TMP14]], splat (float 3.000000e+00)
+; GFX9-NEXT:    [[TMP16:%.*]] = shufflevector <4 x float> [[TMP1]], <4 x float> poison, <2 x i32> <i32 2, i32 3>
+; GFX9-NEXT:    [[TMP17:%.*]] = fmul contract <2 x float> [[TMP16]], splat (float 3.000000e+00)
+; GFX9-NEXT:    [[TMP18:%.*]] = fadd contract <2 x float> [[TMP15]], [[TMP17]]
+; GFX9-NEXT:    [[TMP19:%.*]] = extractelement <2 x float> [[TMP18]], i64 0
+; GFX9-NEXT:    store volatile float [[TMP19]], ptr addrspace(1) [[PO2]], align 4
+; GFX9-NEXT:    [[PO3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
+; GFX9-NEXT:    [[TMP20:%.*]] = extractelement <2 x float> [[TMP18]], i64 1
+; GFX9-NEXT:    store volatile float [[TMP20]], ptr addrspace(1) [[PO3]], align 4
+; GFX9-NEXT:    ret float [[S4]]
 ;
 ; GFX1030-LABEL: define float @dot4_ordered_scaled_stores(
 ; GFX1030-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], ptr addrspace(1) noalias [[OUT:%.*]], float [[ACC:%.*]]) {
 ; GFX1030-NEXT:  [[ENTRY:.*:]]
 ; GFX1030-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
-; GFX1030-NEXT:    [[LA0:%.*]] = load float, ptr addrspace(1) [[PA0]], align 4
 ; GFX1030-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
-; GFX1030-NEXT:    [[LB0:%.*]] = load float, ptr addrspace(1) [[PB0]], align 4
-; GFX1030-NEXT:    [[M0:%.*]] = fmul contract float [[LA0]], [[LB0]]
-; GFX1030-NEXT:    [[PA1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 1
-; GFX1030-NEXT:    [[LA1:%.*]] = load float, ptr addrspace(1) [[PA1]], align 4
-; GFX1030-NEXT:    [[PB1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 1
-; GFX1030-NEXT:    [[LB1:%.*]] = load float, ptr addrspace(1) [[PB1]], align 4
-; GFX1030-NEXT:    [[M1:%.*]] = fmul contract float [[LA1]], [[LB1]]
-; GFX1030-NEXT:    [[PA2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 2
-; GFX1030-NEXT:    [[LA2:%.*]] = load float, ptr addrspace(1) [[PA2]], align 4
-; GFX1030-NEXT:    [[PB2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 2
-; GFX1030-NEXT:    [[LB2:%.*]] = load float, ptr addrspace(1) [[PB2]], align 4
-; GFX1030-NEXT:    [[M2:%.*]] = fmul contract float [[LA2]], [[LB2]]
-; GFX1030-NEXT:    [[PA3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 3
-; GFX1030-NEXT:    [[LA3:%.*]] = load float, ptr addrspace(1) [[PA3]], align 4
-; GFX1030-NEXT:    [[PB3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 3
-; GFX1030-NEXT:    [[LB3:%.*]] = load float, ptr addrspace(1) [[PB3]], align 4
-; GFX1030-NEXT:    [[M3:%.*]] = fmul contract float [[LA3]], [[LB3]]
-; GFX1030-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[M0]]
-; GFX1030-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[M1]]
-; GFX1030-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[M2]]
-; GFX1030-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[M3]]
-; GFX1030-NEXT:    [[XA0:%.*]] = fmul contract float [[LA0]], 3.000000e+00
-; GFX1030-NEXT:    [[XB0:%.*]] = fmul contract float [[LB0]], 3.000000e+00
+; GFX1030-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr addrspace(1) [[PA0]], align 4
+; GFX1030-NEXT:    [[TMP1:%.*]] = load <4 x float>, ptr addrspace(1) [[PB0]], align 4
+; GFX1030-NEXT:    [[TMP2:%.*]] = fmul contract <4 x float> [[TMP0]], [[TMP1]]
+; GFX1030-NEXT:    [[TMP3:%.*]] = extractelement <4 x float> [[TMP2]], i64 0
+; GFX1030-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[TMP3]]
+; GFX1030-NEXT:    [[TMP4:%.*]] = extractelement <4 x float> [[TMP2]], i64 1
+; GFX1030-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[TMP4]]
+; GFX1030-NEXT:    [[TMP5:%.*]] = extractelement <4 x float> [[TMP2]], i64 2
+; GFX1030-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[TMP5]]
+; GFX1030-NEXT:    [[TMP6:%.*]] = extractelement <4 x float> [[TMP2]], i64 3
+; GFX1030-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[TMP6]]
+; GFX1030-NEXT:    [[TMP7:%.*]] = extractelement <4 x float> [[TMP0]], i64 0
+; GFX1030-NEXT:    [[XA0:%.*]] = fmul contract float [[TMP7]], 3.000000e+00
+; GFX1030-NEXT:    [[TMP8:%.*]] = extractelement <4 x float> [[TMP1]], i64 0
+; GFX1030-NEXT:    [[XB0:%.*]] = fmul contract float [[TMP8]], 3.000000e+00
 ; GFX1030-NEXT:    [[X0:%.*]] = fadd contract float [[XA0]], [[XB0]]
 ; GFX1030-NEXT:    [[PO0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 0
 ; GFX1030-NEXT:    store volatile float [[X0]], ptr addrspace(1) [[PO0]], align 4
-; GFX1030-NEXT:    [[XA1:%.*]] = fmul contract float [[LA1]], 3.000000e+00
-; GFX1030-NEXT:    [[XB1:%.*]] = fmul contract float [[LB1]], 3.000000e+00
+; GFX1030-NEXT:    [[TMP9:%.*]] = extractelement <4 x float> [[TMP0]], i64 1
+; GFX1030-NEXT:    [[XA1:%.*]] = fmul contract float [[TMP9]], 3.000000e+00
+; GFX1030-NEXT:    [[TMP10:%.*]] = extractelement <4 x float> [[TMP1]], i64 1
+; GFX1030-NEXT:    [[XB1:%.*]] = fmul contract float [[TMP10]], 3.000000e+00
 ; GFX1030-NEXT:    [[X1:%.*]] = fadd contract float [[XA1]], [[XB1]]
 ; GFX1030-NEXT:    [[PO1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
 ; GFX1030-NEXT:    store volatile float [[X1]], ptr addrspace(1) [[PO1]], align 4
-; GFX1030-NEXT:    [[XA2:%.*]] = fmul contract float [[LA2]], 3.000000e+00
-; GFX1030-NEXT:    [[XB2:%.*]] = fmul contract float [[LB2]], 3.000000e+00
+; GFX1030-NEXT:    [[TMP11:%.*]] = extractelement <4 x float> [[TMP0]], i64 2
+; GFX1030-NEXT:    [[XA2:%.*]] = fmul contract float [[TMP11]], 3.000000e+00
+; GFX1030-NEXT:    [[TMP12:%.*]] = extractelement <4 x float> [[TMP1]], i64 2
+; GFX1030-NEXT:    [[XB2:%.*]] = fmul contract float [[TMP12]], 3.000000e+00
 ; GFX1030-NEXT:    [[X2:%.*]] = fadd contract float [[XA2]], [[XB2]]
 ; GFX1030-NEXT:    [[PO2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
 ; GFX1030-NEXT:    store volatile float [[X2]], ptr addrspace(1) [[PO2]], align 4
-; GFX1030-NEXT:    [[XA3:%.*]] = fmul contract float [[LA3]], 3.000000e+00
-; GFX1030-NEXT:    [[XB3:%.*]] = fmul contract float [[LB3]], 3.000000e+00
+; GFX1030-NEXT:    [[TMP13:%.*]] = extractelement <4 x float> [[TMP0]], i64 3
+; GFX1030-NEXT:    [[XA3:%.*]] = fmul contract float [[TMP13]], 3.000000e+00
+; GFX1030-NEXT:    [[TMP14:%.*]] = extractelement <4 x float> [[TMP1]], i64 3
+; GFX1030-NEXT:    [[XB3:%.*]] = fmul contract float [[TMP14]], 3.000000e+00
 ; GFX1030-NEXT:    [[X3:%.*]] = fadd contract float [[XA3]], [[XB3]]
 ; GFX1030-NEXT:    [[PO3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
 ; GFX1030-NEXT:    store volatile float [[X3]], ptr addrspace(1) [[PO3]], align 4
@@ -1151,49 +1092,40 @@ define float @dot4_ordered_scaled_stores(ptr addrspace(1) noalias readonly align
 ; GFX1250-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], ptr addrspace(1) noalias [[OUT:%.*]], float [[ACC:%.*]]) {
 ; GFX1250-NEXT:  [[ENTRY:.*:]]
 ; GFX1250-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
-; GFX1250-NEXT:    [[LA0:%.*]] = load float, ptr addrspace(1) [[PA0]], align 4
 ; GFX1250-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
-; GFX1250-NEXT:    [[LB0:%.*]] = load float, ptr addrspace(1) [[PB0]], align 4
-; GFX1250-NEXT:    [[M0:%.*]] = fmul contract float [[LA0]], [[LB0]]
-; GFX1250-NEXT:    [[PA1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 1
-; GFX1250-NEXT:    [[LA1:%.*]] = load float, ptr addrspace(1) [[PA1]], align 4
-; GFX1250-NEXT:    [[PB1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 1
-; GFX1250-NEXT:    [[LB1:%.*]] = load float, ptr addrspace(1) [[PB1]], align 4
-; GFX1250-NEXT:    [[M1:%.*]] = fmul contract float [[LA1]], [[LB1]]
-; GFX1250-NEXT:    [[PA2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 2
-; GFX1250-NEXT:    [[LA2:%.*]] = load float, ptr addrspace(1) [[PA2]], align 4
-; GFX1250-NEXT:    [[PB2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 2
-; GFX1250-NEXT:    [[LB2:%.*]] = load float, ptr addrspace(1) [[PB2]], align 4
-; GFX1250-NEXT:    [[M2:%.*]] = fmul contract float [[LA2]], [[LB2]]
-; GFX1250-NEXT:    [[PA3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 3
-; GFX1250-NEXT:    [[LA3:%.*]] = load float, ptr addrspace(1) [[PA3]], align 4
-; GFX1250-NEXT:    [[PB3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 3
-; GFX1250-NEXT:    [[LB3:%.*]] = load float, ptr addrspace(1) [[PB3]], align 4
-; GFX1250-NEXT:    [[M3:%.*]] = fmul contract float [[LA3]], [[LB3]]
-; GFX1250-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[M0]]
-; GFX1250-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[M1]]
-; GFX1250-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[M2]]
-; GFX1250-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[M3]]
-; GFX1250-NEXT:    [[XA0:%.*]] = fmul contract float [[LA0]], 3.000000e+00
-; GFX1250-NEXT:    [[XB0:%.*]] = fmul contract float [[LB0]], 3.000000e+00
-; GFX1250-NEXT:    [[X0:%.*]] = fadd contract float [[XA0]], [[XB0]]
+; GFX1250-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr addrspace(1) [[PA0]], align 4
+; GFX1250-NEXT:    [[TMP1:%.*]] = load <4 x float>, ptr addrspace(1) [[PB0]], align 4
+; GFX1250-NEXT:    [[TMP2:%.*]] = fmul contract <4 x float> [[TMP0]], [[TMP1]]
+; GFX1250-NEXT:    [[TMP3:%.*]] = extractelement <4 x float> [[TMP2]], i64 0
+; GFX1250-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[TMP3]]
+; GFX1250-NEXT:    [[TMP4:%.*]] = extractelement <4 x float> [[TMP2]], i64 1
+; GFX1250-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[TMP4]]
+; GFX1250-NEXT:    [[TMP5:%.*]] = extractelement <4 x float> [[TMP2]], i64 2
+; GFX1250-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[TMP5]]
+; GFX1250-NEXT:    [[TMP6:%.*]] = extractelement <4 x float> [[TMP2]], i64 3
+; GFX1250-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[TMP6]]
 ; GFX1250-NEXT:    [[PO0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 0
-; GFX1250-NEXT:    store volatile float [[X0]], ptr addrspace(1) [[PO0]], align 4
-; GFX1250-NEXT:    [[XA1:%.*]] = fmul contract float [[LA1]], 3.000000e+00
-; GFX1250-NEXT:    [[XB1:%.*]] = fmul contract float [[LB1]], 3.000000e+00
-; GFX1250-NEXT:    [[X1:%.*]] = fadd contract float [[XA1]], [[XB1]]
+; GFX1250-NEXT:    [[TMP7:%.*]] = shufflevector <4 x float> [[TMP0]], <4 x float> poison, <2 x i32> <i32 0, i32 1>
+; GFX1250-NEXT:    [[TMP8:%.*]] = fmul contract <2 x float> [[TMP7]], splat (float 3.000000e+00)
+; GFX1250-NEXT:    [[TMP9:%.*]] = shufflevector <4 x float> [[TMP1]], <4 x float> poison, <2 x i32> <i32 0, i32 1>
+; GFX1250-NEXT:    [[TMP10:%.*]] = fmul contract <2 x float> [[TMP9]], splat (float 3.000000e+00)
+; GFX1250-NEXT:    [[TMP11:%.*]] = fadd contract <2 x float> [[TMP8]], [[TMP10]]
+; GFX1250-NEXT:    [[TMP12:%.*]] = extractelement <2 x float> [[TMP11]], i64 0
+; GFX1250-NEXT:    store volatile float [[TMP12]], ptr addrspace(1) [[PO0]], align 4
 ; GFX1250-NEXT:    [[PO1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
-; GFX1250-NEXT:    store volatile float [[X1]], ptr addrspace(1) [[PO1]], align 4
-; GFX1250-NEXT:    [[XA2:%.*]] = fmul contract float [[LA2]], 3.000000e+00
-; GFX1250-NEXT:    [[XB2:%.*]] = fmul contract float [[LB2]], 3.000000e+00
-; GFX1250-NEXT:    [[X2:%.*]] = fadd contract float [[XA2]], [[XB2]]
+; GFX1250-NEXT:    [[TMP13:%.*]] = extractelement <2 x float> [[TMP11]], i64 1
+; GFX1250-NEXT:    store volatile float [[TMP13]], ptr addrspace(1) [[PO1]], align 4
 ; GFX1250-NEXT:    [[PO2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
-; GFX1250-NEXT:    store volatile float [[X2]], ptr addrspace(1) [[PO2]], align 4
-; GFX1250-NEXT:    [[XA3:%.*]] = fmul contract float [[LA3]], 3.000000e+00
-; GFX1250-NEXT:    [[XB3:%.*]] = fmul contract float [[LB3]], 3.000000e+00
-; GFX1250-NEXT:    [[X3:%.*]] = fadd contract float [[XA3]], [[XB3]]
+; GFX1250-NEXT:    [[TMP14:%.*]] = shufflevector <4 x float> [[TMP0]], <4 x float> poison, <2 x i32> <i32 2, i32 3>
+; GFX1250-NEXT:    [[TMP15:%.*]] = fmul contract <2 x float> [[TMP14]], splat (float 3.000000e+00)
+; GFX1250-NEXT:    [[TMP16:%.*]] = shufflevector <4 x float> [[TMP1]], <4 x float> poison, <2 x i32> <i32 2, i32 3>
+; GFX1250-NEXT:    [[TMP17:%.*]] = fmul contract <2 x float> [[TMP16]], splat (float 3.000000e+00)
+; GFX1250-NEXT:    [[TMP18:%.*]] = fadd contract <2 x float> [[TMP15]], [[TMP17]]
+; GFX1250-NEXT:    [[TMP19:%.*]] = extractelement <2 x float> [[TMP18]], i64 0
+; GFX1250-NEXT:    store volatile float [[TMP19]], ptr addrspace(1) [[PO2]], align 4
 ; GFX1250-NEXT:    [[PO3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
-; GFX1250-NEXT:    store volatile float [[X3]], ptr addrspace(1) [[PO3]], align 4
+; GFX1250-NEXT:    [[TMP20:%.*]] = extractelement <2 x float> [[TMP18]], i64 1
+; GFX1250-NEXT:    store volatile float [[TMP20]], ptr addrspace(1) [[PO3]], align 4
 ; GFX1250-NEXT:    ret float [[S4]]
 ;
 entry:
@@ -1245,229 +1177,62 @@ entry:
 }
 
 ; The same reduction with the scaled values accumulated by a second fadd chain
-; whose partial sums are stored. The products would lose their fmas as
-; vectors, so the loads lose their saving and stay scalar. gfx942 and gfx950
-; pair a few steps of the two chains in two lane vectors.
+; whose partial sums are stored. Every stored partial sum ends a chain of its
+; own, so the loads keep their saving although the products of the reduction
+; lose their fmas. The loads and the products are vectorized.
 define float @dot4_ordered_scaled_chain(ptr addrspace(1) noalias readonly align 4 %a, ptr addrspace(1) noalias readonly align 4 %b, ptr addrspace(1) noalias %out, float %acc) {
-; GFX90A-LABEL: define float @dot4_ordered_scaled_chain(
-; GFX90A-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], ptr addrspace(1) noalias [[OUT:%.*]], float [[ACC:%.*]]) {
-; GFX90A-NEXT:  [[ENTRY:.*:]]
-; GFX90A-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
-; GFX90A-NEXT:    [[LA0:%.*]] = load float, ptr addrspace(1) [[PA0]], align 4
-; GFX90A-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
-; GFX90A-NEXT:    [[LB0:%.*]] = load float, ptr addrspace(1) [[PB0]], align 4
-; GFX90A-NEXT:    [[M0:%.*]] = fmul contract float [[LA0]], [[LB0]]
-; GFX90A-NEXT:    [[PA1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 1
-; GFX90A-NEXT:    [[LA1:%.*]] = load float, ptr addrspace(1) [[PA1]], align 4
-; GFX90A-NEXT:    [[PB1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 1
-; GFX90A-NEXT:    [[LB1:%.*]] = load float, ptr addrspace(1) [[PB1]], align 4
-; GFX90A-NEXT:    [[M1:%.*]] = fmul contract float [[LA1]], [[LB1]]
-; GFX90A-NEXT:    [[PA2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 2
-; GFX90A-NEXT:    [[LA2:%.*]] = load float, ptr addrspace(1) [[PA2]], align 4
-; GFX90A-NEXT:    [[PB2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 2
-; GFX90A-NEXT:    [[LB2:%.*]] = load float, ptr addrspace(1) [[PB2]], align 4
-; GFX90A-NEXT:    [[M2:%.*]] = fmul contract float [[LA2]], [[LB2]]
-; GFX90A-NEXT:    [[PA3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 3
-; GFX90A-NEXT:    [[LA3:%.*]] = load float, ptr addrspace(1) [[PA3]], align 4
-; GFX90A-NEXT:    [[PB3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 3
-; GFX90A-NEXT:    [[LB3:%.*]] = load float, ptr addrspace(1) [[PB3]], align 4
-; GFX90A-NEXT:    [[M3:%.*]] = fmul contract float [[LA3]], [[LB3]]
-; GFX90A-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[M0]]
-; GFX90A-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[M1]]
-; GFX90A-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[M2]]
-; GFX90A-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[M3]]
-; GFX90A-NEXT:    [[XA0:%.*]] = fmul contract float [[LA0]], 3.000000e+00
-; GFX90A-NEXT:    [[XB0:%.*]] = fmul contract float [[LB0]], 3.000000e+00
-; GFX90A-NEXT:    [[T0:%.*]] = fadd contract float [[ACC]], [[XA0]]
-; GFX90A-NEXT:    [[X0:%.*]] = fadd contract float [[T0]], [[XB0]]
-; GFX90A-NEXT:    [[PO0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 0
-; GFX90A-NEXT:    store volatile float [[X0]], ptr addrspace(1) [[PO0]], align 4
-; GFX90A-NEXT:    [[XA1:%.*]] = fmul contract float [[LA1]], 3.000000e+00
-; GFX90A-NEXT:    [[XB1:%.*]] = fmul contract float [[LB1]], 3.000000e+00
-; GFX90A-NEXT:    [[T1:%.*]] = fadd contract float [[X0]], [[XA1]]
-; GFX90A-NEXT:    [[X1:%.*]] = fadd contract float [[T1]], [[XB1]]
-; GFX90A-NEXT:    [[PO1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
-; GFX90A-NEXT:    store volatile float [[X1]], ptr addrspace(1) [[PO1]], align 4
-; GFX90A-NEXT:    [[XA2:%.*]] = fmul contract float [[LA2]], 3.000000e+00
-; GFX90A-NEXT:    [[XB2:%.*]] = fmul contract float [[LB2]], 3.000000e+00
-; GFX90A-NEXT:    [[T2:%.*]] = fadd contract float [[X1]], [[XA2]]
-; GFX90A-NEXT:    [[X2:%.*]] = fadd contract float [[T2]], [[XB2]]
-; GFX90A-NEXT:    [[PO2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
-; GFX90A-NEXT:    store volatile float [[X2]], ptr addrspace(1) [[PO2]], align 4
-; GFX90A-NEXT:    [[XA3:%.*]] = fmul contract float [[LA3]], 3.000000e+00
-; GFX90A-NEXT:    [[XB3:%.*]] = fmul contract float [[LB3]], 3.000000e+00
-; GFX90A-NEXT:    [[T3:%.*]] = fadd contract float [[X2]], [[XA3]]
-; GFX90A-NEXT:    [[X3:%.*]] = fadd contract float [[T3]], [[XB3]]
-; GFX90A-NEXT:    [[PO3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
-; GFX90A-NEXT:    store volatile float [[X3]], ptr addrspace(1) [[PO3]], align 4
-; GFX90A-NEXT:    ret float [[S4]]
-;
-; GFX942-950-LABEL: define float @dot4_ordered_scaled_chain(
-; GFX942-950-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], ptr addrspace(1) noalias [[OUT:%.*]], float [[ACC:%.*]]) {
-; GFX942-950-NEXT:  [[ENTRY:.*:]]
-; GFX942-950-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
-; GFX942-950-NEXT:    [[LA0:%.*]] = load float, ptr addrspace(1) [[PA0]], align 4
-; GFX942-950-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
-; GFX942-950-NEXT:    [[LB0:%.*]] = load float, ptr addrspace(1) [[PB0]], align 4
-; GFX942-950-NEXT:    [[M0:%.*]] = fmul contract float [[LA0]], [[LB0]]
-; GFX942-950-NEXT:    [[PA1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 1
-; GFX942-950-NEXT:    [[LA1:%.*]] = load float, ptr addrspace(1) [[PA1]], align 4
-; GFX942-950-NEXT:    [[PB1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 1
-; GFX942-950-NEXT:    [[LB1:%.*]] = load float, ptr addrspace(1) [[PB1]], align 4
-; GFX942-950-NEXT:    [[M1:%.*]] = fmul contract float [[LA1]], [[LB1]]
-; GFX942-950-NEXT:    [[PA2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 2
-; GFX942-950-NEXT:    [[LA2:%.*]] = load float, ptr addrspace(1) [[PA2]], align 4
-; GFX942-950-NEXT:    [[PB2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 2
-; GFX942-950-NEXT:    [[LB2:%.*]] = load float, ptr addrspace(1) [[PB2]], align 4
-; GFX942-950-NEXT:    [[PA3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 3
-; GFX942-950-NEXT:    [[LA3:%.*]] = load float, ptr addrspace(1) [[PA3]], align 4
-; GFX942-950-NEXT:    [[PB3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 3
-; GFX942-950-NEXT:    [[LB3:%.*]] = load float, ptr addrspace(1) [[PB3]], align 4
-; GFX942-950-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[M0]]
-; GFX942-950-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[M1]]
-; GFX942-950-NEXT:    [[XB0:%.*]] = fmul contract float [[LB0]], 3.000000e+00
-; GFX942-950-NEXT:    [[TMP0:%.*]] = insertelement <2 x float> poison, float [[LA2]], i64 0
-; GFX942-950-NEXT:    [[TMP1:%.*]] = insertelement <2 x float> [[TMP0]], float [[LA0]], i64 1
-; GFX942-950-NEXT:    [[TMP2:%.*]] = insertelement <2 x float> <float poison, float 3.000000e+00>, float [[LB2]], i64 0
-; GFX942-950-NEXT:    [[TMP3:%.*]] = fmul contract <2 x float> [[TMP1]], [[TMP2]]
-; GFX942-950-NEXT:    [[TMP4:%.*]] = insertelement <2 x float> poison, float [[ACC]], i64 1
-; GFX942-950-NEXT:    [[TMP5:%.*]] = insertelement <2 x float> [[TMP4]], float [[S2]], i64 0
-; GFX942-950-NEXT:    [[TMP6:%.*]] = fadd contract <2 x float> [[TMP5]], [[TMP3]]
-; GFX942-950-NEXT:    [[TMP7:%.*]] = extractelement <2 x float> [[TMP6]], i64 1
-; GFX942-950-NEXT:    [[X0:%.*]] = fadd contract float [[TMP7]], [[XB0]]
-; GFX942-950-NEXT:    [[PO0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 0
-; GFX942-950-NEXT:    store volatile float [[X0]], ptr addrspace(1) [[PO0]], align 4
-; GFX942-950-NEXT:    [[XB1:%.*]] = fmul contract float [[LB1]], 3.000000e+00
-; GFX942-950-NEXT:    [[TMP8:%.*]] = insertelement <2 x float> poison, float [[LA3]], i64 0
-; GFX942-950-NEXT:    [[TMP9:%.*]] = insertelement <2 x float> [[TMP8]], float [[LA1]], i64 1
-; GFX942-950-NEXT:    [[TMP10:%.*]] = insertelement <2 x float> <float poison, float 3.000000e+00>, float [[LB3]], i64 0
-; GFX942-950-NEXT:    [[TMP11:%.*]] = fmul contract <2 x float> [[TMP9]], [[TMP10]]
-; GFX942-950-NEXT:    [[TMP12:%.*]] = insertelement <2 x float> [[TMP6]], float [[X0]], i64 1
-; GFX942-950-NEXT:    [[TMP13:%.*]] = fadd contract <2 x float> [[TMP12]], [[TMP11]]
-; GFX942-950-NEXT:    [[TMP14:%.*]] = extractelement <2 x float> [[TMP13]], i64 1
-; GFX942-950-NEXT:    [[X1:%.*]] = fadd contract float [[TMP14]], [[XB1]]
-; GFX942-950-NEXT:    [[PO1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
-; GFX942-950-NEXT:    store volatile float [[X1]], ptr addrspace(1) [[PO1]], align 4
-; GFX942-950-NEXT:    [[XA2:%.*]] = fmul contract float [[LA2]], 3.000000e+00
-; GFX942-950-NEXT:    [[XB2:%.*]] = fmul contract float [[LB2]], 3.000000e+00
-; GFX942-950-NEXT:    [[T2:%.*]] = fadd contract float [[X1]], [[XA2]]
-; GFX942-950-NEXT:    [[X2:%.*]] = fadd contract float [[T2]], [[XB2]]
-; GFX942-950-NEXT:    [[PO2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
-; GFX942-950-NEXT:    store volatile float [[X2]], ptr addrspace(1) [[PO2]], align 4
-; GFX942-950-NEXT:    [[XA3:%.*]] = fmul contract float [[LA3]], 3.000000e+00
-; GFX942-950-NEXT:    [[XB3:%.*]] = fmul contract float [[LB3]], 3.000000e+00
-; GFX942-950-NEXT:    [[T3:%.*]] = fadd contract float [[X2]], [[XA3]]
-; GFX942-950-NEXT:    [[X3:%.*]] = fadd contract float [[T3]], [[XB3]]
-; GFX942-950-NEXT:    [[PO3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
-; GFX942-950-NEXT:    store volatile float [[X3]], ptr addrspace(1) [[PO3]], align 4
-; GFX942-950-NEXT:    [[TMP15:%.*]] = extractelement <2 x float> [[TMP13]], i64 0
-; GFX942-950-NEXT:    ret float [[TMP15]]
-;
-; GFX1030-LABEL: define float @dot4_ordered_scaled_chain(
-; GFX1030-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], ptr addrspace(1) noalias [[OUT:%.*]], float [[ACC:%.*]]) {
-; GFX1030-NEXT:  [[ENTRY:.*:]]
-; GFX1030-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
-; GFX1030-NEXT:    [[LA0:%.*]] = load float, ptr addrspace(1) [[PA0]], align 4
-; GFX1030-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
-; GFX1030-NEXT:    [[LB0:%.*]] = load float, ptr addrspace(1) [[PB0]], align 4
-; GFX1030-NEXT:    [[M0:%.*]] = fmul contract float [[LA0]], [[LB0]]
-; GFX1030-NEXT:    [[PA1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 1
-; GFX1030-NEXT:    [[LA1:%.*]] = load float, ptr addrspace(1) [[PA1]], align 4
-; GFX1030-NEXT:    [[PB1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 1
-; GFX1030-NEXT:    [[LB1:%.*]] = load float, ptr addrspace(1) [[PB1]], align 4
-; GFX1030-NEXT:    [[M1:%.*]] = fmul contract float [[LA1]], [[LB1]]
-; GFX1030-NEXT:    [[PA2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 2
-; GFX1030-NEXT:    [[LA2:%.*]] = load float, ptr addrspace(1) [[PA2]], align 4
-; GFX1030-NEXT:    [[PB2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 2
-; GFX1030-NEXT:    [[LB2:%.*]] = load float, ptr addrspace(1) [[PB2]], align 4
-; GFX1030-NEXT:    [[M2:%.*]] = fmul contract float [[LA2]], [[LB2]]
-; GFX1030-NEXT:    [[PA3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 3
-; GFX1030-NEXT:    [[LA3:%.*]] = load float, ptr addrspace(1) [[PA3]], align 4
-; GFX1030-NEXT:    [[PB3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 3
-; GFX1030-NEXT:    [[LB3:%.*]] = load float, ptr addrspace(1) [[PB3]], align 4
-; GFX1030-NEXT:    [[M3:%.*]] = fmul contract float [[LA3]], [[LB3]]
-; GFX1030-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[M0]]
-; GFX1030-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[M1]]
-; GFX1030-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[M2]]
-; GFX1030-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[M3]]
-; GFX1030-NEXT:    [[XA0:%.*]] = fmul contract float [[LA0]], 3.000000e+00
-; GFX1030-NEXT:    [[XB0:%.*]] = fmul contract float [[LB0]], 3.000000e+00
-; GFX1030-NEXT:    [[T0:%.*]] = fadd contract float [[ACC]], [[XA0]]
-; GFX1030-NEXT:    [[X0:%.*]] = fadd contract float [[T0]], [[XB0]]
-; GFX1030-NEXT:    [[PO0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 0
-; GFX1030-NEXT:    store volatile float [[X0]], ptr addrspace(1) [[PO0]], align 4
-; GFX1030-NEXT:    [[XA1:%.*]] = fmul contract float [[LA1]], 3.000000e+00
-; GFX1030-NEXT:    [[XB1:%.*]] = fmul contract float [[LB1]], 3.000000e+00
-; GFX1030-NEXT:    [[T1:%.*]] = fadd contract float [[X0]], [[XA1]]
-; GFX1030-NEXT:    [[X1:%.*]] = fadd contract float [[T1]], [[XB1]]
-; GFX1030-NEXT:    [[PO1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
-; GFX1030-NEXT:    store volatile float [[X1]], ptr addrspace(1) [[PO1]], align 4
-; GFX1030-NEXT:    [[XA2:%.*]] = fmul contract float [[LA2]], 3.000000e+00
-; GFX1030-NEXT:    [[XB2:%.*]] = fmul contract float [[LB2]], 3.000000e+00
-; GFX1030-NEXT:    [[T2:%.*]] = fadd contract float [[X1]], [[XA2]]
-; GFX1030-NEXT:    [[X2:%.*]] = fadd contract float [[T2]], [[XB2]]
-; GFX1030-NEXT:    [[PO2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
-; GFX1030-NEXT:    store volatile float [[X2]], ptr addrspace(1) [[PO2]], align 4
-; GFX1030-NEXT:    [[XA3:%.*]] = fmul contract float [[LA3]], 3.000000e+00
-; GFX1030-NEXT:    [[XB3:%.*]] = fmul contract float [[LB3]], 3.000000e+00
-; GFX1030-NEXT:    [[T3:%.*]] = fadd contract float [[X2]], [[XA3]]
-; GFX1030-NEXT:    [[X3:%.*]] = fadd contract float [[T3]], [[XB3]]
-; GFX1030-NEXT:    [[PO3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
-; GFX1030-NEXT:    store volatile float [[X3]], ptr addrspace(1) [[PO3]], align 4
-; GFX1030-NEXT:    ret float [[S4]]
-;
-; GFX1250-LABEL: define float @dot4_ordered_scaled_chain(
-; GFX1250-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], ptr addrspace(1) noalias [[OUT:%.*]], float [[ACC:%.*]]) {
-; GFX1250-NEXT:  [[ENTRY:.*:]]
-; GFX1250-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
-; GFX1250-NEXT:    [[LA0:%.*]] = load float, ptr addrspace(1) [[PA0]], align 4
-; GFX1250-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
-; GFX1250-NEXT:    [[LB0:%.*]] = load float, ptr addrspace(1) [[PB0]], align 4
-; GFX1250-NEXT:    [[M0:%.*]] = fmul contract float [[LA0]], [[LB0]]
-; GFX1250-NEXT:    [[PA1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 1
-; GFX1250-NEXT:    [[LA1:%.*]] = load float, ptr addrspace(1) [[PA1]], align 4
-; GFX1250-NEXT:    [[PB1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 1
-; GFX1250-NEXT:    [[LB1:%.*]] = load float, ptr addrspace(1) [[PB1]], align 4
-; GFX1250-NEXT:    [[M1:%.*]] = fmul contract float [[LA1]], [[LB1]]
-; GFX1250-NEXT:    [[PA2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 2
-; GFX1250-NEXT:    [[LA2:%.*]] = load float, ptr addrspace(1) [[PA2]], align 4
-; GFX1250-NEXT:    [[PB2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 2
-; GFX1250-NEXT:    [[LB2:%.*]] = load float, ptr addrspace(1) [[PB2]], align 4
-; GFX1250-NEXT:    [[M2:%.*]] = fmul contract float [[LA2]], [[LB2]]
-; GFX1250-NEXT:    [[PA3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 3
-; GFX1250-NEXT:    [[LA3:%.*]] = load float, ptr addrspace(1) [[PA3]], align 4
-; GFX1250-NEXT:    [[PB3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 3
-; GFX1250-NEXT:    [[LB3:%.*]] = load float, ptr addrspace(1) [[PB3]], align 4
-; GFX1250-NEXT:    [[M3:%.*]] = fmul contract float [[LA3]], [[LB3]]
-; GFX1250-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[M0]]
-; GFX1250-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[M1]]
-; GFX1250-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[M2]]
-; GFX1250-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[M3]]
-; GFX1250-NEXT:    [[XA0:%.*]] = fmul contract float [[LA0]], 3.000000e+00
-; GFX1250-NEXT:    [[XB0:%.*]] = fmul contract float [[LB0]], 3.000000e+00
-; GFX1250-NEXT:    [[T0:%.*]] = fadd contract float [[ACC]], [[XA0]]
-; GFX1250-NEXT:    [[X0:%.*]] = fadd contract float [[T0]], [[XB0]]
-; GFX1250-NEXT:    [[PO0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 0
-; GFX1250-NEXT:    store volatile float [[X0]], ptr addrspace(1) [[PO0]], align 4
-; GFX1250-NEXT:    [[XA1:%.*]] = fmul contract float [[LA1]], 3.000000e+00
-; GFX1250-NEXT:    [[XB1:%.*]] = fmul contract float [[LB1]], 3.000000e+00
-; GFX1250-NEXT:    [[T1:%.*]] = fadd contract float [[X0]], [[XA1]]
-; GFX1250-NEXT:    [[X1:%.*]] = fadd contract float [[T1]], [[XB1]]
-; GFX1250-NEXT:    [[PO1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
-; GFX1250-NEXT:    store volatile float [[X1]], ptr addrspace(1) [[PO1]], align 4
-; GFX1250-NEXT:    [[XA2:%.*]] = fmul contract float [[LA2]], 3.000000e+00
-; GFX1250-NEXT:    [[XB2:%.*]] = fmul contract float [[LB2]], 3.000000e+00
-; GFX1250-NEXT:    [[T2:%.*]] = fadd contract float [[X1]], [[XA2]]
-; GFX1250-NEXT:    [[X2:%.*]] = fadd contract float [[T2]], [[XB2]]
-; GFX1250-NEXT:    [[PO2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
-; GFX1250-NEXT:    store volatile float [[X2]], ptr addrspace(1) [[PO2]], align 4
-; GFX1250-NEXT:    [[XA3:%.*]] = fmul contract float [[LA3]], 3.000000e+00
-; GFX1250-NEXT:    [[XB3:%.*]] = fmul contract float [[LB3]], 3.000000e+00
-; GFX1250-NEXT:    [[T3:%.*]] = fadd contract float [[X2]], [[XA3]]
-; GFX1250-NEXT:    [[X3:%.*]] = fadd contract float [[T3]], [[XB3]]
-; GFX1250-NEXT:    [[PO3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
-; GFX1250-NEXT:    store volatile float [[X3]], ptr addrspace(1) [[PO3]], align 4
-; GFX1250-NEXT:    ret float [[S4]]
+; CHECK-LABEL: define float @dot4_ordered_scaled_chain(
+; CHECK-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], ptr addrspace(1) noalias [[OUT:%.*]], float [[ACC:%.*]]) {
+; CHECK-NEXT:  [[ENTRY:.*:]]
+; CHECK-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
+; CHECK-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
+; CHECK-NEXT:    [[PO0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 0
+; CHECK-NEXT:    [[PO1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
+; CHECK-NEXT:    [[PO2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr addrspace(1) [[PA0]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x float>, ptr addrspace(1) [[PB0]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <4 x float> [[TMP0]], i64 0
+; CHECK-NEXT:    [[TMP3:%.*]] = extractelement <4 x float> [[TMP1]], i64 0
+; CHECK-NEXT:    [[M0:%.*]] = fmul contract float [[TMP2]], [[TMP3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <4 x float> [[TMP0]], i64 1
+; CHECK-NEXT:    [[TMP5:%.*]] = extractelement <4 x float> [[TMP1]], i64 1
+; CHECK-NEXT:    [[M1:%.*]] = fmul contract float [[TMP4]], [[TMP5]]
+; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <4 x float> [[TMP0]], i64 2
+; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <4 x float> [[TMP1]], i64 2
+; CHECK-NEXT:    [[M2:%.*]] = fmul contract float [[TMP6]], [[TMP7]]
+; CHECK-NEXT:    [[TMP8:%.*]] = extractelement <4 x float> [[TMP0]], i64 3
+; CHECK-NEXT:    [[TMP9:%.*]] = extractelement <4 x float> [[TMP1]], i64 3
+; CHECK-NEXT:    [[M3:%.*]] = fmul contract float [[TMP8]], [[TMP9]]
+; CHECK-NEXT:    [[S1:%.*]] = fadd contract float [[ACC]], [[M0]]
+; CHECK-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[M1]]
+; CHECK-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[M2]]
+; CHECK-NEXT:    [[S4:%.*]] = fadd contract float [[S3]], [[M3]]
+; CHECK-NEXT:    [[TMP10:%.*]] = shufflevector <4 x float> [[TMP0]], <4 x float> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
+; CHECK-NEXT:    [[TMP11:%.*]] = shufflevector <4 x float> [[TMP1]], <4 x float> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
+; CHECK-NEXT:    [[TMP12:%.*]] = shufflevector <4 x float> [[TMP0]], <4 x float> [[TMP1]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[TMP13:%.*]] = fmul contract <8 x float> [[TMP12]], splat (float 3.000000e+00)
+; CHECK-NEXT:    [[TMP14:%.*]] = extractelement <8 x float> [[TMP13]], i64 0
+; CHECK-NEXT:    [[T0:%.*]] = fadd contract float [[ACC]], [[TMP14]]
+; CHECK-NEXT:    [[TMP15:%.*]] = extractelement <8 x float> [[TMP13]], i64 4
+; CHECK-NEXT:    [[X0:%.*]] = fadd contract float [[T0]], [[TMP15]]
+; CHECK-NEXT:    store volatile float [[X0]], ptr addrspace(1) [[PO0]], align 4
+; CHECK-NEXT:    [[TMP16:%.*]] = extractelement <8 x float> [[TMP13]], i64 1
+; CHECK-NEXT:    [[T1:%.*]] = fadd contract float [[X0]], [[TMP16]]
+; CHECK-NEXT:    [[TMP17:%.*]] = extractelement <8 x float> [[TMP13]], i64 5
+; CHECK-NEXT:    [[X1:%.*]] = fadd contract float [[T1]], [[TMP17]]
+; CHECK-NEXT:    store volatile float [[X1]], ptr addrspace(1) [[PO1]], align 4
+; CHECK-NEXT:    [[TMP18:%.*]] = extractelement <8 x float> [[TMP13]], i64 2
+; CHECK-NEXT:    [[T2:%.*]] = fadd contract float [[X1]], [[TMP18]]
+; CHECK-NEXT:    [[TMP19:%.*]] = extractelement <8 x float> [[TMP13]], i64 6
+; CHECK-NEXT:    [[X2:%.*]] = fadd contract float [[T2]], [[TMP19]]
+; CHECK-NEXT:    store volatile float [[X2]], ptr addrspace(1) [[PO2]], align 4
+; CHECK-NEXT:    [[TMP20:%.*]] = extractelement <8 x float> [[TMP13]], i64 3
+; CHECK-NEXT:    [[T3:%.*]] = fadd contract float [[X2]], [[TMP20]]
+; CHECK-NEXT:    [[TMP21:%.*]] = extractelement <8 x float> [[TMP13]], i64 7
+; CHECK-NEXT:    [[X3:%.*]] = fadd contract float [[T3]], [[TMP21]]
+; CHECK-NEXT:    [[PO3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
+; CHECK-NEXT:    store volatile float [[X3]], ptr addrspace(1) [[PO3]], align 4
+; CHECK-NEXT:    ret float [[S4]]
 ;
 entry:
   %pa0 = getelementptr inbounds float, ptr addrspace(1) %a, i64 0

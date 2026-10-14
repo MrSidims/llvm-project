@@ -154,10 +154,9 @@ entry:
 }
 
 ; A reassociable fadd reduction of eight double products that starts from an
-; accumulator. The gfx9 targets keep the load saving and reduce the products
-; four lanes at a time. gfx1030 and gfx1250 fall back to an ordered reduction
-; whose products would lose their fmas, so the loads lose their saving and the
-; reduction stays scalar.
+; accumulator. The fadds reassociate, so the loads keep their saving on every
+; target. The gfx9 targets reduce the products four lanes at a time, gfx1030
+; and gfx1250 reduce them in order as one vector.
 define double @dot8_f64_acc(ptr addrspace(1) noalias readonly align 8 %a, ptr addrspace(1) noalias readonly align 8 %b, double %acc) {
 ; GFX9-LABEL: define double @dot8_f64_acc(
 ; GFX9-SAME: ptr addrspace(1) noalias readonly align 8 [[A:%.*]], ptr addrspace(1) noalias readonly align 8 [[B:%.*]], double [[ACC:%.*]]) {
@@ -184,51 +183,34 @@ define double @dot8_f64_acc(ptr addrspace(1) noalias readonly align 8 %a, ptr ad
 ; SCALARFMA-NEXT:    [[LA0:%.*]] = load double, ptr addrspace(1) [[PA0]], align 8
 ; SCALARFMA-NEXT:    [[PB0:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 0
 ; SCALARFMA-NEXT:    [[LB0:%.*]] = load double, ptr addrspace(1) [[PB0]], align 8
-; SCALARFMA-NEXT:    [[M0:%.*]] = fmul contract double [[LA0]], [[LB0]]
 ; SCALARFMA-NEXT:    [[PA1:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 1
-; SCALARFMA-NEXT:    [[LA1:%.*]] = load double, ptr addrspace(1) [[PA1]], align 8
 ; SCALARFMA-NEXT:    [[PB1:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 1
-; SCALARFMA-NEXT:    [[LB1:%.*]] = load double, ptr addrspace(1) [[PB1]], align 8
-; SCALARFMA-NEXT:    [[M1:%.*]] = fmul contract double [[LA1]], [[LB1]]
-; SCALARFMA-NEXT:    [[PA2:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 2
-; SCALARFMA-NEXT:    [[LA2:%.*]] = load double, ptr addrspace(1) [[PA2]], align 8
-; SCALARFMA-NEXT:    [[PB2:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 2
-; SCALARFMA-NEXT:    [[LB2:%.*]] = load double, ptr addrspace(1) [[PB2]], align 8
-; SCALARFMA-NEXT:    [[M2:%.*]] = fmul contract double [[LA2]], [[LB2]]
 ; SCALARFMA-NEXT:    [[PA3:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 3
-; SCALARFMA-NEXT:    [[LA3:%.*]] = load double, ptr addrspace(1) [[PA3]], align 8
 ; SCALARFMA-NEXT:    [[PB3:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 3
-; SCALARFMA-NEXT:    [[LB3:%.*]] = load double, ptr addrspace(1) [[PB3]], align 8
-; SCALARFMA-NEXT:    [[M3:%.*]] = fmul contract double [[LA3]], [[LB3]]
-; SCALARFMA-NEXT:    [[PA4:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 4
-; SCALARFMA-NEXT:    [[LA4:%.*]] = load double, ptr addrspace(1) [[PA4]], align 8
-; SCALARFMA-NEXT:    [[PB4:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 4
-; SCALARFMA-NEXT:    [[LB4:%.*]] = load double, ptr addrspace(1) [[PB4]], align 8
-; SCALARFMA-NEXT:    [[M4:%.*]] = fmul contract double [[LA4]], [[LB4]]
-; SCALARFMA-NEXT:    [[PA5:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 5
-; SCALARFMA-NEXT:    [[LA5:%.*]] = load double, ptr addrspace(1) [[PA5]], align 8
-; SCALARFMA-NEXT:    [[PB5:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 5
-; SCALARFMA-NEXT:    [[LB5:%.*]] = load double, ptr addrspace(1) [[PB5]], align 8
-; SCALARFMA-NEXT:    [[M5:%.*]] = fmul contract double [[LA5]], [[LB5]]
-; SCALARFMA-NEXT:    [[PA6:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 6
-; SCALARFMA-NEXT:    [[LA6:%.*]] = load double, ptr addrspace(1) [[PA6]], align 8
-; SCALARFMA-NEXT:    [[PB6:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 6
-; SCALARFMA-NEXT:    [[LB6:%.*]] = load double, ptr addrspace(1) [[PB6]], align 8
-; SCALARFMA-NEXT:    [[M6:%.*]] = fmul contract double [[LA6]], [[LB6]]
+; SCALARFMA-NEXT:    [[TMP0:%.*]] = load <2 x double>, ptr addrspace(1) [[PA1]], align 8
+; SCALARFMA-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr addrspace(1) [[PB1]], align 8
+; SCALARFMA-NEXT:    [[TMP2:%.*]] = load <4 x double>, ptr addrspace(1) [[PA3]], align 8
+; SCALARFMA-NEXT:    [[TMP3:%.*]] = load <4 x double>, ptr addrspace(1) [[PB3]], align 8
+; SCALARFMA-NEXT:    [[TMP4:%.*]] = insertelement <8 x double> poison, double [[ACC]], i64 0
+; SCALARFMA-NEXT:    [[TMP5:%.*]] = insertelement <8 x double> [[TMP4]], double [[LA0]], i64 1
+; SCALARFMA-NEXT:    [[TMP6:%.*]] = shufflevector <4 x double> [[TMP2]], <4 x double> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
+; SCALARFMA-NEXT:    [[TMP7:%.*]] = shufflevector <8 x double> [[TMP5]], <8 x double> [[TMP6]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; SCALARFMA-NEXT:    [[TMP8:%.*]] = shufflevector <2 x double> [[TMP0]], <2 x double> poison, <8 x i32> <i32 0, i32 1, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
+; SCALARFMA-NEXT:    [[TMP9:%.*]] = shufflevector <8 x double> [[TMP7]], <8 x double> [[TMP8]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 4, i32 5, i32 6, i32 7>
+; SCALARFMA-NEXT:    [[TMP10:%.*]] = insertelement <8 x double> <double 1.000000e+00, double poison, double poison, double poison, double poison, double poison, double poison, double poison>, double [[LB0]], i64 1
+; SCALARFMA-NEXT:    [[TMP11:%.*]] = shufflevector <4 x double> [[TMP3]], <4 x double> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
+; SCALARFMA-NEXT:    [[TMP12:%.*]] = shufflevector <8 x double> [[TMP10]], <8 x double> [[TMP11]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; SCALARFMA-NEXT:    [[TMP13:%.*]] = shufflevector <2 x double> [[TMP1]], <2 x double> poison, <8 x i32> <i32 0, i32 1, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
+; SCALARFMA-NEXT:    [[TMP14:%.*]] = shufflevector <8 x double> [[TMP12]], <8 x double> [[TMP13]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 4, i32 5, i32 6, i32 7>
+; SCALARFMA-NEXT:    [[TMP15:%.*]] = fmul contract <8 x double> [[TMP9]], [[TMP14]]
 ; SCALARFMA-NEXT:    [[PA7:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 7
 ; SCALARFMA-NEXT:    [[LA7:%.*]] = load double, ptr addrspace(1) [[PA7]], align 8
 ; SCALARFMA-NEXT:    [[PB7:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 7
 ; SCALARFMA-NEXT:    [[LB7:%.*]] = load double, ptr addrspace(1) [[PB7]], align 8
 ; SCALARFMA-NEXT:    [[M7:%.*]] = fmul contract double [[LA7]], [[LB7]]
-; SCALARFMA-NEXT:    [[S1:%.*]] = fadd fast double [[ACC]], [[M0]]
-; SCALARFMA-NEXT:    [[S2:%.*]] = fadd fast double [[S1]], [[M1]]
-; SCALARFMA-NEXT:    [[S3:%.*]] = fadd fast double [[S2]], [[M2]]
-; SCALARFMA-NEXT:    [[S4:%.*]] = fadd fast double [[S3]], [[M3]]
-; SCALARFMA-NEXT:    [[S5:%.*]] = fadd fast double [[S4]], [[M4]]
-; SCALARFMA-NEXT:    [[S6:%.*]] = fadd fast double [[S5]], [[M5]]
-; SCALARFMA-NEXT:    [[S7:%.*]] = fadd fast double [[S6]], [[M6]]
-; SCALARFMA-NEXT:    [[S8:%.*]] = fadd fast double [[S7]], [[M7]]
-; SCALARFMA-NEXT:    ret double [[S8]]
+; SCALARFMA-NEXT:    [[TMP16:%.*]] = call nnan ninf nsz arcp contract afn double @llvm.vector.reduce.fadd.v8f64(double 0.000000e+00, <8 x double> [[TMP15]])
+; SCALARFMA-NEXT:    [[OP_RDX:%.*]] = fadd fast double [[TMP16]], [[M7]]
+; SCALARFMA-NEXT:    ret double [[OP_RDX]]
 ;
 ; GFX1250-LABEL: define double @dot8_f64_acc(
 ; GFX1250-SAME: ptr addrspace(1) noalias readonly align 8 [[A:%.*]], ptr addrspace(1) noalias readonly align 8 [[B:%.*]], double [[ACC:%.*]]) {
@@ -237,51 +219,34 @@ define double @dot8_f64_acc(ptr addrspace(1) noalias readonly align 8 %a, ptr ad
 ; GFX1250-NEXT:    [[LA0:%.*]] = load double, ptr addrspace(1) [[PA0]], align 8
 ; GFX1250-NEXT:    [[PB0:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 0
 ; GFX1250-NEXT:    [[LB0:%.*]] = load double, ptr addrspace(1) [[PB0]], align 8
-; GFX1250-NEXT:    [[M0:%.*]] = fmul contract double [[LA0]], [[LB0]]
 ; GFX1250-NEXT:    [[PA1:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 1
-; GFX1250-NEXT:    [[LA1:%.*]] = load double, ptr addrspace(1) [[PA1]], align 8
 ; GFX1250-NEXT:    [[PB1:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 1
-; GFX1250-NEXT:    [[LB1:%.*]] = load double, ptr addrspace(1) [[PB1]], align 8
-; GFX1250-NEXT:    [[M1:%.*]] = fmul contract double [[LA1]], [[LB1]]
-; GFX1250-NEXT:    [[PA2:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 2
-; GFX1250-NEXT:    [[LA2:%.*]] = load double, ptr addrspace(1) [[PA2]], align 8
-; GFX1250-NEXT:    [[PB2:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 2
-; GFX1250-NEXT:    [[LB2:%.*]] = load double, ptr addrspace(1) [[PB2]], align 8
-; GFX1250-NEXT:    [[M2:%.*]] = fmul contract double [[LA2]], [[LB2]]
 ; GFX1250-NEXT:    [[PA3:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 3
-; GFX1250-NEXT:    [[LA3:%.*]] = load double, ptr addrspace(1) [[PA3]], align 8
 ; GFX1250-NEXT:    [[PB3:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 3
-; GFX1250-NEXT:    [[LB3:%.*]] = load double, ptr addrspace(1) [[PB3]], align 8
-; GFX1250-NEXT:    [[M3:%.*]] = fmul contract double [[LA3]], [[LB3]]
-; GFX1250-NEXT:    [[PA4:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 4
-; GFX1250-NEXT:    [[LA4:%.*]] = load double, ptr addrspace(1) [[PA4]], align 8
-; GFX1250-NEXT:    [[PB4:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 4
-; GFX1250-NEXT:    [[LB4:%.*]] = load double, ptr addrspace(1) [[PB4]], align 8
-; GFX1250-NEXT:    [[M4:%.*]] = fmul contract double [[LA4]], [[LB4]]
-; GFX1250-NEXT:    [[PA5:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 5
-; GFX1250-NEXT:    [[LA5:%.*]] = load double, ptr addrspace(1) [[PA5]], align 8
-; GFX1250-NEXT:    [[PB5:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 5
-; GFX1250-NEXT:    [[LB5:%.*]] = load double, ptr addrspace(1) [[PB5]], align 8
-; GFX1250-NEXT:    [[M5:%.*]] = fmul contract double [[LA5]], [[LB5]]
-; GFX1250-NEXT:    [[PA6:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 6
-; GFX1250-NEXT:    [[LA6:%.*]] = load double, ptr addrspace(1) [[PA6]], align 8
-; GFX1250-NEXT:    [[PB6:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 6
-; GFX1250-NEXT:    [[LB6:%.*]] = load double, ptr addrspace(1) [[PB6]], align 8
-; GFX1250-NEXT:    [[M6:%.*]] = fmul contract double [[LA6]], [[LB6]]
+; GFX1250-NEXT:    [[TMP0:%.*]] = load <2 x double>, ptr addrspace(1) [[PA1]], align 8
+; GFX1250-NEXT:    [[TMP1:%.*]] = load <2 x double>, ptr addrspace(1) [[PB1]], align 8
+; GFX1250-NEXT:    [[TMP2:%.*]] = load <4 x double>, ptr addrspace(1) [[PA3]], align 8
+; GFX1250-NEXT:    [[TMP3:%.*]] = load <4 x double>, ptr addrspace(1) [[PB3]], align 8
+; GFX1250-NEXT:    [[TMP4:%.*]] = insertelement <8 x double> poison, double [[ACC]], i64 0
+; GFX1250-NEXT:    [[TMP5:%.*]] = insertelement <8 x double> [[TMP4]], double [[LA0]], i64 1
+; GFX1250-NEXT:    [[TMP6:%.*]] = shufflevector <4 x double> [[TMP2]], <4 x double> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
+; GFX1250-NEXT:    [[TMP7:%.*]] = shufflevector <8 x double> [[TMP5]], <8 x double> [[TMP6]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; GFX1250-NEXT:    [[TMP8:%.*]] = shufflevector <2 x double> [[TMP0]], <2 x double> poison, <8 x i32> <i32 0, i32 1, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
+; GFX1250-NEXT:    [[TMP9:%.*]] = shufflevector <8 x double> [[TMP7]], <8 x double> [[TMP8]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 4, i32 5, i32 6, i32 7>
+; GFX1250-NEXT:    [[TMP10:%.*]] = insertelement <8 x double> <double 1.000000e+00, double poison, double poison, double poison, double poison, double poison, double poison, double poison>, double [[LB0]], i64 1
+; GFX1250-NEXT:    [[TMP11:%.*]] = shufflevector <4 x double> [[TMP3]], <4 x double> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
+; GFX1250-NEXT:    [[TMP12:%.*]] = shufflevector <8 x double> [[TMP10]], <8 x double> [[TMP11]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; GFX1250-NEXT:    [[TMP13:%.*]] = shufflevector <2 x double> [[TMP1]], <2 x double> poison, <8 x i32> <i32 0, i32 1, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
+; GFX1250-NEXT:    [[TMP14:%.*]] = shufflevector <8 x double> [[TMP12]], <8 x double> [[TMP13]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 4, i32 5, i32 6, i32 7>
+; GFX1250-NEXT:    [[TMP15:%.*]] = fmul contract <8 x double> [[TMP9]], [[TMP14]]
 ; GFX1250-NEXT:    [[PA7:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 7
 ; GFX1250-NEXT:    [[LA7:%.*]] = load double, ptr addrspace(1) [[PA7]], align 8
 ; GFX1250-NEXT:    [[PB7:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 7
 ; GFX1250-NEXT:    [[LB7:%.*]] = load double, ptr addrspace(1) [[PB7]], align 8
 ; GFX1250-NEXT:    [[M7:%.*]] = fmul contract double [[LA7]], [[LB7]]
-; GFX1250-NEXT:    [[S1:%.*]] = fadd fast double [[ACC]], [[M0]]
-; GFX1250-NEXT:    [[S2:%.*]] = fadd fast double [[S1]], [[M1]]
-; GFX1250-NEXT:    [[S3:%.*]] = fadd fast double [[S2]], [[M2]]
-; GFX1250-NEXT:    [[S4:%.*]] = fadd fast double [[S3]], [[M3]]
-; GFX1250-NEXT:    [[S5:%.*]] = fadd fast double [[S4]], [[M4]]
-; GFX1250-NEXT:    [[S6:%.*]] = fadd fast double [[S5]], [[M5]]
-; GFX1250-NEXT:    [[S7:%.*]] = fadd fast double [[S6]], [[M6]]
-; GFX1250-NEXT:    [[S8:%.*]] = fadd fast double [[S7]], [[M7]]
-; GFX1250-NEXT:    ret double [[S8]]
+; GFX1250-NEXT:    [[TMP16:%.*]] = call nnan ninf nsz arcp contract afn double @llvm.vector.reduce.fadd.v8f64(double 0.000000e+00, <8 x double> [[TMP15]])
+; GFX1250-NEXT:    [[OP_RDX:%.*]] = fadd fast double [[TMP16]], [[M7]]
+; GFX1250-NEXT:    ret double [[OP_RDX]]
 ;
 entry:
   %pa0 = getelementptr inbounds double, ptr addrspace(1) %a, i64 0

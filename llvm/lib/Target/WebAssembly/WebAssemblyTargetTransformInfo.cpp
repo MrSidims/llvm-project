@@ -250,7 +250,7 @@ WebAssemblyTTIImpl::enableMemCmpExpansion(bool OptSize, bool IsZeroCmp) const {
 InstructionCost WebAssemblyTTIImpl::getMemoryOpCost(
     unsigned Opcode, Type *Ty, Align Alignment, unsigned AddressSpace,
     TTI::TargetCostKind CostKind, TTI::OperandValueInfo OpInfo,
-    const Instruction *I) const {
+    const Instruction *I, ArrayRef<const Value *> Scalars) const {
   // FIXME: Load latency isn't handled here
   if (!ST->hasSIMD128() || !isa<FixedVectorType>(Ty) ||
       (Opcode == Instruction::Load && CostKind == TTI::TCK_Latency)) {

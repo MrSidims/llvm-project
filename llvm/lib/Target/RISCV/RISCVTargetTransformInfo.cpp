@@ -2655,12 +2655,10 @@ RISCVTTIImpl::getStoreImmCost(Type *Ty, TTI::OperandValueInfo OpInfo,
   return getConstantPoolLoadCost(Ty, CostKind);
 }
 
-InstructionCost RISCVTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
-                                              Align Alignment,
-                                              unsigned AddressSpace,
-                                              TTI::TargetCostKind CostKind,
-                                              TTI::OperandValueInfo OpInfo,
-                                              const Instruction *I) const {
+InstructionCost RISCVTTIImpl::getMemoryOpCost(
+    unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
+    TTI::TargetCostKind CostKind, TTI::OperandValueInfo OpInfo,
+    const Instruction *I, ArrayRef<const Value *> Scalars) const {
   EVT VT = TLI->getValueType(DL, Src, true);
   // Type legalization can't handle structs, and load latency isn't handled here
   if (VT == MVT::Other ||
