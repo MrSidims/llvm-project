@@ -18090,9 +18090,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
                               getVectorLoadShift(E->Scalars)),
               FirstLI->getPointerAddressSpace(), CostKind,
               TTI::getOperandInfo(FirstLI->getPointerOperand()), /*I=*/nullptr,
-              E->UserTreeIndex || !VectorizedVals.empty()
-                  ? VL
-                  : ArrayRef<Value *>());
+              VL);
         }
         break;
       case TreeEntry::StridedVectorize: {
