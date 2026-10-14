@@ -2137,12 +2137,144 @@ GCNTTIImpl::fpenvIEEEMode(const Instruction &I) const {
                                                : KnownIEEEMode::On;
 }
 
-InstructionCost GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
-                                            Align Alignment,
-                                            unsigned AddressSpace,
-                                            TTI::TargetCostKind CostKind,
-                                            TTI::OperandValueInfo OpInfo,
-                                            const Instruction *I) const {
+/// The longest chain of single users followed from a lane.
+static constexpr unsigned MaxLaneChainSteps = 128;
+
+using FAddChainRootMap =
+    SmallDenseMap<const Instruction *, const Instruction *, 32>;
+
+/// \returns the last fadd of the chain of one-use fadds that starts at \p Add.
+static const Instruction *getFAddChainRoot(const Instruction *Add,
+                                           FAddChainRootMap &RootOf) {
+  SmallVector<const Instruction *, 16> Links;
+  const Instruction *Root = Add;
+  for (unsigned Step = 0;; ++Step) {
+    if (auto It = RootOf.find(Root); It != RootOf.end()) {
+      Root = It->second;
+      break;
+    }
+    Links.push_back(Root);
+    if (Step + 1 == MaxLaneChainSteps || !Root->hasOneUse())
+      break;
+    const auto *Next = cast<Instruction>(Root->user_back());
+    if (Next->getOpcode() != Instruction::FAdd)
+      break;
+    Root = Next;
+  }
+  for (const Instruction *Link : Links)
+    RootOf[Link] = Root;
+  return Root;
+}
+
+/// Adds to \p Roots the roots of the contract fadd chains without reassoc that
+/// accumulate the one-use contract fmuls reached from \p V through at most
+/// \p Depth single-user operations.
+static void collectFMAChainRoots(const Value *V, unsigned Depth,
+                                 FAddChainRootMap &RootOf,
+                                 SmallVectorImpl<const Instruction *> &Roots) {
+  using namespace PatternMatch;
+  for (const User *U : V->users()) {
+    const auto *UI = dyn_cast<Instruction>(U);
+    if (!UI)
+      continue;
+    if (match(UI, m_OneUse(m_AllowContract(m_FMul(m_Value(), m_Value()))))) {
+      const auto *Add = cast<Instruction>(UI->user_back());
+      if (Add->getOpcode() == Instruction::FAdd && Add->hasAllowContract() &&
+          !Add->hasAllowReassoc()) {
+        const Instruction *Root = getFAddChainRoot(Add, RootOf);
+        if (!is_contained(Roots, Root))
+          Roots.push_back(Root);
+        continue;
+      }
+    }
+    if (Depth == 0 || !UI->hasOneUser() ||
+        !isa<CastInst, UnaryOperator, BinaryOperator>(UI))
+      continue;
+    collectFMAChainRoots(UI, Depth - 1, RootOf, Roots);
+  }
+}
+
+/// \returns true if lane \p Lane takes one of its \p LaneRoots that no lane in
+/// \p LaneOfRoot holds or that the lane holding it can trade for another one.
+static bool
+assignLaneRoot(unsigned Lane,
+               ArrayRef<SmallVector<const Instruction *, 2>> LaneRoots,
+               SmallDenseMap<const Instruction *, unsigned, 32> &LaneOfRoot,
+               SmallPtrSetImpl<const Instruction *> &Visited) {
+  for (const Instruction *Root : LaneRoots[Lane]) {
+    if (!Visited.insert(Root).second)
+      continue;
+    auto It = LaneOfRoot.find(Root);
+    if (It == LaneOfRoot.end() ||
+        assignLaneRoot(It->second, LaneRoots, LaneOfRoot, Visited)) {
+      LaneOfRoot[Root] = Lane;
+      return true;
+    }
+  }
+  return false;
+}
+
+/// \returns true if the loads \p Scalars feed fmuls that contract fadd chains
+/// without reassoc accumulate, and the lanes cannot each take a chain of their
+/// own. The scalar fmuls fuse into the chain, the fmuls of its vectorized
+/// ordered reduction do not.
+static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars) {
+  FAddChainRootMap RootOf;
+  SmallVector<SmallVector<const Instruction *, 2>> LaneRoots;
+  for (const Value *V : Scalars) {
+    SmallVector<const Instruction *, 2> Roots;
+    collectFMAChainRoots(V, /*Depth=*/3, RootOf, Roots);
+    if (!Roots.empty())
+      LaneRoots.push_back(std::move(Roots));
+  }
+  SmallDenseMap<const Instruction *, unsigned, 32> LaneOfRoot;
+  for (unsigned Lane : seq<unsigned>(LaneRoots.size())) {
+    SmallPtrSet<const Instruction *, 8> Visited;
+    if (!assignLaneRoot(Lane, LaneRoots, LaneOfRoot, Visited))
+      return true;
+  }
+  return false;
+}
+
+InstructionCost
+GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
+                            unsigned AddressSpace, TTI::TargetCostKind CostKind,
+                            TTI::OperandValueInfo OpInfo, const Instruction *I,
+                            ArrayRef<const Value *> Scalars) const {
+  // The vector load saves nothing over scalar loads the backend coalesces as
+  // well. A reduction that loses the fmas of the scalars pays that saving back.
+  auto *LoadVecTy = dyn_cast<FixedVectorType>(Src);
+  if (Opcode == Instruction::Load && LoadVecTy && Scalars.size() > 1 &&
+      all_of(Scalars, IsaPred<LoadInst>)) {
+    Type *LoadTy = Scalars.front()->getType();
+    unsigned NumLoadElts = 1;
+    if (auto *ScalarVecTy = dyn_cast<FixedVectorType>(LoadTy))
+      NumLoadElts = ScalarVecTy->getNumElements();
+    if (LoadVecTy->getElementType() == LoadTy->getScalarType() &&
+        LoadVecTy->getNumElements() == Scalars.size() * NumLoadElts &&
+        all_of(Scalars,
+               [&](const Value *V) { return V->getType() == LoadTy; })) {
+      if (loadsFeedFMAChain(Scalars)) {
+        InstructionCost Cost = getMemoryOpCost(
+            Opcode, Src, Alignment, AddressSpace, CostKind, OpInfo, I);
+        Align BestAlign = Alignment;
+        for (const Value *V : Scalars)
+          BestAlign = std::max(BestAlign, cast<LoadInst>(V)->getAlign());
+        if (!consecutiveLoadsCoalesce(LoadTy, Scalars.size(), BestAlign,
+                                      AddressSpace))
+          return Cost;
+        InstructionCost ScalarCost =
+            Scalars.size() *
+            getMemoryOpCost(Opcode, LoadTy, BestAlign, AddressSpace, CostKind);
+        InstructionCost VecCost =
+            getMemoryOpCost(Opcode, Src, BestAlign, AddressSpace, CostKind);
+        if (VecCost < ScalarCost)
+          Cost += ScalarCost - VecCost;
+        return Cost;
+      }
+    }
+  }
+
   if (VectorType *VecTy = dyn_cast<VectorType>(Src)) {
     if ((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
         CostKind != TTI::TCK_Latency &&
@@ -2153,26 +2285,6 @@ InstructionCost GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
   }
   return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace, CostKind,
                                 OpInfo, I);
-}
-
-InstructionCost
-GCNTTIImpl::getLoadCoalescingSaving(Type *LoadTy, unsigned NumLoads,
-                                    Align Alignment, unsigned AddrSpace,
-                                    TTI::TargetCostKind CostKind) const {
-  if (!consecutiveLoadsCoalesce(LoadTy, NumLoads, Alignment, AddrSpace))
-    return 0;
-  unsigned NumElts = NumLoads;
-  if (auto *LoadVecTy = dyn_cast<FixedVectorType>(LoadTy))
-    NumElts *= LoadVecTy->getNumElements();
-  InstructionCost ScalarCost =
-      NumLoads * getMemoryOpCost(Instruction::Load, LoadTy, Alignment,
-                                 AddrSpace, CostKind);
-  InstructionCost VecCost = getMemoryOpCost(
-      Instruction::Load, FixedVectorType::get(LoadTy->getScalarType(), NumElts),
-      Alignment, AddrSpace, CostKind);
-  if (VecCost >= ScalarCost)
-    return 0;
-  return ScalarCost - VecCost;
 }
 
 unsigned GCNTTIImpl::getNumberOfParts(Type *Tp) const {
