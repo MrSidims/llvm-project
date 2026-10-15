@@ -2041,17 +2041,24 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     if (!IsExt && WideTy->isFloatTy() && NarrowTy->isBFloatTy())
       return getBF16RoundCost(NElts);
     // v_fma_mix reads half sources and v_fma_mixlo_f16 rounds its result to
-    // half.
-    if (I && !Src->isVectorTy() && WideTy->isFloatTy() &&
-        NarrowTy->isHalfTy() && ST->hasFmaMixInsts() &&
-        (IsExt ? !I->use_empty() && all_of(I->users(),
-                                           [&](const User *U) {
-                                             return isFoldableFPOp(
-                                                 U, I->getParent());
-                                           })
-               : I->getOperand(0)->hasOneUse() &&
-                     isFoldableFPOp(I->getOperand(0), I->getParent())))
-      return TargetTransformInfo::TCC_Free;
+    // half. Packed f32 math has no mix sources, so the lanes of a vector are
+    // converted one by one.
+    if (WideTy->isFloatTy() && NarrowTy->isHalfTy() && ST->hasFmaMixInsts()) {
+      if (Src->isVectorTy()) {
+        if (ST->hasAnyPackedFP32Ops())
+          return InstructionCost(NElts) * getFullRateInstrCost();
+      } else if (I && (IsExt ? !I->use_empty() &&
+                                   all_of(I->users(),
+                                          [&](const User *U) {
+                                            return isFoldableFPOp(
+                                                U, I->getParent());
+                                          })
+                             : I->getOperand(0)->hasOneUse() &&
+                                   isFoldableFPOp(I->getOperand(0),
+                                                  I->getParent()))) {
+        return TargetTransformInfo::TCC_Free;
+      }
+    }
   }
 
   // Integer lanes narrower than 32 bits are packed in registers.
