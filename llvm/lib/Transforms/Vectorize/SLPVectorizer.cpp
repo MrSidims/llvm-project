@@ -34745,6 +34745,39 @@ private:
       unsigned RdxOpcode = RecurrenceDescriptor::getOpcode(RdxKind);
       Type *BoolReduxWideTy =
           getBoolReduxWideTy(RdxKind, ReductionRoot->getType(), ScalarTy);
+      // The vector fadd of the products of fusable fmuls is an fmuladd, so it
+      // costs the fused form less the fmul already in the tree. Invalid unless
+      // all the reduced values are fusable fmuls.
+      auto GetFMACost = [&](VectorType *RVecTy) -> InstructionCost {
+        if (RdxKind != RecurKind::FAdd)
+          return InstructionCost::getInvalid();
+        SmallVector<Value *> Ops;
+        FastMathFlags FMulFMF;
+        FMulFMF.set();
+        for (Value *RdxVal : ReducedVals) {
+          if (!RdxVal->hasOneUse() ||
+              !isFusableFMulOperand(
+                  RdxVal, cast<Instruction>(RdxVal->user_back()), *TTI))
+            return InstructionCost::getInvalid();
+          if (auto *FPCI = dyn_cast<FPMathOperator>(RdxVal))
+            FMulFMF &= FPCI->getFastMathFlags();
+          Ops.push_back(RdxVal->user_back());
+        }
+        InstructionsState S = getSameOpcode(Ops, TLI);
+        if (!S || !S.isAddSubOrFNegLikeOp() ||
+            !canConvertToFMA(Ops, S, DT, DL, *TTI, TLI, R).isValid())
+          return InstructionCost::getInvalid();
+        // Calculate actual FMAD cost.
+        IntrinsicCostAttributes ICA(Intrinsic::fmuladd, RVecTy,
+                                    {RVecTy, RVecTy, RVecTy}, FMulFMF);
+        InstructionCost FMACost = TTI->getIntrinsicInstrCost(ICA, CostKind);
+        LLVM_DEBUG(dbgs() << "Vector FMA cost: " << FMACost << "\n");
+        // Also, exclude vector fmul cost.
+        InstructionCost FMulCost =
+            TTI->getArithmeticInstrCost(Instruction::FMul, RVecTy, CostKind);
+        LLVM_DEBUG(dbgs() << "Minus vector FMul cost: " << FMulCost << "\n");
+        return FMACost - FMulCost;
+      };
       if (!AllConsts) {
         if (!NarrowedLeafShifts.empty()) {
           Type *WideTy = ReductionRoot->getType();
@@ -34835,6 +34868,17 @@ private:
               } else {
                 VectorCost = TTI->getArithmeticReductionCost(
                     RdxOpcode, VectorTy, FMF, CostKind);
+                // The adds of the tree between whole vectors chain the
+                // products as fmuladds. Only the adds within one register
+                // remain.
+                InstructionCost FMACost = GetFMACost(VectorTy);
+                if (FMACost.isValid())
+                  VectorCost +=
+                      FMACost -
+                      (TTI->getArithmeticInstrCost(RdxOpcode, VectorTy,
+                                                   CostKind) -
+                       TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy,
+                                                   CostKind));
               }
             } else {
               VectorCost = TTI->getExtendedReductionCost(
@@ -34850,45 +34894,7 @@ private:
               std::make_pair(RedTy, true));
           VectorType *RVecTy =
               cast<VectorType>(getWidenedType(RType, ReduxWidth));
-          InstructionCost FMACost = InstructionCost::getInvalid();
-          if (RdxKind == RecurKind::FAdd) {
-            // Check if the reduction operands can be converted to FMA.
-            SmallVector<Value *> Ops;
-            FastMathFlags FMF;
-            FMF.set();
-            for (Value *RdxVal : ReducedVals) {
-              // The vector fmul fuses only if all the reduced values are
-              // fusable fmuls.
-              if (!RdxVal->hasOneUse() ||
-                  !isFusableFMulOperand(
-                      RdxVal, cast<Instruction>(RdxVal->user_back()), *TTI)) {
-                Ops.clear();
-                break;
-              }
-              if (auto *FPCI = dyn_cast<FPMathOperator>(RdxVal))
-                FMF &= FPCI->getFastMathFlags();
-              Ops.push_back(RdxVal->user_back());
-            }
-            if (!Ops.empty()) {
-              InstructionsState S = getSameOpcode(Ops, TLI);
-              if (S && S.isAddSubOrFNegLikeOp())
-                FMACost = canConvertToFMA(Ops, S, DT, DL, *TTI, TLI, R);
-              if (FMACost.isValid()) {
-                // Calculate actual FMAD cost.
-                IntrinsicCostAttributes ICA(Intrinsic::fmuladd, RVecTy,
-                                            {RVecTy, RVecTy, RVecTy}, FMF);
-                FMACost = TTI->getIntrinsicInstrCost(ICA, CostKind);
-
-                LLVM_DEBUG(dbgs() << "Vector FMA cost: " << FMACost << "\n");
-                // Also, exclude vector fmul cost.
-                InstructionCost FMulCost = TTI->getArithmeticInstrCost(
-                    Instruction::FMul, RVecTy, CostKind);
-                LLVM_DEBUG(dbgs()
-                           << "Minus vector FMul cost: " << FMulCost << "\n");
-                FMACost -= FMulCost;
-              }
-            }
-          }
+          InstructionCost FMACost = GetFMACost(RVecTy);
           if (FMACost.isValid())
             VectorCost += FMACost;
           else
