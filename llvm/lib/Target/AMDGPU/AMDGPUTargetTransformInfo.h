@@ -102,6 +102,13 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
 
   std::pair<InstructionCost, MVT> getTypeLegalizationCost(Type *Ty) const;
 
+  InstructionCost getMemoryInstsCost(unsigned Opcode, Type *Src,
+                                     Align Alignment, unsigned AddressSpace,
+                                     TTI::TargetCostKind CostKind,
+                                     TTI::OperandValueInfo OpInfo,
+                                     const Instruction *I,
+                                     bool UniformPtr) const;
+
   /// \returns true if V might be divergent even when all of its operands
   /// are uniform.
   bool isSourceOfDivergence(const Value *V) const;

@@ -2360,8 +2360,8 @@ static unsigned getNumMemoryInsts(unsigned Bytes, unsigned MaxBytes,
   return NumInsts + llvm::popcount(Rem);
 }
 
-static bool hasUniformPointerOperand(const Instruction *I) {
-  const auto *LI = dyn_cast_or_null<LoadInst>(I);
+static bool hasUniformPointerOperand(const Value *V) {
+  const auto *LI = dyn_cast_or_null<LoadInst>(V);
   if (!LI)
     return false;
   const Value *Ptr = LI->getPointerOperand()->stripInBoundsConstantOffsets();
@@ -2375,6 +2375,8 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                             unsigned AddressSpace, TTI::TargetCostKind CostKind,
                             TTI::OperandValueInfo OpInfo, const Instruction *I,
                             ArrayRef<const Value *> Scalars) const {
+  bool UniformScalars =
+      !Scalars.empty() && all_of(Scalars, hasUniformPointerOperand);
   // The vector load saves nothing over scalar loads the backend coalesces as
   // well. A reduction that loses the fmas of the scalars pays that saving back,
   // and so do lanes that a cast widens, unless they pack two to a register.
@@ -2395,8 +2397,9 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
       if (LosesFMAs ||
           (WidenedTy && !isPackedLaneType(LoadTy->getScalarType()) &&
            !isPackedLaneType(WidenedTy->getScalarType()))) {
-        InstructionCost Cost = getMemoryOpCost(
-            Opcode, Src, Alignment, AddressSpace, CostKind, OpInfo, I);
+        InstructionCost Cost =
+            getMemoryInstsCost(Opcode, Src, Alignment, AddressSpace, CostKind,
+                               OpInfo, I, UniformScalars);
         Align BestAlign = Alignment;
         for (const Value *V : Scalars)
           BestAlign = std::max(BestAlign, cast<LoadInst>(V)->getAlign());
@@ -2404,17 +2407,26 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                                       AddressSpace))
           return Cost;
         InstructionCost ScalarCost =
-            Scalars.size() *
-            getMemoryOpCost(Opcode, LoadTy, BestAlign, AddressSpace, CostKind);
+            Scalars.size() * getMemoryInstsCost(Opcode, LoadTy, BestAlign,
+                                                AddressSpace, CostKind, {},
+                                                nullptr, UniformScalars);
         InstructionCost VecCost =
-            getMemoryOpCost(Opcode, Src, BestAlign, AddressSpace, CostKind);
+            getMemoryInstsCost(Opcode, Src, BestAlign, AddressSpace, CostKind,
+                               {}, nullptr, UniformScalars);
         if (VecCost < ScalarCost)
           Cost += ScalarCost - VecCost;
         return Cost;
       }
     }
   }
+  return getMemoryInstsCost(Opcode, Src, Alignment, AddressSpace, CostKind,
+                            OpInfo, I, UniformScalars);
+}
 
+InstructionCost GCNTTIImpl::getMemoryInstsCost(
+    unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
+    TTI::TargetCostKind CostKind, TTI::OperandValueInfo OpInfo,
+    const Instruction *I, bool UniformPtr) const {
   Type *EltTy = Src->getScalarType();
   if ((Opcode != Instruction::Load && Opcode != Instruction::Store) ||
       CostKind == TTI::TCK_Latency || isa<ScalableVectorType>(Src) ||
@@ -2431,7 +2443,8 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
   if (Opcode == Instruction::Load &&
       (AddressSpace == AMDGPUAS::CONSTANT_ADDRESS ||
        AddressSpace == AMDGPUAS::CONSTANT_ADDRESS_32BIT) &&
-      Alignment >= std::min(Bytes, 4u) && hasUniformPointerOperand(I))
+      Alignment >= std::min(Bytes, 4u) &&
+      (UniformPtr || hasUniformPointerOperand(I)))
     return getNumMemoryInsts(alignTo(Bytes, 4), 64,
                              ST->hasScalarDwordx3Loads() || Alignment >= 8);
 
