@@ -142,6 +142,7 @@ public:
   unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const override;
   bool consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts, Align Alignment,
                                 unsigned AddrSpace) const;
+  bool isPackedLaneType(Type *Ty) const;
 
   bool isLegalToVectorizeMemChain(unsigned ChainSizeInBytes, Align Alignment,
                                   unsigned AddrSpace) const;
