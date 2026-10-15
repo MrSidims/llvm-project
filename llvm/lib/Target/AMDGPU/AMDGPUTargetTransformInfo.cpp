@@ -418,6 +418,68 @@ bool GCNTTIImpl::consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts,
   return VecSpeed >= ElemSpeed;
 }
 
+bool GCNTTIImpl::isCoalescedLoad(const LoadInst *LI) const {
+  Type *Ty = LI->getType();
+  if (!LI->isSimple() || !Ty->isSingleValueType() || Ty->isVectorTy())
+    return false;
+  const unsigned AS = LI->getPointerAddressSpace();
+  const int64_t Size = DL.getTypeStoreSize(Ty);
+  const BasicBlock *BB = LI->getParent();
+  const unsigned IndexBits = DL.getIndexSizeInBits(AS);
+  APInt Offset(IndexBits, 0);
+  const Value *Base = LI->getPointerOperand()->stripAndAccumulateConstantOffsets(
+      DL, Offset, /*AllowNonInbounds=*/true);
+  // The loads of the same size in the block at constant offsets of the same
+  // base, found through a bounded number of its users.
+  SmallVector<std::pair<int64_t, const LoadInst *>, 16> Lanes;
+  SmallVector<const Value *, 8> Worklist{Base};
+  unsigned Budget = 64;
+  while (!Worklist.empty() && Budget) {
+    const Value *P = Worklist.pop_back_val();
+    for (const User *U : P->users()) {
+      if (Budget == 0)
+        break;
+      --Budget;
+      if (isa<GEPOperator>(U)) {
+        Worklist.push_back(U);
+        continue;
+      }
+      const auto *L = dyn_cast<LoadInst>(U);
+      if (!L || L->getParent() != BB || !L->isSimple() ||
+          DL.getTypeStoreSize(L->getType()) != uint64_t(Size))
+        continue;
+      APInt Off(IndexBits, 0);
+      if (L->getPointerOperand()->stripAndAccumulateConstantOffsets(
+              DL, Off, /*AllowNonInbounds=*/true) != Base)
+        continue;
+      Lanes.emplace_back(Off.getSExtValue(), L);
+    }
+  }
+  if (Lanes.size() < 2)
+    return false;
+  llvm::sort(Lanes);
+  const int64_t Off = Offset.getSExtValue();
+  unsigned NumLanes = 1;
+  Align BestAlign = LI->getAlign();
+  int64_t Next = Off + Size;
+  for (auto [LaneOff, L] : Lanes) {
+    if (LaneOff != Next)
+      continue;
+    ++NumLanes;
+    BestAlign = std::max(BestAlign, L->getAlign());
+    Next += Size;
+  }
+  int64_t Prev = Off - Size;
+  for (auto [LaneOff, L] : reverse(Lanes)) {
+    if (LaneOff != Prev)
+      continue;
+    ++NumLanes;
+    BestAlign = std::max(BestAlign, L->getAlign());
+    Prev -= Size;
+  }
+  return NumLanes > 1 && consecutiveLoadsCoalesce(Ty, NumLanes, BestAlign, AS);
+}
+
 bool GCNTTIImpl::isLegalToVectorizeMemChain(unsigned ChainSizeInBytes,
                                             Align Alignment,
                                             unsigned AddrSpace) const {
@@ -976,6 +1038,52 @@ static bool hasPerElementUsersOnly(const Instruction &I) {
 /// SDWA.
 static bool hasSDWAByteLanes(const GCNSubtarget &ST) {
   return ST.hasSDWA() && ST.hasGCN3Encoding();
+}
+
+/// \returns true if the only user of the integer extension \p Ext reads the
+/// extended lane of a register in place through SDWA.
+static bool readsLaneThroughSDWA(const GCNSubtarget &ST,
+                                 const Instruction &Ext) {
+  using namespace llvm::PatternMatch;
+  if (!ST.hasSDWA() || !Ext.hasOneUse())
+    return false;
+  const auto *U = dyn_cast<Instruction>(Ext.user_back());
+  if (!U || U->getParent() != Ext.getParent())
+    return false;
+  const unsigned Bits = Ext.getType()->getScalarSizeInBits();
+  if (Bits == 16 ? !hasSDWAByteLanes(ST) : Bits != 32)
+    return false;
+  switch (U->getOpcode()) {
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::And:
+  case Instruction::Or:
+  case Instruction::Xor:
+  case Instruction::Shl:
+  case Instruction::LShr:
+  case Instruction::AShr:
+  case Instruction::ICmp:
+  case Instruction::SIToFP:
+  case Instruction::UIToFP:
+    return true;
+  case Instruction::Mul: {
+    // Only the 24 bit multiply has a VOP2 form.
+    const bool IsSigned = Ext.getOpcode() == Instruction::SExt;
+    const Value *Other = U->getOperand(U->getOperand(0) == &Ext ? 1 : 0);
+    if (const auto *C = dyn_cast<ConstantInt>(Other))
+      return IsSigned ? C->getValue().isSignedIntN(24)
+                      : C->getValue().isIntN(24);
+    const Value *X;
+    if (!(IsSigned ? match(Other, m_SExt(m_Value(X)))
+                   : match(Other, m_ZExt(m_Value(X)))))
+      return false;
+    return X->getType()->getScalarSizeInBits() <= 24;
+  }
+  case Instruction::Call:
+    return match(U, m_MaxOrMin(m_Value(), m_Value()));
+  default:
+    return false;
+  }
 }
 
 /// \returns the cost of taking the elements of an i8 vector, or of an i16
@@ -2070,7 +2178,15 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
         return getIntTruncCost(NElts, SrcBits, DstBits);
       const bool IsSigned = Opcode == Instruction::SExt;
       if (NElts == 1) {
-        const bool FromLoad = I && isa<LoadInst>(I->getOperand(0));
+        const auto *Load = I ? dyn_cast<LoadInst>(I->getOperand(0)) : nullptr;
+        // The lane of a load merged with its neighbours is taken out of the
+        // wider register, unless SDWA reads it in place for the user.
+        if (Load && isCoalescedLoad(Load)) {
+          if (readsLaneThroughSDWA(*ST, *I))
+            return TargetTransformInfo::TCC_Free;
+          return (IsSigned && DstBits == 64 ? 2 : 1) * getFullRateInstrCost();
+        }
+        const bool FromLoad = Load != nullptr;
         if (IsSigned && DstBits == 64 && !FromLoad &&
             !(I && isLowHalfOfMul64(*ST, *I)))
           return 2 * getFullRateInstrCost();

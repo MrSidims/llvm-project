@@ -163,6 +163,7 @@ public:
   unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const override;
   bool consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts, Align Alignment,
                                 unsigned AddrSpace) const;
+  bool isCoalescedLoad(const LoadInst *LI) const;
 
   bool isLegalToVectorizeMemChain(unsigned ChainSizeInBytes, Align Alignment,
                                   unsigned AddrSpace) const;
