@@ -412,6 +412,12 @@ bool GCNTTIImpl::consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts,
   return VecSpeed >= ElemSpeed;
 }
 
+bool GCNTTIImpl::isPackedLaneType(Type *Ty) const {
+  unsigned Bits = DL.getTypeSizeInBits(Ty);
+  unsigned RegBits = getRegisterBitWidth(TTI::RGK_Scalar).getFixedValue();
+  return 2 * Bits <= RegBits && isTypeLegal(FixedVectorType::get(Ty, 2));
+}
+
 bool GCNTTIImpl::isLegalToVectorizeMemChain(unsigned ChainSizeInBytes,
                                             Align Alignment,
                                             unsigned AddrSpace) const {
@@ -2217,14 +2223,16 @@ assignLaneRoot(unsigned Lane,
 /// \returns true if the loads \p Scalars feed fmuls that contract fadd chains
 /// without reassoc accumulate, and the lanes cannot each take a chain of their
 /// own. The scalar fmuls fuse into the chain, the fmuls of its vectorized
-/// ordered reduction do not.
-static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars) {
+/// ordered reduction do not. If \p PackedLanes, the lanes that feed several
+/// chains do not count, a packed fma takes them from either half of a register.
+static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars,
+                              bool PackedLanes) {
   FAddChainRootMap RootOf;
   SmallVector<SmallVector<const Instruction *, 2>> LaneRoots;
   for (const Value *V : Scalars) {
     SmallVector<const Instruction *, 2> Roots;
     collectFMAChainRoots(V, /*Depth=*/3, RootOf, Roots);
-    if (!Roots.empty())
+    if (!Roots.empty() && (!PackedLanes || Roots.size() == 1))
       LaneRoots.push_back(std::move(Roots));
   }
   SmallDenseMap<const Instruction *, unsigned, 32> LaneOfRoot;
@@ -2254,7 +2262,8 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
         LoadVecTy->getNumElements() == Scalars.size() * NumLoadElts &&
         all_of(Scalars,
                [&](const Value *V) { return V->getType() == LoadTy; })) {
-      if (loadsFeedFMAChain(Scalars)) {
+      if (loadsFeedFMAChain(Scalars,
+                            isPackedLaneType(LoadTy->getScalarType()))) {
         InstructionCost Cost = getMemoryOpCost(
             Opcode, Src, Alignment, AddressSpace, CostKind, OpInfo, I);
         Align BestAlign = Alignment;
