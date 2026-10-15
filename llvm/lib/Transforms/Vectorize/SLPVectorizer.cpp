@@ -17826,9 +17826,17 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
       unsigned OpIdx = isa<UnaryOperator>(VL0) ? 0 : 1;
       TTI::OperandValueInfo Op1Info = TTI::getOperandInfo(E->getOperand(0));
       TTI::OperandValueInfo Op2Info = TTI::getOperandInfo(E->getOperand(OpIdx));
+      Instruction *CxtI = VL0->getOpcode() == ShuffleOrOp ? VL0 : nullptr;
+      // The vector fmul fuses only into vectorized fadd and fsub users.
+      if (CxtI && ShuffleOrOp == Instruction::FMul &&
+          !all_of(CxtI->users(), [&](User *U) {
+            return match(U, m_CombineOr(m_FAdd(m_Value(), m_Value()),
+                                        m_FSub(m_Value(), m_Value()))) &&
+                   isFusedVectorizedFAddSub(cast<Instruction>(U));
+          }))
+        CxtI = nullptr;
       InstructionCost Cost = TTI->getArithmeticInstrCost(
-          ShuffleOrOp, VecTy, CostKind, Op1Info, Op2Info, {},
-          VL0->getOpcode() == ShuffleOrOp ? VL0 : nullptr, TLI);
+          ShuffleOrOp, VecTy, CostKind, Op1Info, Op2Info, {}, CxtI, TLI);
       // N columns need N-1 vector combines; price extra columns
       // conservatively, skipping identity-only columns (not combined by
       // codegen).
@@ -17843,8 +17851,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
           // static properties to model.
           Cost += TTI->getArithmeticInstrCost(
               ShuffleOrOp, VecTy, CostKind, {},
-              TTI::getOperandInfo(E->getOperand(Idx)), {},
-              VL0->getOpcode() == ShuffleOrOp ? VL0 : nullptr, TLI);
+              TTI::getOperandInfo(E->getOperand(Idx)), {}, CxtI, TLI);
         }
       }
       return Cost + CommonCost;
