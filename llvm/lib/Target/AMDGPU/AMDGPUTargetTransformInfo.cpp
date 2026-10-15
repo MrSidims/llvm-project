@@ -403,19 +403,24 @@ bool GCNTTIImpl::consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts,
   unsigned ElemBits = DL.getTypeSizeInBits(ElemTy);
   if (MaxBits < 64 || ElemBits % 8 != 0)
     return false;
-  unsigned Bits = std::min(ElemBits * NumElts, MaxBits);
-  if (!isLegalToVectorizeLoadChain(Bits / 8, Alignment, AddrSpace))
-    return false;
-  if (Alignment.value() % (Bits / 8) == 0)
-    return true;
   LLVMContext &Ctx = ElemTy->getContext();
-  unsigned VecSpeed = 0, ElemSpeed = 0;
-  if (!allowsMisalignedMemoryAccesses(Ctx, Bits, AddrSpace, Alignment,
-                                      &VecSpeed))
-    return false;
-  allowsMisalignedMemoryAccesses(Ctx, ElemBits, AddrSpace, Alignment,
-                                 &ElemSpeed);
-  return VecSpeed >= ElemSpeed;
+  for (unsigned N = llvm::bit_floor(std::min(NumElts, MaxBits / ElemBits));
+       N >= 2; N /= 2) {
+    unsigned Bits = ElemBits * N;
+    if (!isLegalToVectorizeLoadChain(Bits / 8, Alignment, AddrSpace))
+      continue;
+    if (Alignment.value() % (Bits / 8) == 0)
+      return true;
+    unsigned VecSpeed = 0, ElemSpeed = 0;
+    if (!allowsMisalignedMemoryAccesses(Ctx, Bits, AddrSpace, Alignment,
+                                        &VecSpeed))
+      continue;
+    allowsMisalignedMemoryAccesses(Ctx, ElemBits, AddrSpace, Alignment,
+                                   &ElemSpeed);
+    if (VecSpeed >= ElemSpeed)
+      return true;
+  }
+  return false;
 }
 
 bool GCNTTIImpl::isCoalescedLoad(const LoadInst *LI) const {
