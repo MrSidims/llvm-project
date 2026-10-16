@@ -1158,6 +1158,26 @@ bool GCNTTIImpl::readsLaneThroughSDWA(const Instruction &Ext) const {
   }
 }
 
+/// \returns true if the extension \p Ext to i32 feeds a chain of the same min
+/// or max on a target with SDWA. The vector form reduces the lanes as a tree
+/// that folds every other level into a three input op, so half of the lanes
+/// are read in place.
+static bool isSDWAMinMaxChainLane(const GCNSubtarget &ST,
+                                  const Instruction &Ext) {
+  if (!ST.hasSDWA() || !Ext.hasOneUse() || !Ext.getType()->isIntegerTy(32))
+    return false;
+  const auto *U = dyn_cast<MinMaxIntrinsic>(Ext.user_back());
+  if (!U || U->getParent() != Ext.getParent())
+    return false;
+  auto IsSameMinMax = [&](const Value *V) {
+    const auto *MM = dyn_cast<MinMaxIntrinsic>(V);
+    return MM && MM->getIntrinsicID() == U->getIntrinsicID() &&
+           MM->getParent() == U->getParent();
+  };
+  return any_of(U->operands(), IsSameMinMax) ||
+         (U->hasOneUse() && IsSameMinMax(U->user_back()));
+}
+
 /// \returns the cost of taking the elements of an i8 vector, or of an i16
 /// vector without packed math, out of their dwords for an operation done on
 /// each element and of packing the results back. \p CtxI tells whether the
@@ -2289,6 +2309,8 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       else if (NElts == 4 && SrcBits == 8 && DstBits == 32 && I &&
                isDot4VectorExt(*I))
         NumOps = 0;
+      else if (!IsSigned && I && isSDWAMinMaxChainLane(*ST, *I))
+        NumOps = NElts / 2;
       else
         NumOps = (IsSigned || !I || !readsLaneThroughSDWA(*I) ? NElts : 0) +
                  (IsSigned && DstBits == 64 ? NElts : 0);
