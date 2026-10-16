@@ -34924,7 +34924,9 @@ private:
           else
             VectorCost +=
                 TTI->getArithmeticInstrCost(RdxOpcode, RVecTy, CostKind);
-          if (RType != RedTy) {
+          // Codegen hoists the cast over a bitwise operation, so the whole
+          // series needs a single cast, which the reduction prices.
+          if (RType != RedTy && !Instruction::isBitwiseLogicOp(RdxOpcode)) {
             unsigned Opcode = Instruction::Trunc;
             if (RedTy->getScalarSizeInBits() > RType->getScalarSizeInBits())
               Opcode = IsSigned ? Instruction::SExt : Instruction::ZExt;
