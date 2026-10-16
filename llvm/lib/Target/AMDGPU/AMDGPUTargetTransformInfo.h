@@ -165,6 +165,10 @@ public:
                                 unsigned AddrSpace) const;
   bool isCoalescedLoad(const LoadInst *LI, unsigned *Lane = nullptr) const;
   bool isFoldedIntoMul(const Instruction &I) const;
+  bool isPackedByte(const Value *V) const;
+  bool isByteMul(const Value *V, const BasicBlock *BB) const;
+  bool isFoldedIntoDot4(const Instruction &I) const;
+  bool isDot4ChainAdd(const Instruction &I) const;
   bool readsLaneThroughSDWA(const Instruction &Ext) const;
 
   bool isLegalToVectorizeMemChain(unsigned ChainSizeInBytes, Align Alignment,
