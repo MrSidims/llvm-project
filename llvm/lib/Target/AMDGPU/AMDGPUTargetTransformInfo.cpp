@@ -423,7 +423,7 @@ bool GCNTTIImpl::consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts,
   return false;
 }
 
-bool GCNTTIImpl::isCoalescedLoad(const LoadInst *LI) const {
+bool GCNTTIImpl::isCoalescedLoad(const LoadInst *LI, unsigned *Lane) const {
   Type *Ty = LI->getType();
   if (!LI->isSimple() || !Ty->isSingleValueType() || Ty->isVectorTy())
     return false;
@@ -474,14 +474,18 @@ bool GCNTTIImpl::isCoalescedLoad(const LoadInst *LI) const {
     BestAlign = std::max(BestAlign, L->getAlign());
     Next += Size;
   }
+  unsigned NumBefore = 0;
   int64_t Prev = Off - Size;
   for (auto [LaneOff, L] : reverse(Lanes)) {
     if (LaneOff != Prev)
       continue;
-    ++NumLanes;
+    ++NumBefore;
     BestAlign = std::max(BestAlign, L->getAlign());
     Prev -= Size;
   }
+  NumLanes += NumBefore;
+  if (Lane)
+    *Lane = NumBefore;
   return NumLanes > 1 && consecutiveLoadsCoalesce(Ty, NumLanes, BestAlign, AS);
 }
 
@@ -3756,6 +3760,19 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                         (AddressSpace == AMDGPUAS::FLAT_ADDRESS &&
                          !ST->hasFlatSegmentOffsetBug())));
 
+  // The odd 16-bit lane of a load merged with its neighbour is shifted down
+  // unless every user reads the high half in place. A cast user pays for the
+  // lane itself.
+  InstructionCost LaneCost = 0;
+  const auto *LI = dyn_cast_or_null<LoadInst>(I);
+  unsigned Lane = 0;
+  if (LI && LI->getType() == Src && EltBits == 16 &&
+      isCoalescedLoad(LI, &Lane) && Lane % 2 == 1 &&
+      !all_of(LI->users(), [&](const User *U) {
+        return isa<CastInst>(U) || readsHighHalfInPlace(*ST, *TLI, LI, U);
+      }))
+    LaneCost = getFullRateInstrCost();
+
   if (Opcode == Instruction::Load &&
       AddressSpace != AMDGPUAS::BUFFER_FAT_POINTER) {
     if (VecTy && Alignment >= PowerOf2Ceil(Bytes))
@@ -3764,8 +3781,8 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
       unsigned Piece = std::min(EltBits == 8 ? 8u : 16u, MaxBytes);
       unsigned Granule = std::min<unsigned>(Alignment.value(), Piece);
       if (!IsDS && !MergesDwords)
-        return Bytes / Piece + llvm::popcount(Bytes % Piece / Granule) +
-               (Bytes % Granule != 0);
+        return LaneCost + Bytes / Piece +
+               llvm::popcount(Bytes % Piece / Granule) + (Bytes % Granule != 0);
       unsigned Tail = Bytes % Granule;
       if (Tail > EltBits / 8) {
         Bytes += std::max<unsigned>(4, PowerOf2Ceil(Tail)) - Tail;
@@ -3776,7 +3793,7 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
   }
   if (!MergesDwords && Bytes % MaxBytes > 12)
     HasDwordx3 = false;
-  return getNumMemoryInsts(Bytes, MaxBytes, HasDwordx3);
+  return LaneCost + getNumMemoryInsts(Bytes, MaxBytes, HasDwordx3);
 }
 
 unsigned GCNTTIImpl::getNumberOfParts(Type *Tp) const {
