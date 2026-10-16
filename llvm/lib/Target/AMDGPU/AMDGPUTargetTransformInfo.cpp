@@ -398,7 +398,7 @@ bool GCNTTIImpl::consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts,
                                           unsigned AddrSpace) const {
   unsigned MaxBits = getLoadStoreVecRegBitWidth(AddrSpace);
   unsigned ElemBits = DL.getTypeSizeInBits(ElemTy);
-  if (MaxBits < 64 || ElemBits % 8 != 0)
+  if (ElemBits % 8 != 0)
     return false;
   LLVMContext &Ctx = ElemTy->getContext();
   for (unsigned N = llvm::bit_floor(std::min(NumElts, MaxBits / ElemBits));
