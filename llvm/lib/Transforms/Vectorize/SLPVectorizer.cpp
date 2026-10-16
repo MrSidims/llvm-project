@@ -18080,9 +18080,13 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
               BaseSI->getPointerAddressSpace(), CostKind);
         } else {
           TTI::OperandValueInfo OpInfo = TTI::getOperandInfo(E->getOperand(0));
+          SmallVector<const Value *> Lanes(VL.size());
+          for (auto [I, V] : enumerate(Lanes))
+            V = VL[IsReorder ? E->ReorderIndices[I] : I];
           VecStCost = TTI->getMemoryOpCost(
               Instruction::Store, VecTy, BaseSI->getAlign(),
-              BaseSI->getPointerAddressSpace(), CostKind, OpInfo);
+              BaseSI->getPointerAddressSpace(), CostKind, OpInfo,
+              /*I=*/nullptr, Lanes);
         }
       }
       return VecStCost + CommonCost;
