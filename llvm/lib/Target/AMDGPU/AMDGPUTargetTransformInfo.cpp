@@ -2572,8 +2572,13 @@ InstructionCost GCNTTIImpl::getExtendedReductionCost(
     std::optional<FastMathFlags> FMF, TTI::TargetCostKind CostKind) const {
   auto *VTy = dyn_cast<FixedVectorType>(Ty);
   const unsigned SrcBits = Ty->getScalarSizeInBits();
+  const bool IsBitwise = Opcode == Instruction::And ||
+                         Opcode == Instruction::Or ||
+                         Opcode == Instruction::Xor;
   if (!VTy || VTy->getNumElements() < 2 ||
-      !isPowerOf2_32(VTy->getNumElements()) || !ResTy->isIntegerTy(32) ||
+      !isPowerOf2_32(VTy->getNumElements()) ||
+      !(ResTy->isIntegerTy(32) ||
+        (IsBitwise && ResTy->isIntegerTy(16) && SrcBits == 8)) ||
       (SrcBits != 8 && SrcBits != 16) || TTI::requiresOrderedReduction(FMF))
     return BaseT::getExtendedReductionCost(Opcode, IsUnsigned, ResTy, Ty, FMF,
                                            CostKind);
