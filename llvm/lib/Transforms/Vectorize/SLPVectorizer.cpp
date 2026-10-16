@@ -16890,14 +16890,21 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
         // Check if the current node must be resized, if the parent node is not
         // resized. Nodes without a parent (roots of the splat gather
         // subtrees) are resized back to their original type when the reusing
-        // gather nodes are emitted.
+        // gather nodes are emitted. An integer cast parent casts the demoted
+        // value itself.
         if (It != MinBWs.end() && !UnaryInstruction::isCast(E->getOpcode()) &&
             E->Idx != 0 &&
             (E->getOpcode() != Instruction::Load || E->UserTreeIndex)) {
           const EdgeInfo &EI = E->UserTreeIndex;
-          if (!EI.UserTE || !EI.UserTE->hasState() ||
-              EI.UserTE->getOpcode() != Instruction::Select ||
-              EI.EdgeIdx != 0) {
+          const bool IsIntCastUser =
+              EI.UserTE && EI.UserTE->hasState() &&
+              EI.UserTE->State == TreeEntry::Vectorize &&
+              !EI.UserTE->isAltShuffle() &&
+              isa<TruncInst, ZExtInst, SExtInst>(EI.UserTE->getMainOp());
+          if (!IsIntCastUser &&
+              (!EI.UserTE || !EI.UserTE->hasState() ||
+               EI.UserTE->getOpcode() != Instruction::Select ||
+               EI.EdgeIdx != 0)) {
             auto UserBWIt = MinBWs.find(EI.UserTE);
             Type *UserScalarTy =
                 !EI.UserTE ? OrigScalarTy
