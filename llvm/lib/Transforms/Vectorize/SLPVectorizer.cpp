@@ -449,6 +449,16 @@ public:
     return std::nullopt;
   }
 
+  /// Returns the main instruction of the root node if the root node is a
+  /// vectorized cast with \p Opcode, nullptr otherwise.
+  Instruction *getRootNodeCast(unsigned Opcode) const {
+    const TreeEntry &Root = getRootNode();
+    if (Root.State != TreeEntry::Vectorize || Root.isAltShuffle() ||
+        Root.getOpcode() != Opcode)
+      return nullptr;
+    return Root.getMainOp();
+  }
+
   /// Checks if the root graph node can be emitted with narrower bitwidth at
   /// codegen and returns it signedness, if so.
   bool isSignedMinBitwidthRootNode() const {
@@ -21285,8 +21295,8 @@ InstructionCost BoUpSLP::getTreeCost(InstructionCost TreeCost,
         default:
           break;
         }
-        InstructionCost CastCost =
-            TTI->getCastInstrCost(Opcode, DstVecTy, SrcVecTy, CCH, CostKind);
+        InstructionCost CastCost = TTI->getCastInstrCost(
+            Opcode, DstVecTy, SrcVecTy, CCH, CostKind, getRootNodeCast(Opcode));
         CastCost = ScaleCost(CastCost, getRootNode(), /*Scalar=*/nullptr,
                              ReductionRoot);
         Cost += CastCost;
@@ -34919,7 +34929,8 @@ private:
             if (RedTy->getScalarSizeInBits() > RType->getScalarSizeInBits())
               Opcode = IsSigned ? Instruction::SExt : Instruction::ZExt;
             VectorCost += TTI->getCastInstrCost(
-                Opcode, VectorTy, RVecTy, TTI::CastContextHint::None, CostKind);
+                Opcode, VectorTy, RVecTy, TTI::CastContextHint::None, CostKind,
+                R.getRootNodeCast(Opcode));
           }
         }
       }
@@ -34974,7 +34985,8 @@ private:
             if (RedTy->getScalarSizeInBits() > RType->getScalarSizeInBits())
               Opcode = IsSigned ? Instruction::SExt : Instruction::ZExt;
             VectorCost += TTI->getCastInstrCost(
-                Opcode, VectorTy, RVecTy, TTI::CastContextHint::None, CostKind);
+                Opcode, VectorTy, RVecTy, TTI::CastContextHint::None, CostKind,
+                R.getRootNodeCast(Opcode));
           }
           RdxOpCost = VectorCost;
         }
