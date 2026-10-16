@@ -2410,15 +2410,28 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
         return Scale(1 + 2 * SignExtend16, 1);
       if (SrcBits > 16)
         return Scale(FPTy->isHalfTy() ? 3 : 2);
-      if (FPTy->isHalfTy() && ST->has16BitInsts())
-        return Scale(Narrow                           ? (IsSigned ? 3 : 2)
-                     : SrcBits == 8 && !ST->hasSDWA() ? 2
-                                                      : 1);
+      // A byte loaded on its own is extended by its load. Three of every four
+      // signed byte lanes of a load merged with its neighbours are shifted
+      // down to the low byte of their 32 bit word before a 16 bit conversion,
+      // and each lane is priced the shift.
+      const bool MergedLane = SrcBits == 8 && Load && isCoalescedLoad(Load);
+      const bool ByteLoadExtends = SrcBits == 8 && Load && !MergedLane &&
+                                   Load->isSimple() && Load->hasOneUse() &&
+                                   !LoadMayWiden;
+      if (FPTy->isHalfTy() && ST->has16BitInsts()) {
+        if (ByteLoadExtends)
+          return Scale(1);
+        return Scale((Narrow                           ? (IsSigned ? 3 : 2)
+                      : SrcBits == 8 && !ST->hasSDWA() ? 2
+                                                       : 1) +
+                     (MergedLane && IsSigned));
+      }
       const InstructionCost FloatCost =
-          SignExtend16                ? Scale(ST->hasSDWA() ? 3 : 4)
-          : Narrow                    ? Scale(2)
-          : SrcBits == 8 && !IsSigned ? Scale(1)
-                                      : Scale(ST->hasSDWA() ? 1 : 2);
+          SignExtend16 ? Scale(ST->hasSDWA() ? 3 : 4)
+          : Narrow     ? Scale(2)
+          : SrcBits == 8 && (!IsSigned || ByteLoadExtends)
+              ? Scale(1)
+              : Scale(ST->hasSDWA() ? 1 : 2);
       return FPTy->isHalfTy() ? FloatCost + Scale(1) : FloatCost;
     }
 
