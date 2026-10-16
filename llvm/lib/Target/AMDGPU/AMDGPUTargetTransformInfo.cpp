@@ -3680,7 +3680,10 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
       for (const Value *V : Scalars)
         BestAlign = std::max(BestAlign, cast<LoadInst>(V)->getAlign());
       if (!consecutiveLoadsCoalesce(LoadTy, Scalars.size(), BestAlign,
-                                    AddressSpace))
+                                    AddressSpace) &&
+          !all_of(Scalars, [&](const Value *V) {
+            return isCoalescedLoad(cast<LoadInst>(V));
+          }))
         return Cost;
       InstructionCost ScalarCost =
           Scalars.size() *
