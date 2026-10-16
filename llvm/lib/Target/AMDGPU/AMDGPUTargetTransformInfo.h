@@ -215,6 +215,8 @@ public:
                      unsigned Index, const Value *Op0, const Value *Op1,
                      TTI::VectorInstrContext VIC =
                          TTI::VectorInstrContext::None) const override;
+  InstructionCost getUnfoldedCost(const Value *V,
+                                  TTI::TargetCostKind CostKind) const;
 
   bool isReadRegisterSourceOfDivergence(const IntrinsicInst *ReadReg) const;
 

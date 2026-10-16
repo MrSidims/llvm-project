@@ -2618,20 +2618,54 @@ bool GCNTTIImpl::shouldExpandReduction(const IntrinsicInst *II) const {
   }
 }
 
+/// \returns the cost of computing the scalar \p V into a register of its own
+/// when instruction selection folds it into every user otherwise. A packed
+/// vector operation reads neither a mixed precision source nor a fused
+/// multiply from its lanes.
+InstructionCost GCNTTIImpl::getUnfoldedCost(const Value *V,
+                                            TTI::TargetCostKind CostKind) const {
+  const auto *I = dyn_cast_or_null<Instruction>(V);
+  if (!I || I->getType()->isVectorTy())
+    return 0;
+  if (const auto *Ext = dyn_cast<FPExtInst>(I)) {
+    Type *Dst = Ext->getType();
+    Type *Src = Ext->getSrcTy();
+    if (!Dst->isFloatTy() || !Src->isHalfTy() ||
+        getCastInstrCost(Instruction::FPExt, Dst, Src,
+                         TTI::CastContextHint::None, CostKind, Ext) != 0)
+      return 0;
+    return getCastInstrCost(Instruction::FPExt, Dst, Src,
+                            TTI::CastContextHint::None, CostKind);
+  }
+  if (I->getOpcode() == Instruction::FMul) {
+    if (getArithmeticInstrCost(Instruction::FMul, I->getType(), CostKind,
+                               {TTI::OK_AnyValue, TTI::OP_None},
+                               {TTI::OK_AnyValue, TTI::OP_None}, {}, I) != 0)
+      return 0;
+    return getArithmeticInstrCost(Instruction::FMul, I->getType(), CostKind);
+  }
+  return 0;
+}
+
 InstructionCost GCNTTIImpl::getVectorInstrCost(
     unsigned Opcode, Type *ValTy, TTI::TargetCostKind CostKind, unsigned Index,
     const Value *Op0, const Value *Op1, TTI::VectorInstrContext VIC) const {
   switch (Opcode) {
   case Instruction::ExtractElement:
   case Instruction::InsertElement: {
+    // The lane of a value that is folded into its scalar users has to be
+    // computed.
+    const InstructionCost Unfolded =
+        Opcode == Instruction::InsertElement ? getUnfoldedCost(Op1, CostKind)
+                                             : 0;
     TypeSize EltSize =
         DL.getTypeSizeInBits(cast<VectorType>(ValTy)->getElementType());
     // Dynamic indexing isn't free and is best avoided.
     if (Index == ~0u)
-      return 2;
+      return Unfolded + 2;
     if (EltSize < 32) {
       if (EltSize == 16 && Index == 0 && ST->has16BitInsts())
-        return 0;
+        return Unfolded;
       // Inserts of booleans are free.
       // TODO: Extracts are free too.
       if (EltSize == 1 && Opcode == Instruction::InsertElement)
@@ -2647,8 +2681,8 @@ InstructionCost GCNTTIImpl::getVectorInstrCost(
             return 0;
         }
       }
-      return BaseT::getVectorInstrCost(Opcode, ValTy, CostKind, Index, Op0, Op1,
-                                       VIC);
+      return Unfolded + BaseT::getVectorInstrCost(Opcode, ValTy, CostKind,
+                                                  Index, Op0, Op1, VIC);
     }
 
     // Packed f32 pair formation for v_pk_*_f32. A constant-index insert writes
@@ -2664,12 +2698,12 @@ InstructionCost GCNTTIImpl::getVectorInstrCost(
         CostKind == TTI::TCK_RecipThroughput && ST->hasAnyPackedFP32Ops() &&
         InsertedInst && VecTy && VecTy->getElementType()->isFloatTy() &&
         !isa<LoadInst, InsertElementInst>(InsertedInst))
-      return getFullRateInstrCost();
+      return Unfolded + getFullRateInstrCost();
 
     // Extracts are just reads of a subregister, so are free. Inserts are
     // considered free because we don't want to have any cost for scalarizing
     // operations, and we don't have to copy into a different register class.
-    return 0;
+    return Unfolded;
   }
   default:
     return BaseT::getVectorInstrCost(Opcode, ValTy, CostKind, Index, Op0, Op1,
