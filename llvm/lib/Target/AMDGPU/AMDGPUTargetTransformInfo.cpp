@@ -431,8 +431,10 @@ bool GCNTTIImpl::isCoalescedLoad(const LoadInst *LI, unsigned *Lane) const {
   APInt Offset(IndexBits, 0);
   const Value *Base = LI->getPointerOperand()->stripAndAccumulateConstantOffsets(
       DL, Offset, /*AllowNonInbounds=*/true);
+  const unsigned MaxBits = getLoadStoreVecRegBitWidth(AS);
   // The loads of the same size in the block at constant offsets of the same
-  // base, found through a bounded number of its users.
+  // base, found through a bounded number of its users. A vector load of lanes
+  // of that size is merged with them unless it fills over half the widest load.
   SmallVector<std::pair<int64_t, const LoadInst *>, 16> Lanes;
   SmallVector<const Value *, 8> Worklist{Base};
   unsigned Budget = 64;
@@ -447,8 +449,14 @@ bool GCNTTIImpl::isCoalescedLoad(const LoadInst *LI, unsigned *Lane) const {
         continue;
       }
       const auto *L = dyn_cast<LoadInst>(U);
-      if (!L || L->getParent() != BB || !L->isSimple() ||
-          DL.getTypeStoreSize(L->getType()) != uint64_t(Size))
+      if (!L || L->getParent() != BB || !L->isSimple())
+        continue;
+      auto *VecTy = dyn_cast<FixedVectorType>(L->getType());
+      if (VecTy ? VecTy->isPtrOrPtrVectorTy() ||
+                      DL.getTypeSizeInBits(VecTy->getElementType()) !=
+                          DL.getTypeSizeInBits(Ty) ||
+                      DL.getTypeSizeInBits(VecTy) > MaxBits / 2
+                : DL.getTypeStoreSize(L->getType()) != uint64_t(Size))
         continue;
       APInt Off(IndexBits, 0);
       if (L->getPointerOperand()->stripAndAccumulateConstantOffsets(
@@ -459,7 +467,7 @@ bool GCNTTIImpl::isCoalescedLoad(const LoadInst *LI, unsigned *Lane) const {
   }
   if (Lanes.size() < 2)
     return false;
-  llvm::sort(Lanes);
+  llvm::stable_sort(Lanes, less_first());
   const int64_t Off = Offset.getSExtValue();
   unsigned NumLanes = 1;
   Align BestAlign = LI->getAlign();
@@ -467,18 +475,20 @@ bool GCNTTIImpl::isCoalescedLoad(const LoadInst *LI, unsigned *Lane) const {
   for (auto [LaneOff, L] : Lanes) {
     if (LaneOff != Next)
       continue;
-    ++NumLanes;
+    const int64_t Bytes = DL.getTypeStoreSize(L->getType());
+    NumLanes += Bytes / Size;
     BestAlign = std::max(BestAlign, L->getAlign());
-    Next += Size;
+    Next += Bytes;
   }
   unsigned NumBefore = 0;
-  int64_t Prev = Off - Size;
+  int64_t Prev = Off;
   for (auto [LaneOff, L] : reverse(Lanes)) {
-    if (LaneOff != Prev)
+    const int64_t Bytes = DL.getTypeStoreSize(L->getType());
+    if (LaneOff + Bytes != Prev)
       continue;
-    ++NumBefore;
+    NumBefore += Bytes / Size;
     BestAlign = std::max(BestAlign, L->getAlign());
-    Prev -= Size;
+    Prev = LaneOff;
   }
   NumLanes += NumBefore;
   if (Lane)
