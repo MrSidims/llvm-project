@@ -34747,9 +34747,10 @@ private:
           getBoolReduxWideTy(RdxKind, ReductionRoot->getType(), ScalarTy);
       // The vector fadd of the products of fusable fmuls is an fmuladd, so it
       // costs the fused form less the fmul already in the tree. Invalid unless
-      // all the reduced values are fusable fmuls.
+      // all the reduced values are fusable fmuls. The ordered reduction adds
+      // the extracted lanes one by one, nothing fuses.
       auto GetFMACost = [&](VectorType *RVecTy) -> InstructionCost {
-        if (RdxKind != RecurKind::FAdd)
+        if (RdxKind != RecurKind::FAdd || RK == ReductionOrdering::Ordered)
           return InstructionCost::getInvalid();
         SmallVector<Value *> Ops;
         FastMathFlags FMulFMF;
