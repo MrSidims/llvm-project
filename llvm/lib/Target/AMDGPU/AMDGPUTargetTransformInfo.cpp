@@ -2734,6 +2734,50 @@ static bool fmaReadsHighHalf(const GCNSubtarget &ST) {
   return ST.useRealTrue16Insts() || ST.getGeneration() == AMDGPUSubtarget::GFX9;
 }
 
+/// \returns true if a packed instruction computes \p U once it is vectorized,
+/// so it reads \p V out of a register pair.
+static bool isPackedMathUser(const GCNSubtarget &ST, const Value *V,
+                             const User *U) {
+  const auto *I = dyn_cast<Instruction>(U);
+  if (!I)
+    return false;
+  Type *Ty = V->getType();
+  const bool Is32 = Ty->isFloatTy();
+  if (Is32 ? !ST.hasAnyPackedFP32Ops()
+           : !ST.hasVOP3PInsts() || !(Ty->isHalfTy() || Ty->isIntegerTy(16)))
+    return false;
+  switch (I->getOpcode()) {
+  case Instruction::FAdd:
+  case Instruction::FSub:
+  case Instruction::FMul:
+    return true;
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::Mul:
+  case Instruction::Shl:
+  case Instruction::LShr:
+  case Instruction::AShr:
+    return !Is32;
+  case Instruction::Call:
+    switch (cast<CallBase>(I)->getIntrinsicID()) {
+    case Intrinsic::fma:
+    case Intrinsic::fmuladd:
+      return true;
+    case Intrinsic::minnum:
+    case Intrinsic::maxnum:
+    case Intrinsic::smin:
+    case Intrinsic::smax:
+    case Intrinsic::umin:
+    case Intrinsic::umax:
+      return !Is32;
+    default:
+      return false;
+    }
+  default:
+    return false;
+  }
+}
+
 /// \returns true if \p U reads the 16-bit value \p V from the high half of a
 /// 32-bit register in place. A real true16 instruction addresses either half,
 /// SDWA selects the half for a VOP1, VOP2 or VOPC instruction and a d16_hi
@@ -2893,6 +2937,20 @@ InstructionCost GCNTTIImpl::getVectorInstrCost(
         InsertedInst && VecTy && VecTy->getElementType()->isFloatTy() &&
         !isa<LoadInst, InsertElementInst>(InsertedInst))
       return Unfolded + getFullRateInstrCost();
+
+    // A lane of a load merged with its neighbours is copied into the aligned
+    // register pair a packed user reads unless it is already the even lane of
+    // one.
+    if (Opcode == Instruction::InsertElement && EltSize == 32 &&
+        ST->needsAlignedVGPRs()) {
+      unsigned Lane = 0;
+      const auto *LI = dyn_cast_or_null<LoadInst>(Op1);
+      if (LI && isCoalescedLoad(LI, &Lane) &&
+          (Index % 2 == 1 || Lane % 2 == 1) &&
+          any_of(LI->users(),
+                 [&](const User *U) { return isPackedMathUser(*ST, LI, U); }))
+        return Unfolded + getFullRateInstrCost();
+    }
 
     // Extracts are just reads of a subregister, so are free. Inserts are
     // considered free because we don't want to have any cost for scalarizing
@@ -3768,6 +3826,21 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
           getMemoryOpCost(Opcode, Src, BestAlign, AddressSpace, CostKind);
       if (VecCost < ScalarCost)
         Cost += ScalarCost - VecCost;
+      // From an odd lane on the lanes of a load merged with its neighbours are
+      // not register pairs. A packed user needs each pair rebuilt, which
+      // copies both 32-bit lanes or realigns two 16-bit lanes at once.
+      const unsigned EltBits = DL.getTypeSizeInBits(LoadTy->getScalarType());
+      unsigned Lane = 0;
+      if (NumLoadElts == 1 &&
+          (EltBits == 16 || (EltBits == 32 && ST->needsAlignedVGPRs())) &&
+          isCoalescedLoad(cast<LoadInst>(Scalars.front()), &Lane) &&
+          Lane % 2 == 1 && any_of(Scalars, [&](const Value *V) {
+            return any_of(V->users(), [&](const User *U) {
+              return isPackedMathUser(*ST, V, U);
+            });
+          }))
+        Cost += (LoadVecTy->getNumElements() / 2) * (EltBits == 32 ? 2 : 1) *
+                getFullRateInstrCost();
       return Cost;
     }
   }
