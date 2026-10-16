@@ -169,6 +169,7 @@ public:
   bool isByteMul(const Value *V, const BasicBlock *BB) const;
   bool isFoldedIntoDot4(const Instruction &I) const;
   bool isDot4ChainAdd(const Instruction &I) const;
+  bool isDot4VectorExt(const Instruction &Ext) const;
   bool readsLaneThroughSDWA(const Instruction &Ext) const;
 
   bool isLegalToVectorizeMemChain(unsigned ChainSizeInBytes, Align Alignment,

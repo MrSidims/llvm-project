@@ -1022,6 +1022,24 @@ bool GCNTTIImpl::isDot4ChainAdd(const Instruction &I) const {
          (IsFoldedMul(B) && match(A, m_Add(m_Value(), m_Value())));
 }
 
+/// \returns true if the byte extension \p Ext feeds a multiply of bytes whose
+/// products an add sums, so that v_dot4 reads a vector of four of them.
+bool GCNTTIImpl::isDot4VectorExt(const Instruction &Ext) const {
+  using namespace PatternMatch;
+  const BasicBlock *BB = Ext.getParent();
+  if (!ST->hasDot7Insts() || !(ST->hasDot1Insts() || ST->hasDot8Insts()) ||
+      !isOneUseInBlock(&Ext, BB))
+    return false;
+  const auto *Mul = cast<Instruction>(Ext.user_back());
+  const Value *A, *B;
+  if (!isOneUseInBlock(Mul, BB) || !match(Mul, m_Mul(m_Value(A), m_Value(B))) ||
+      !isNarrowMul(A, B, 8, DL))
+    return false;
+  const User *U = Mul->user_back();
+  return match(U, m_Add(m_Value(), m_Value())) ||
+         match(U, m_Intrinsic<Intrinsic::vector_reduce_add>(m_Value()));
+}
+
 /// \returns true if the select \p Sel and its compare become one fminnum or
 /// fmaxnum, returned in \p IID.
 static bool isFMinMaxSelect(const Instruction *Sel, Intrinsic::ID &IID) {
@@ -2227,10 +2245,13 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       if (NElts == 1) {
         const auto *Load = I ? dyn_cast<LoadInst>(I->getOperand(0)) : nullptr;
         // The lane of a load merged with its neighbours is taken out of the
-        // wider register, unless SDWA reads it in place for the user. Real
-        // true16 then moves a sign extended byte into a 16 bit register.
+        // wider register, unless SDWA or v_dot4 reads it in place for the
+        // user. Real true16 then moves a sign extended byte into a 16 bit
+        // register.
         if (Load && isCoalescedLoad(Load)) {
-          if (readsLaneThroughSDWA(*I))
+          if (readsLaneThroughSDWA(*I) ||
+              (isOneUseInBlock(I, I->getParent()) &&
+               isFoldedIntoDot4(*cast<Instruction>(I->user_back()))))
             return TargetTransformInfo::TCC_Free;
           const bool MovedToHalf = IsSigned && SrcBits == 8 && DstBits == 16 &&
                                    ST->useRealTrue16Insts();
@@ -2248,11 +2269,15 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       // Bytes are repacked as 16 bit pairs, and real true16 writes either half
       // of a pair in place. A wider lane is selected out of its register, which
       // SDWA folds into an unsigned user that reads the lane in place. A sign
-      // extended i64 lane also needs its high half.
+      // extended i64 lane also needs its high half. v_dot4 reads four bytes in
+      // place.
       unsigned NumOps;
       if (DstBits == 16)
         NumOps = IsSigned ? 2 * NElts
                           : NElts + NElts / (ST->useRealTrue16Insts() ? 4 : 2);
+      else if (NElts == 4 && SrcBits == 8 && DstBits == 32 && I &&
+               isDot4VectorExt(*I))
+        NumOps = 0;
       else
         NumOps = (IsSigned || !I || !readsLaneThroughSDWA(*I) ? NElts : 0) +
                  (IsSigned && DstBits == 64 ? NElts : 0);
