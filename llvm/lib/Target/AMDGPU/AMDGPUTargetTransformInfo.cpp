@@ -3796,31 +3796,35 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                             TTI::OperandValueInfo OpInfo, const Instruction *I,
                             ArrayRef<const Value *> Scalars) const {
   // The vector load saves nothing over scalar loads the backend coalesces as
-  // well.
+  // well. A null lane is loaded by another access and saves nothing here.
   auto *LoadVecTy = dyn_cast<FixedVectorType>(Src);
+  auto Loads =
+      make_filter_range(Scalars, [](const Value *V) { return V != nullptr; });
   if (Opcode == Instruction::Load && LoadVecTy && Scalars.size() > 1 &&
-      all_of(Scalars, IsaPred<LoadInst>)) {
-    Type *LoadTy = Scalars.front()->getType();
+      !Loads.empty() && all_of(Loads, IsaPred<LoadInst>)) {
+    const auto *FirstIt =
+        find_if(Scalars, [](const Value *V) { return V != nullptr; });
+    const auto *First = cast<LoadInst>(*FirstIt);
+    Type *LoadTy = First->getType();
     unsigned NumLoadElts = 1;
     if (auto *ScalarVecTy = dyn_cast<FixedVectorType>(LoadTy))
       NumLoadElts = ScalarVecTy->getNumElements();
     if (LoadVecTy->getElementType() == LoadTy->getScalarType() &&
         LoadVecTy->getNumElements() == Scalars.size() * NumLoadElts &&
-        all_of(Scalars,
-               [&](const Value *V) { return V->getType() == LoadTy; })) {
+        all_of(Loads, [&](const Value *V) { return V->getType() == LoadTy; })) {
       InstructionCost Cost = getMemoryOpCost(Opcode, Src, Alignment,
                                              AddressSpace, CostKind, OpInfo, I);
       Align BestAlign = Alignment;
-      for (const Value *V : Scalars)
+      for (const Value *V : Loads)
         BestAlign = std::max(BestAlign, cast<LoadInst>(V)->getAlign());
       if (!consecutiveLoadsCoalesce(LoadTy, Scalars.size(), BestAlign,
                                     AddressSpace) &&
-          !all_of(Scalars, [&](const Value *V) {
+          !all_of(Loads, [&](const Value *V) {
             return isCoalescedLoad(cast<LoadInst>(V));
           }))
         return Cost;
       InstructionCost ScalarCost =
-          Scalars.size() *
+          range_size(Loads) *
           getMemoryOpCost(Opcode, LoadTy, BestAlign, AddressSpace, CostKind);
       InstructionCost VecCost =
           getMemoryOpCost(Opcode, Src, BestAlign, AddressSpace, CostKind);
@@ -3830,11 +3834,12 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
       // not register pairs. A packed user needs each pair rebuilt, which
       // copies both 32-bit lanes or realigns two 16-bit lanes at once.
       const unsigned EltBits = DL.getTypeSizeInBits(LoadTy->getScalarType());
+      const unsigned FirstLane = std::distance(Scalars.begin(), FirstIt);
       unsigned Lane = 0;
       if (NumLoadElts == 1 &&
           (EltBits == 16 || (EltBits == 32 && ST->needsAlignedVGPRs())) &&
-          isCoalescedLoad(cast<LoadInst>(Scalars.front()), &Lane) &&
-          Lane % 2 == 1 && any_of(Scalars, [&](const Value *V) {
+          isCoalescedLoad(First, &Lane) && Lane >= FirstLane &&
+          (Lane - FirstLane) % 2 == 1 && any_of(Loads, [&](const Value *V) {
             return any_of(V->users(), [&](const User *U) {
               return isPackedMathUser(*ST, V, U);
             });

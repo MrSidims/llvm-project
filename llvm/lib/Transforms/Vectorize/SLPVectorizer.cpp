@@ -17880,11 +17880,17 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
               LI0->getPointerAddressSpace(), CostKind);
 
         } else {
+          // The lanes an earlier entry loads are priced there.
+          SmallVector<const Value *> Lanes(VL.begin(), VL.end());
+          for (const Value *&V : Lanes)
+            if (isa<LoadInst>(V) && getTreeEntries(V).front() != E)
+              V = nullptr;
           VecLdCost = TTI->getMemoryOpCost(
               Instruction::Load, VecTy,
               commonAlignment(LI0->getAlign(), getVectorLoadShift(E->Scalars)),
               LI0->getPointerAddressSpace(), CostKind,
-              TTI::getOperandInfo(LI0->getPointerOperand()), /*I=*/nullptr, VL);
+              TTI::getOperandInfo(LI0->getPointerOperand()), /*I=*/nullptr,
+              Lanes);
         }
         break;
       case TreeEntry::StridedVectorize: {
