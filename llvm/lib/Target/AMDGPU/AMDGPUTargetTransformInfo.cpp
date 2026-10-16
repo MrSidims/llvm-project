@@ -1130,6 +1130,10 @@ bool GCNTTIImpl::readsLaneThroughSDWA(const Instruction &Ext) const {
   case Instruction::UIToFP:
     return true;
   case Instruction::Mul: {
+    // The 16 bit multiply has a VOP2 form unless an add fuses it into v_mad.
+    if (Bits == 16)
+      return !isOneUseInBlock(U, U->getParent()) ||
+             !isFoldedIntoMul(*cast<Instruction>(U->user_back()));
     // Only the 24 bit multiply has a VOP2 form.
     const bool IsSigned = Ext.getOpcode() == Instruction::SExt;
     const Value *Other = U->getOperand(U->getOperand(0) == &Ext ? 1 : 0);
@@ -2755,13 +2759,21 @@ bool GCNTTIImpl::shouldExpandReduction(const IntrinsicInst *II) const {
 
 /// \returns the cost of computing the scalar \p V into a register of its own
 /// when instruction selection folds it into every user otherwise. A packed
-/// vector operation reads neither a mixed precision source nor a fused
-/// multiply from its lanes.
+/// vector operation reads neither a mixed precision source, a fused multiply
+/// nor a byte that SDWA reads in place from its lanes.
 InstructionCost GCNTTIImpl::getUnfoldedCost(const Value *V,
                                             TTI::TargetCostKind CostKind) const {
   const auto *I = dyn_cast_or_null<Instruction>(V);
   if (!I || I->getType()->isVectorTy())
     return 0;
+  if (isa<SExtInst, ZExtInst>(I)) {
+    const auto *Load = dyn_cast<LoadInst>(I->getOperand(0));
+    if (!I->getType()->isIntegerTy(16) || !Load || !isCoalescedLoad(Load) ||
+        !readsLaneThroughSDWA(*I) ||
+        !isa<BinaryOperator, IntrinsicInst>(I->user_back()))
+      return 0;
+    return getFullRateInstrCost();
+  }
   if (const auto *Ext = dyn_cast<FPExtInst>(I)) {
     Type *Dst = Ext->getType();
     Type *Src = Ext->getSrcTy();
