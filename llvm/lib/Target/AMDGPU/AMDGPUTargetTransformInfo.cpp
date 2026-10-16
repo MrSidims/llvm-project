@@ -2241,14 +2241,14 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       }
       // Bytes are repacked as 16 bit pairs, and real true16 writes either half
       // of a pair in place. A wider lane is selected out of its register, which
-      // SDWA folds into an unsigned user. A sign extended i64 lane also needs
-      // its high half.
+      // SDWA folds into an unsigned user that reads the lane in place. A sign
+      // extended i64 lane also needs its high half.
       unsigned NumOps;
       if (DstBits == 16)
         NumOps = IsSigned ? 2 * NElts
                           : NElts + NElts / (ST->useRealTrue16Insts() ? 4 : 2);
       else
-        NumOps = (IsSigned || !ST->hasSDWA() ? NElts : 0) +
+        NumOps = (IsSigned || !I || !readsLaneThroughSDWA(*I) ? NElts : 0) +
                  (IsSigned && DstBits == 64 ? NElts : 0);
       return InstructionCost(NumOps) * getFullRateInstrCost();
     }
