@@ -350,12 +350,9 @@ unsigned GCNTTIImpl::getMaximumReductionVF(unsigned ElemWidth) const {
 }
 
 bool GCNTTIImpl::preferSLPInstCountCheck() const {
-  // The integer inst-count heuristic causes regressions on gfx94x and gfx950
-  // because 2-element vector trees that pass the scalar/vector instruction
-  // count comparison still widen scalar moves (e.g. v_mov_b32 to v_mov_b64)
-  // after codegen, increasing register pressure and throughput cost without
-  // reducing the total instruction count.
-  return !ST->hasGFX940Insts() && !ST->hasGFX950Insts();
+  // Packed instructions read a splat or a register pair lane through op_sel
+  // for free, and the instruction count prices each of them as a full move.
+  return false;
 }
 
 unsigned GCNTTIImpl::getLoadVectorFactor(unsigned VF, unsigned LoadSize,
