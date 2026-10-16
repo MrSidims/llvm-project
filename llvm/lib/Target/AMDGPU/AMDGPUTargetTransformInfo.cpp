@@ -1215,10 +1215,9 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
 
   MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
 
-  if (CtxI && CtxI->getOpcode() == Opcode &&
+  if (CtxI && CtxI->getOpcode() == Opcode && !Ty->isVectorTy() &&
       (isFoldedIntoIntUser(*ST, *CtxI) || isFoldedIntoMul(*CtxI) ||
-       (!Ty->isVectorTy() &&
-        (isFoldedIntoDot4(*CtxI) || isDot4ChainAdd(*CtxI)))))
+       isFoldedIntoDot4(*CtxI) || isDot4ChainAdd(*CtxI)))
     return TargetTransformInfo::TCC_Free;
 
   switch (ISD) {

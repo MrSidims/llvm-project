@@ -57,3 +57,19 @@ entry:
   store i128 %p_insert_0, ptr %arrayidx, align 16
   ret void
 }
+
+define void @or_of_masked_pair(ptr %p, i32 %a, i32 %b) {
+; CHECK-LABEL: define void @or_of_masked_pair(
+; CHECK-SAME: ptr [[P:%.*]], i32 [[A:%.*]], i32 [[B:%.*]]) {
+; CHECK-NEXT:    [[X:%.*]] = and i32 [[A]], 192
+; CHECK-NEXT:    [[Y:%.*]] = and i32 [[B]], 63
+; CHECK-NEXT:    [[R:%.*]] = or disjoint i32 [[X]], [[Y]]
+; CHECK-NEXT:    store i32 [[R]], ptr [[P]], align 4
+; CHECK-NEXT:    ret void
+;
+  %x = and i32 %a, 192
+  %y = and i32 %b, 63
+  %r = or disjoint i32 %x, %y
+  store i32 %r, ptr %p, align 4
+  ret void
+}
