@@ -366,3 +366,132 @@ bb:
   %ins.3 = insertelement <4 x i16> %ins.2, i16 %add.3, i64 3
   ret <4 x i16> %ins.3
 }
+
+define i32 @umax8_i8_acc(ptr addrspace(1) %p, i32 %acc) {
+; GFX7-LABEL: @umax8_i8_acc(
+; GFX7-NEXT:    [[L0:%.*]] = load i8, ptr addrspace(1) [[P:%.*]], align 1
+; GFX7-NEXT:    [[X0:%.*]] = zext i8 [[L0]] to i32
+; GFX7-NEXT:    [[G1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P]], i64 1
+; GFX7-NEXT:    [[L1:%.*]] = load i8, ptr addrspace(1) [[G1]], align 1
+; GFX7-NEXT:    [[X1:%.*]] = zext i8 [[L1]] to i32
+; GFX7-NEXT:    [[G2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P]], i64 2
+; GFX7-NEXT:    [[L2:%.*]] = load i8, ptr addrspace(1) [[G2]], align 1
+; GFX7-NEXT:    [[X2:%.*]] = zext i8 [[L2]] to i32
+; GFX7-NEXT:    [[G3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P]], i64 3
+; GFX7-NEXT:    [[L3:%.*]] = load i8, ptr addrspace(1) [[G3]], align 1
+; GFX7-NEXT:    [[X3:%.*]] = zext i8 [[L3]] to i32
+; GFX7-NEXT:    [[G4:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P]], i64 4
+; GFX7-NEXT:    [[L4:%.*]] = load i8, ptr addrspace(1) [[G4]], align 1
+; GFX7-NEXT:    [[X4:%.*]] = zext i8 [[L4]] to i32
+; GFX7-NEXT:    [[G5:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P]], i64 5
+; GFX7-NEXT:    [[L5:%.*]] = load i8, ptr addrspace(1) [[G5]], align 1
+; GFX7-NEXT:    [[X5:%.*]] = zext i8 [[L5]] to i32
+; GFX7-NEXT:    [[G6:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P]], i64 6
+; GFX7-NEXT:    [[L6:%.*]] = load i8, ptr addrspace(1) [[G6]], align 1
+; GFX7-NEXT:    [[X6:%.*]] = zext i8 [[L6]] to i32
+; GFX7-NEXT:    [[G7:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P]], i64 7
+; GFX7-NEXT:    [[L7:%.*]] = load i8, ptr addrspace(1) [[G7]], align 1
+; GFX7-NEXT:    [[X7:%.*]] = zext i8 [[L7]] to i32
+; GFX7-NEXT:    [[M0:%.*]] = call i32 @llvm.umax.i32(i32 [[ACC:%.*]], i32 [[X0]])
+; GFX7-NEXT:    [[M1:%.*]] = call i32 @llvm.umax.i32(i32 [[M0]], i32 [[X1]])
+; GFX7-NEXT:    [[M2:%.*]] = call i32 @llvm.umax.i32(i32 [[M1]], i32 [[X2]])
+; GFX7-NEXT:    [[M3:%.*]] = call i32 @llvm.umax.i32(i32 [[M2]], i32 [[X3]])
+; GFX7-NEXT:    [[M4:%.*]] = call i32 @llvm.umax.i32(i32 [[M3]], i32 [[X4]])
+; GFX7-NEXT:    [[M5:%.*]] = call i32 @llvm.umax.i32(i32 [[M4]], i32 [[X5]])
+; GFX7-NEXT:    [[M6:%.*]] = call i32 @llvm.umax.i32(i32 [[M5]], i32 [[X6]])
+; GFX7-NEXT:    [[M7:%.*]] = call i32 @llvm.umax.i32(i32 [[M6]], i32 [[X7]])
+; GFX7-NEXT:    ret i32 [[M7]]
+;
+; GFX8-LABEL: @umax8_i8_acc(
+; GFX8-NEXT:    [[TMP1:%.*]] = load <4 x i8>, ptr addrspace(1) [[P:%.*]], align 1
+; GFX8-NEXT:    [[G4:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P]], i64 4
+; GFX8-NEXT:    [[TMP2:%.*]] = load <4 x i8>, ptr addrspace(1) [[G4]], align 1
+; GFX8-NEXT:    [[TMP3:%.*]] = extractelement <4 x i8> [[TMP1]], i64 0
+; GFX8-NEXT:    [[TMP4:%.*]] = zext i8 [[TMP3]] to i32
+; GFX8-NEXT:    [[M0:%.*]] = call i32 @llvm.umax.i32(i32 [[ACC:%.*]], i32 [[TMP4]])
+; GFX8-NEXT:    [[TMP5:%.*]] = extractelement <4 x i8> [[TMP1]], i64 1
+; GFX8-NEXT:    [[TMP6:%.*]] = zext i8 [[TMP5]] to i32
+; GFX8-NEXT:    [[M1:%.*]] = call i32 @llvm.umax.i32(i32 [[M0]], i32 [[TMP6]])
+; GFX8-NEXT:    [[TMP7:%.*]] = extractelement <4 x i8> [[TMP1]], i64 2
+; GFX8-NEXT:    [[TMP8:%.*]] = zext i8 [[TMP7]] to i32
+; GFX8-NEXT:    [[M2:%.*]] = call i32 @llvm.umax.i32(i32 [[M1]], i32 [[TMP8]])
+; GFX8-NEXT:    [[TMP9:%.*]] = extractelement <4 x i8> [[TMP1]], i64 3
+; GFX8-NEXT:    [[TMP10:%.*]] = zext i8 [[TMP9]] to i32
+; GFX8-NEXT:    [[M3:%.*]] = call i32 @llvm.umax.i32(i32 [[M2]], i32 [[TMP10]])
+; GFX8-NEXT:    [[TMP11:%.*]] = extractelement <4 x i8> [[TMP2]], i64 0
+; GFX8-NEXT:    [[TMP12:%.*]] = zext i8 [[TMP11]] to i32
+; GFX8-NEXT:    [[M4:%.*]] = call i32 @llvm.umax.i32(i32 [[M3]], i32 [[TMP12]])
+; GFX8-NEXT:    [[TMP13:%.*]] = extractelement <4 x i8> [[TMP2]], i64 1
+; GFX8-NEXT:    [[TMP14:%.*]] = zext i8 [[TMP13]] to i32
+; GFX8-NEXT:    [[M5:%.*]] = call i32 @llvm.umax.i32(i32 [[M4]], i32 [[TMP14]])
+; GFX8-NEXT:    [[TMP15:%.*]] = extractelement <4 x i8> [[TMP2]], i64 2
+; GFX8-NEXT:    [[TMP16:%.*]] = zext i8 [[TMP15]] to i32
+; GFX8-NEXT:    [[M6:%.*]] = call i32 @llvm.umax.i32(i32 [[M5]], i32 [[TMP16]])
+; GFX8-NEXT:    [[TMP17:%.*]] = extractelement <4 x i8> [[TMP2]], i64 3
+; GFX8-NEXT:    [[TMP18:%.*]] = zext i8 [[TMP17]] to i32
+; GFX8-NEXT:    [[M7:%.*]] = call i32 @llvm.umax.i32(i32 [[M6]], i32 [[TMP18]])
+; GFX8-NEXT:    ret i32 [[M7]]
+;
+; GFX9-LABEL: @umax8_i8_acc(
+; GFX9-NEXT:    [[TMP1:%.*]] = load <4 x i8>, ptr addrspace(1) [[P:%.*]], align 1
+; GFX9-NEXT:    [[G4:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P]], i64 4
+; GFX9-NEXT:    [[TMP2:%.*]] = load <4 x i8>, ptr addrspace(1) [[G4]], align 1
+; GFX9-NEXT:    [[TMP3:%.*]] = extractelement <4 x i8> [[TMP1]], i64 0
+; GFX9-NEXT:    [[TMP4:%.*]] = zext i8 [[TMP3]] to i32
+; GFX9-NEXT:    [[M0:%.*]] = call i32 @llvm.umax.i32(i32 [[ACC:%.*]], i32 [[TMP4]])
+; GFX9-NEXT:    [[TMP5:%.*]] = extractelement <4 x i8> [[TMP1]], i64 1
+; GFX9-NEXT:    [[TMP6:%.*]] = zext i8 [[TMP5]] to i32
+; GFX9-NEXT:    [[M1:%.*]] = call i32 @llvm.umax.i32(i32 [[M0]], i32 [[TMP6]])
+; GFX9-NEXT:    [[TMP7:%.*]] = extractelement <4 x i8> [[TMP1]], i64 2
+; GFX9-NEXT:    [[TMP8:%.*]] = zext i8 [[TMP7]] to i32
+; GFX9-NEXT:    [[M2:%.*]] = call i32 @llvm.umax.i32(i32 [[M1]], i32 [[TMP8]])
+; GFX9-NEXT:    [[TMP9:%.*]] = extractelement <4 x i8> [[TMP1]], i64 3
+; GFX9-NEXT:    [[TMP10:%.*]] = zext i8 [[TMP9]] to i32
+; GFX9-NEXT:    [[M3:%.*]] = call i32 @llvm.umax.i32(i32 [[M2]], i32 [[TMP10]])
+; GFX9-NEXT:    [[TMP11:%.*]] = extractelement <4 x i8> [[TMP2]], i64 0
+; GFX9-NEXT:    [[TMP12:%.*]] = zext i8 [[TMP11]] to i32
+; GFX9-NEXT:    [[M4:%.*]] = call i32 @llvm.umax.i32(i32 [[M3]], i32 [[TMP12]])
+; GFX9-NEXT:    [[TMP13:%.*]] = extractelement <4 x i8> [[TMP2]], i64 1
+; GFX9-NEXT:    [[TMP14:%.*]] = zext i8 [[TMP13]] to i32
+; GFX9-NEXT:    [[M5:%.*]] = call i32 @llvm.umax.i32(i32 [[M4]], i32 [[TMP14]])
+; GFX9-NEXT:    [[TMP15:%.*]] = extractelement <4 x i8> [[TMP2]], i64 2
+; GFX9-NEXT:    [[TMP16:%.*]] = zext i8 [[TMP15]] to i32
+; GFX9-NEXT:    [[M6:%.*]] = call i32 @llvm.umax.i32(i32 [[M5]], i32 [[TMP16]])
+; GFX9-NEXT:    [[TMP17:%.*]] = extractelement <4 x i8> [[TMP2]], i64 3
+; GFX9-NEXT:    [[TMP18:%.*]] = zext i8 [[TMP17]] to i32
+; GFX9-NEXT:    [[M7:%.*]] = call i32 @llvm.umax.i32(i32 [[M6]], i32 [[TMP18]])
+; GFX9-NEXT:    ret i32 [[M7]]
+;
+  %l0 = load i8, ptr addrspace(1) %p, align 1
+  %x0 = zext i8 %l0 to i32
+  %g1 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 1
+  %l1 = load i8, ptr addrspace(1) %g1, align 1
+  %x1 = zext i8 %l1 to i32
+  %g2 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 2
+  %l2 = load i8, ptr addrspace(1) %g2, align 1
+  %x2 = zext i8 %l2 to i32
+  %g3 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 3
+  %l3 = load i8, ptr addrspace(1) %g3, align 1
+  %x3 = zext i8 %l3 to i32
+  %g4 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 4
+  %l4 = load i8, ptr addrspace(1) %g4, align 1
+  %x4 = zext i8 %l4 to i32
+  %g5 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 5
+  %l5 = load i8, ptr addrspace(1) %g5, align 1
+  %x5 = zext i8 %l5 to i32
+  %g6 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 6
+  %l6 = load i8, ptr addrspace(1) %g6, align 1
+  %x6 = zext i8 %l6 to i32
+  %g7 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 7
+  %l7 = load i8, ptr addrspace(1) %g7, align 1
+  %x7 = zext i8 %l7 to i32
+  %m0 = call i32 @llvm.umax.i32(i32 %acc, i32 %x0)
+  %m1 = call i32 @llvm.umax.i32(i32 %m0, i32 %x1)
+  %m2 = call i32 @llvm.umax.i32(i32 %m1, i32 %x2)
+  %m3 = call i32 @llvm.umax.i32(i32 %m2, i32 %x3)
+  %m4 = call i32 @llvm.umax.i32(i32 %m3, i32 %x4)
+  %m5 = call i32 @llvm.umax.i32(i32 %m4, i32 %x5)
+  %m6 = call i32 @llvm.umax.i32(i32 %m5, i32 %x6)
+  %m7 = call i32 @llvm.umax.i32(i32 %m6, i32 %x7)
+  ret i32 %m7
+}

@@ -1478,3 +1478,294 @@ define i32 @and_chain_ret(i32 %a, i32 %b, i32 %c) {
   %and1 = and i32 %and0, %c
   ret i32 %and1
 }
+
+define void @min_max_chain(i32 %a, i32 %b, i32 %c, i32 %d, i32 %e, i64 %x, i64 %y, i64 %z, i16 %h, i16 %i, i16 %j, ptr addrspace(1) %p) {
+; GFX8-LABEL: 'min_max_chain'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin0 = call i32 @llvm.smin.i32(i32 %a, i32 %b)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin1 = call i32 @llvm.smin.i32(i32 %smin0, i32 %c)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin2 = call i32 @llvm.smin.i32(i32 %smin1, i32 %d)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin3 = call i32 @llvm.smin.i32(i32 %smin2, i32 %e)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin3, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %umax0 = call i32 @llvm.umax.i32(i32 %a, i32 %b)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umax1 = call i32 @llvm.umax.i32(i32 %c, i32 %umax0)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umax1, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smax0 = call i32 @llvm.smax.i32(i32 %a, i32 %b)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin4 = call i32 @llvm.smin.i32(i32 %smax0, i32 %c)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin4, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin0 = call i32 @llvm.umin.i32(i32 %a, i32 %b)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin1 = call i32 @llvm.umin.i32(i32 %umin0, i32 %c)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin0, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin1, ptr addrspace(1) %p, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %smin64.0 = call i64 @llvm.smin.i64(i64 %x, i64 %y)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %smin64.1 = call i64 @llvm.smin.i64(i64 %smin64.0, i64 %z)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %smin64.1, ptr addrspace(1) %p, align 8
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.0 = call i16 @llvm.smin.i16(i16 %h, i16 %i)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.1 = call i16 @llvm.smin.i16(i16 %smin16.0, i16 %j)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 %smin16.1, ptr addrspace(1) %p, align 2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX900-LABEL: 'min_max_chain'
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin0 = call i32 @llvm.smin.i32(i32 %a, i32 %b)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin1 = call i32 @llvm.smin.i32(i32 %smin0, i32 %c)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin2 = call i32 @llvm.smin.i32(i32 %smin1, i32 %d)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin3 = call i32 @llvm.smin.i32(i32 %smin2, i32 %e)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin3, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %umax0 = call i32 @llvm.umax.i32(i32 %a, i32 %b)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umax1 = call i32 @llvm.umax.i32(i32 %c, i32 %umax0)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umax1, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smax0 = call i32 @llvm.smax.i32(i32 %a, i32 %b)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin4 = call i32 @llvm.smin.i32(i32 %smax0, i32 %c)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin4, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin0 = call i32 @llvm.umin.i32(i32 %a, i32 %b)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin1 = call i32 @llvm.umin.i32(i32 %umin0, i32 %c)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin0, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin1, ptr addrspace(1) %p, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %smin64.0 = call i64 @llvm.smin.i64(i64 %x, i64 %y)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %smin64.1 = call i64 @llvm.smin.i64(i64 %smin64.0, i64 %z)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %smin64.1, ptr addrspace(1) %p, align 8
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.0 = call i16 @llvm.smin.i16(i16 %h, i16 %i)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.1 = call i16 @llvm.smin.i16(i16 %smin16.0, i16 %j)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 %smin16.1, ptr addrspace(1) %p, align 2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX942-LABEL: 'min_max_chain'
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin0 = call i32 @llvm.smin.i32(i32 %a, i32 %b)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin1 = call i32 @llvm.smin.i32(i32 %smin0, i32 %c)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin2 = call i32 @llvm.smin.i32(i32 %smin1, i32 %d)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin3 = call i32 @llvm.smin.i32(i32 %smin2, i32 %e)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin3, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %umax0 = call i32 @llvm.umax.i32(i32 %a, i32 %b)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umax1 = call i32 @llvm.umax.i32(i32 %c, i32 %umax0)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umax1, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smax0 = call i32 @llvm.smax.i32(i32 %a, i32 %b)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin4 = call i32 @llvm.smin.i32(i32 %smax0, i32 %c)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin4, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin0 = call i32 @llvm.umin.i32(i32 %a, i32 %b)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin1 = call i32 @llvm.umin.i32(i32 %umin0, i32 %c)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin0, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin1, ptr addrspace(1) %p, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %smin64.0 = call i64 @llvm.smin.i64(i64 %x, i64 %y)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %smin64.1 = call i64 @llvm.smin.i64(i64 %smin64.0, i64 %z)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %smin64.1, ptr addrspace(1) %p, align 8
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.0 = call i16 @llvm.smin.i16(i16 %h, i16 %i)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.1 = call i16 @llvm.smin.i16(i16 %smin16.0, i16 %j)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 %smin16.1, ptr addrspace(1) %p, align 2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX950-LABEL: 'min_max_chain'
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin0 = call i32 @llvm.smin.i32(i32 %a, i32 %b)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin1 = call i32 @llvm.smin.i32(i32 %smin0, i32 %c)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin2 = call i32 @llvm.smin.i32(i32 %smin1, i32 %d)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin3 = call i32 @llvm.smin.i32(i32 %smin2, i32 %e)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin3, ptr addrspace(1) %p, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %umax0 = call i32 @llvm.umax.i32(i32 %a, i32 %b)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umax1 = call i32 @llvm.umax.i32(i32 %c, i32 %umax0)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umax1, ptr addrspace(1) %p, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smax0 = call i32 @llvm.smax.i32(i32 %a, i32 %b)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin4 = call i32 @llvm.smin.i32(i32 %smax0, i32 %c)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin4, ptr addrspace(1) %p, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin0 = call i32 @llvm.umin.i32(i32 %a, i32 %b)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin1 = call i32 @llvm.umin.i32(i32 %umin0, i32 %c)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin0, ptr addrspace(1) %p, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin1, ptr addrspace(1) %p, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %smin64.0 = call i64 @llvm.smin.i64(i64 %x, i64 %y)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %smin64.1 = call i64 @llvm.smin.i64(i64 %smin64.0, i64 %z)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %smin64.1, ptr addrspace(1) %p, align 8
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.0 = call i16 @llvm.smin.i16(i16 %h, i16 %i)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.1 = call i16 @llvm.smin.i16(i16 %smin16.0, i16 %j)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 %smin16.1, ptr addrspace(1) %p, align 2
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX1030-LABEL: 'min_max_chain'
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin0 = call i32 @llvm.smin.i32(i32 %a, i32 %b)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin1 = call i32 @llvm.smin.i32(i32 %smin0, i32 %c)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin2 = call i32 @llvm.smin.i32(i32 %smin1, i32 %d)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin3 = call i32 @llvm.smin.i32(i32 %smin2, i32 %e)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin3, ptr addrspace(1) %p, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %umax0 = call i32 @llvm.umax.i32(i32 %a, i32 %b)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umax1 = call i32 @llvm.umax.i32(i32 %c, i32 %umax0)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umax1, ptr addrspace(1) %p, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smax0 = call i32 @llvm.smax.i32(i32 %a, i32 %b)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin4 = call i32 @llvm.smin.i32(i32 %smax0, i32 %c)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin4, ptr addrspace(1) %p, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin0 = call i32 @llvm.umin.i32(i32 %a, i32 %b)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin1 = call i32 @llvm.umin.i32(i32 %umin0, i32 %c)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin0, ptr addrspace(1) %p, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin1, ptr addrspace(1) %p, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %smin64.0 = call i64 @llvm.smin.i64(i64 %x, i64 %y)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %smin64.1 = call i64 @llvm.smin.i64(i64 %smin64.0, i64 %z)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %smin64.1, ptr addrspace(1) %p, align 8
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.0 = call i16 @llvm.smin.i16(i16 %h, i16 %i)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.1 = call i16 @llvm.smin.i16(i16 %smin16.0, i16 %j)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 %smin16.1, ptr addrspace(1) %p, align 2
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX1251-LABEL: 'min_max_chain'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin0 = call i32 @llvm.smin.i32(i32 %a, i32 %b)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin1 = call i32 @llvm.smin.i32(i32 %smin0, i32 %c)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %smin2 = call i32 @llvm.smin.i32(i32 %smin1, i32 %d)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin3 = call i32 @llvm.smin.i32(i32 %smin2, i32 %e)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin3, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %umax0 = call i32 @llvm.umax.i32(i32 %a, i32 %b)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umax1 = call i32 @llvm.umax.i32(i32 %c, i32 %umax0)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umax1, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smax0 = call i32 @llvm.smax.i32(i32 %a, i32 %b)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin4 = call i32 @llvm.smin.i32(i32 %smax0, i32 %c)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %smin4, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin0 = call i32 @llvm.umin.i32(i32 %a, i32 %b)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %umin1 = call i32 @llvm.umin.i32(i32 %umin0, i32 %c)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin0, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i32 %umin1, ptr addrspace(1) %p, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin64.0 = call i64 @llvm.smin.i64(i64 %x, i64 %y)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin64.1 = call i64 @llvm.smin.i64(i64 %smin64.0, i64 %z)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i64 %smin64.1, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.0 = call i16 @llvm.smin.i16(i16 %h, i16 %i)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %smin16.1 = call i16 @llvm.smin.i16(i16 %smin16.0, i16 %j)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store volatile i16 %smin16.1, ptr addrspace(1) %p, align 2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+  %smin0 = call i32 @llvm.smin.i32(i32 %a, i32 %b)
+  %smin1 = call i32 @llvm.smin.i32(i32 %smin0, i32 %c)
+  %smin2 = call i32 @llvm.smin.i32(i32 %smin1, i32 %d)
+  %smin3 = call i32 @llvm.smin.i32(i32 %smin2, i32 %e)
+  store volatile i32 %smin3, ptr addrspace(1) %p
+  %umax0 = call i32 @llvm.umax.i32(i32 %a, i32 %b)
+  %umax1 = call i32 @llvm.umax.i32(i32 %c, i32 %umax0)
+  store volatile i32 %umax1, ptr addrspace(1) %p
+  %smax0 = call i32 @llvm.smax.i32(i32 %a, i32 %b)
+  %smin4 = call i32 @llvm.smin.i32(i32 %smax0, i32 %c)
+  store volatile i32 %smin4, ptr addrspace(1) %p
+  %umin0 = call i32 @llvm.umin.i32(i32 %a, i32 %b)
+  %umin1 = call i32 @llvm.umin.i32(i32 %umin0, i32 %c)
+  store volatile i32 %umin0, ptr addrspace(1) %p
+  store volatile i32 %umin1, ptr addrspace(1) %p
+  %smin64.0 = call i64 @llvm.smin.i64(i64 %x, i64 %y)
+  %smin64.1 = call i64 @llvm.smin.i64(i64 %smin64.0, i64 %z)
+  store volatile i64 %smin64.1, ptr addrspace(1) %p
+  %smin16.0 = call i16 @llvm.smin.i16(i16 %h, i16 %i)
+  %smin16.1 = call i16 @llvm.smin.i16(i16 %smin16.0, i16 %j)
+  store volatile i16 %smin16.1, ptr addrspace(1) %p
+  ret void
+}
+
+
+
+define i32 @min_chain_of_halves(ptr addrspace(1) %p) {
+; GFX8-LABEL: 'min_chain_of_halves'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p1 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p2 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %p3 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 6
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l0 = load i16, ptr addrspace(1) %p, align 8
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l1 = load i16, ptr addrspace(1) %p1, align 2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l2 = load i16, ptr addrspace(1) %p2, align 4
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l3 = load i16, ptr addrspace(1) %p3, align 2
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x0 = zext i16 %l0 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x1 = zext i16 %l1 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x2 = zext i16 %l2 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x3 = zext i16 %l3 to i32
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = call i32 @llvm.smin.i32(i32 %x0, i32 %x1)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m2 = call i32 @llvm.smin.i32(i32 %m1, i32 %x2)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = call i32 @llvm.smin.i32(i32 %m2, i32 %x3)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %m3
+;
+; GFX900-LABEL: 'min_chain_of_halves'
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p1 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p2 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p3 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 6
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l0 = load i16, ptr addrspace(1) %p, align 8
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l1 = load i16, ptr addrspace(1) %p1, align 2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l2 = load i16, ptr addrspace(1) %p2, align 4
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l3 = load i16, ptr addrspace(1) %p3, align 2
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x0 = zext i16 %l0 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x1 = zext i16 %l1 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x2 = zext i16 %l2 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x3 = zext i16 %l3 to i32
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = call i32 @llvm.smin.i32(i32 %x0, i32 %x1)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m2 = call i32 @llvm.smin.i32(i32 %m1, i32 %x2)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = call i32 @llvm.smin.i32(i32 %m2, i32 %x3)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %m3
+;
+; GFX942-LABEL: 'min_chain_of_halves'
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p1 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p2 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p3 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 6
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l0 = load i16, ptr addrspace(1) %p, align 8
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l1 = load i16, ptr addrspace(1) %p1, align 2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l2 = load i16, ptr addrspace(1) %p2, align 4
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l3 = load i16, ptr addrspace(1) %p3, align 2
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x0 = zext i16 %l0 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x1 = zext i16 %l1 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x2 = zext i16 %l2 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x3 = zext i16 %l3 to i32
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = call i32 @llvm.smin.i32(i32 %x0, i32 %x1)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m2 = call i32 @llvm.smin.i32(i32 %m1, i32 %x2)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = call i32 @llvm.smin.i32(i32 %m2, i32 %x3)
+; GFX942-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %m3
+;
+; GFX950-LABEL: 'min_chain_of_halves'
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p1 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 2
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p2 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p3 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 6
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l0 = load i16, ptr addrspace(1) %p, align 8
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l1 = load i16, ptr addrspace(1) %p1, align 2
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l2 = load i16, ptr addrspace(1) %p2, align 4
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l3 = load i16, ptr addrspace(1) %p3, align 2
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x0 = zext i16 %l0 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x1 = zext i16 %l1 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x2 = zext i16 %l2 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x3 = zext i16 %l3 to i32
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = call i32 @llvm.smin.i32(i32 %x0, i32 %x1)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m2 = call i32 @llvm.smin.i32(i32 %m1, i32 %x2)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = call i32 @llvm.smin.i32(i32 %m2, i32 %x3)
+; GFX950-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %m3
+;
+; GFX1030-LABEL: 'min_chain_of_halves'
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p1 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 2
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p2 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p3 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 6
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l0 = load i16, ptr addrspace(1) %p, align 8
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l1 = load i16, ptr addrspace(1) %p1, align 2
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l2 = load i16, ptr addrspace(1) %p2, align 4
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l3 = load i16, ptr addrspace(1) %p3, align 2
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x0 = zext i16 %l0 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %x1 = zext i16 %l1 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x2 = zext i16 %l2 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x3 = zext i16 %l3 to i32
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = call i32 @llvm.smin.i32(i32 %x0, i32 %x1)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m2 = call i32 @llvm.smin.i32(i32 %m1, i32 %x2)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = call i32 @llvm.smin.i32(i32 %m2, i32 %x3)
+; GFX1030-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %m3
+;
+; GFX1251-LABEL: 'min_chain_of_halves'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p1 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p2 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %p3 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 6
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l0 = load i16, ptr addrspace(1) %p, align 8
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l1 = load i16, ptr addrspace(1) %p1, align 2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l2 = load i16, ptr addrspace(1) %p2, align 4
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %l3 = load i16, ptr addrspace(1) %p3, align 2
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x0 = zext i16 %l0 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x1 = zext i16 %l1 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x2 = zext i16 %l2 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %x3 = zext i16 %l3 to i32
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m1 = call i32 @llvm.smin.i32(i32 %x0, i32 %x1)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %m2 = call i32 @llvm.smin.i32(i32 %m1, i32 %x2)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %m3 = call i32 @llvm.smin.i32(i32 %m2, i32 %x3)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 %m3
+;
+  %p1 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 2
+  %p2 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 4
+  %p3 = getelementptr inbounds i8, ptr addrspace(1) %p, i64 6
+  %l0 = load i16, ptr addrspace(1) %p, align 8
+  %l1 = load i16, ptr addrspace(1) %p1, align 2
+  %l2 = load i16, ptr addrspace(1) %p2, align 4
+  %l3 = load i16, ptr addrspace(1) %p3, align 2
+  %x0 = zext i16 %l0 to i32
+  %x1 = zext i16 %l1 to i32
+  %x2 = zext i16 %l2 to i32
+  %x3 = zext i16 %l3 to i32
+  %m1 = call i32 @llvm.smin.i32(i32 %x0, i32 %x1)
+  %m2 = call i32 @llvm.smin.i32(i32 %m1, i32 %x2)
+  %m3 = call i32 @llvm.smin.i32(i32 %m2, i32 %x3)
+  ret i32 %m3
+}

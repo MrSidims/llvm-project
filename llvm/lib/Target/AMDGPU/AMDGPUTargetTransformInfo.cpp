@@ -818,6 +818,11 @@ static bool isBitfieldFold(const Instruction &I, const Instruction &U) {
 static bool isThreeInputFold(const GCNSubtarget &ST, const Instruction &I,
                              const Instruction &U) {
   using namespace PatternMatch;
+  if (const auto *MM = dyn_cast<MinMaxIntrinsic>(&I)) {
+    const auto *UMM = dyn_cast<MinMaxIntrinsic>(&U);
+    return UMM && UMM->getIntrinsicID() == MM->getIntrinsicID() &&
+           I.getType()->isIntegerTy(32);
+  }
   const unsigned Opc = I.getOpcode();
   const unsigned UOpc = U.getOpcode();
   if (I.getType()->isIntegerTy(64)) {
@@ -1147,7 +1152,7 @@ bool GCNTTIImpl::readsLaneThroughSDWA(const Instruction &Ext) const {
     return X->getType()->getScalarSizeInBits() <= 24;
   }
   case Instruction::Call:
-    return match(U, m_MaxOrMin(m_Value(), m_Value()));
+    return match(U, m_MaxOrMin(m_Value(), m_Value())) && !IsThreeInput();
   default:
     return false;
   }
@@ -2013,6 +2018,9 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   case Intrinsic::smax:
   case Intrinsic::umin:
   case Intrinsic::umax:
+    if (ICA.getInst() && !RetTy->isVectorTy() &&
+        isFoldedIntoIntUser(*ST, *ICA.getInst()))
+      return TargetTransformInfo::TCC_Free;
     // v_cmp and two v_cndmask without native i64 min and max
     InstRate = (SLT == MVT::i64 && !ST->useMinMaxI64Insts() ? 3 : 1) *
                getFullRateInstrCost();

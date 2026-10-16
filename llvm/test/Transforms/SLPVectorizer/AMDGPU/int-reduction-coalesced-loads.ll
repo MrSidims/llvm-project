@@ -705,3 +705,55 @@ entry:
   %r7 = add nsw i32 %r6, %m7
   ret i32 %r7
 }
+
+define i32 @smin8_i32_lds(ptr addrspace(3) %p) {
+; CHECK-LABEL: define i32 @smin8_i32_lds(
+; CHECK-SAME: ptr addrspace(3) [[P:%.*]]) {
+; CHECK-NEXT:    [[G1:%.*]] = getelementptr inbounds i32, ptr addrspace(3) [[P]], i32 1
+; CHECK-NEXT:    [[G2:%.*]] = getelementptr inbounds i32, ptr addrspace(3) [[P]], i32 2
+; CHECK-NEXT:    [[G3:%.*]] = getelementptr inbounds i32, ptr addrspace(3) [[P]], i32 3
+; CHECK-NEXT:    [[G4:%.*]] = getelementptr inbounds i32, ptr addrspace(3) [[P]], i32 4
+; CHECK-NEXT:    [[G5:%.*]] = getelementptr inbounds i32, ptr addrspace(3) [[P]], i32 5
+; CHECK-NEXT:    [[G6:%.*]] = getelementptr inbounds i32, ptr addrspace(3) [[P]], i32 6
+; CHECK-NEXT:    [[G7:%.*]] = getelementptr inbounds i32, ptr addrspace(3) [[P]], i32 7
+; CHECK-NEXT:    [[L0:%.*]] = load i32, ptr addrspace(3) [[P]], align 4
+; CHECK-NEXT:    [[L1:%.*]] = load i32, ptr addrspace(3) [[G1]], align 4
+; CHECK-NEXT:    [[L2:%.*]] = load i32, ptr addrspace(3) [[G2]], align 4
+; CHECK-NEXT:    [[L3:%.*]] = load i32, ptr addrspace(3) [[G3]], align 4
+; CHECK-NEXT:    [[L4:%.*]] = load i32, ptr addrspace(3) [[G4]], align 4
+; CHECK-NEXT:    [[L5:%.*]] = load i32, ptr addrspace(3) [[G5]], align 4
+; CHECK-NEXT:    [[L6:%.*]] = load i32, ptr addrspace(3) [[G6]], align 4
+; CHECK-NEXT:    [[L7:%.*]] = load i32, ptr addrspace(3) [[G7]], align 4
+; CHECK-NEXT:    [[M1:%.*]] = call i32 @llvm.smin.i32(i32 [[L0]], i32 [[L1]])
+; CHECK-NEXT:    [[M2:%.*]] = call i32 @llvm.smin.i32(i32 [[M1]], i32 [[L2]])
+; CHECK-NEXT:    [[M3:%.*]] = call i32 @llvm.smin.i32(i32 [[M2]], i32 [[L3]])
+; CHECK-NEXT:    [[M4:%.*]] = call i32 @llvm.smin.i32(i32 [[M3]], i32 [[L4]])
+; CHECK-NEXT:    [[M5:%.*]] = call i32 @llvm.smin.i32(i32 [[M4]], i32 [[L5]])
+; CHECK-NEXT:    [[M6:%.*]] = call i32 @llvm.smin.i32(i32 [[M5]], i32 [[L6]])
+; CHECK-NEXT:    [[M7:%.*]] = call i32 @llvm.smin.i32(i32 [[M6]], i32 [[L7]])
+; CHECK-NEXT:    ret i32 [[M7]]
+;
+  %g1 = getelementptr inbounds i32, ptr addrspace(3) %p, i32 1
+  %g2 = getelementptr inbounds i32, ptr addrspace(3) %p, i32 2
+  %g3 = getelementptr inbounds i32, ptr addrspace(3) %p, i32 3
+  %g4 = getelementptr inbounds i32, ptr addrspace(3) %p, i32 4
+  %g5 = getelementptr inbounds i32, ptr addrspace(3) %p, i32 5
+  %g6 = getelementptr inbounds i32, ptr addrspace(3) %p, i32 6
+  %g7 = getelementptr inbounds i32, ptr addrspace(3) %p, i32 7
+  %l0 = load i32, ptr addrspace(3) %p, align 4
+  %l1 = load i32, ptr addrspace(3) %g1, align 4
+  %l2 = load i32, ptr addrspace(3) %g2, align 4
+  %l3 = load i32, ptr addrspace(3) %g3, align 4
+  %l4 = load i32, ptr addrspace(3) %g4, align 4
+  %l5 = load i32, ptr addrspace(3) %g5, align 4
+  %l6 = load i32, ptr addrspace(3) %g6, align 4
+  %l7 = load i32, ptr addrspace(3) %g7, align 4
+  %m1 = call i32 @llvm.smin.i32(i32 %l0, i32 %l1)
+  %m2 = call i32 @llvm.smin.i32(i32 %m1, i32 %l2)
+  %m3 = call i32 @llvm.smin.i32(i32 %m2, i32 %l3)
+  %m4 = call i32 @llvm.smin.i32(i32 %m3, i32 %l4)
+  %m5 = call i32 @llvm.smin.i32(i32 %m4, i32 %l5)
+  %m6 = call i32 @llvm.smin.i32(i32 %m5, i32 %l6)
+  %m7 = call i32 @llvm.smin.i32(i32 %m6, i32 %l7)
+  ret i32 %m7
+}
