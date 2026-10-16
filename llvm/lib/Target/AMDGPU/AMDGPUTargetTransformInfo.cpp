@@ -431,6 +431,8 @@ bool GCNTTIImpl::isCoalescedLoad(const LoadInst *LI, unsigned *Lane) const {
   APInt Offset(IndexBits, 0);
   const Value *Base = LI->getPointerOperand()->stripAndAccumulateConstantOffsets(
       DL, Offset, /*AllowNonInbounds=*/true);
+  if (!Base->hasUseList())
+    return false;
   const unsigned MaxBits = getLoadStoreVecRegBitWidth(AS);
   // The loads of the same size in the block at constant offsets of the same
   // base, found through a bounded number of its users. A vector load of lanes
