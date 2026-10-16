@@ -2542,6 +2542,52 @@ GCNTTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
   });
 }
 
+InstructionCost GCNTTIImpl::getExtendedReductionCost(
+    unsigned Opcode, bool IsUnsigned, Type *ResTy, VectorType *Ty,
+    std::optional<FastMathFlags> FMF, TTI::TargetCostKind CostKind) const {
+  auto *VTy = dyn_cast<FixedVectorType>(Ty);
+  const unsigned SrcBits = Ty->getScalarSizeInBits();
+  if (!VTy || VTy->getNumElements() < 2 ||
+      !isPowerOf2_32(VTy->getNumElements()) || !ResTy->isIntegerTy(32) ||
+      (SrcBits != 8 && SrcBits != 16) || TTI::requiresOrderedReduction(FMF))
+    return BaseT::getExtendedReductionCost(Opcode, IsUnsigned, ResTy, Ty, FMF,
+                                           CostKind);
+  const unsigned NElts = VTy->getNumElements();
+  switch (Opcode) {
+  case Instruction::And:
+  case Instruction::Or:
+  case Instruction::Xor:
+    // The extension commutes with the bitwise operation, so the lanes are
+    // reduced in their own width and only the result is extended. The last
+    // step extends it in place through SDWA.
+    return getArithmeticReductionCost(Opcode, VTy, FMF, CostKind) +
+           (ST->hasSDWA() ? 0 : getFullRateInstrCost());
+  case Instruction::Mul:
+  case Instruction::Add: {
+    // The first level of the tree combines the extended lanes pairwise. With
+    // SDWA it reads them in place, and its multiplies are 24 bit ones at full
+    // rate. Without SDWA the add tree has nothing over the generic form.
+    if (!ST->hasSDWA() && Opcode == Instruction::Add)
+      break;
+    InstructionCost Cost = 0;
+    if (!ST->hasSDWA())
+      Cost +=
+          getCastInstrCost(IsUnsigned ? Instruction::ZExt : Instruction::SExt,
+                           FixedVectorType::get(ResTy, NElts), VTy,
+                           TTI::CastContextHint::None, CostKind);
+    Cost += InstructionCost(NElts / 2) * getFullRateInstrCost();
+    if (NElts > 2)
+      Cost += getArithmeticReductionCost(
+          Opcode, FixedVectorType::get(ResTy, NElts / 2), FMF, CostKind);
+    return Cost;
+  }
+  default:
+    break;
+  }
+  return BaseT::getExtendedReductionCost(Opcode, IsUnsigned, ResTy, Ty, FMF,
+                                         CostKind);
+}
+
 InstructionCost
 GCNTTIImpl::getMinMaxReductionCost(Intrinsic::ID IID, VectorType *Ty,
                                    FastMathFlags FMF,
