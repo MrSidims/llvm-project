@@ -2647,6 +2647,116 @@ InstructionCost GCNTTIImpl::getUnfoldedCost(const Value *V,
   return 0;
 }
 
+/// \returns true if a scalar fma reads an f16 operand from the high half of a
+/// register in place. The VOP3 fma of gfx9 carries op_sel, gfx10 selects the
+/// fmac and keeps the shift.
+static bool fmaReadsHighHalf(const GCNSubtarget &ST) {
+  return ST.useRealTrue16Insts() || ST.getGeneration() == AMDGPUSubtarget::GFX9;
+}
+
+/// \returns true if \p U reads the 16-bit value \p V from the high half of a
+/// 32-bit register in place. A real true16 instruction addresses either half,
+/// SDWA selects the half for a VOP1, VOP2 or VOPC instruction and a d16_hi
+/// store writes it.
+static bool readsHighHalfInPlace(const GCNSubtarget &ST,
+                                 const SITargetLowering &TLI, const Value *V,
+                                 const User *U) {
+  const auto *I = dyn_cast_or_null<Instruction>(U);
+  if (!I)
+    return false;
+  if (const auto *SI = dyn_cast<StoreInst>(I))
+    return SI->getValueOperand() == V && ST.hasD16LoadStore();
+  if (ST.useRealTrue16Insts())
+    return !isa<PHINode, ReturnInst, InsertElementInst, ShuffleVectorInst,
+                GetElementPtrInst>(I) &&
+           (!isa<CallBase>(I) || isa<IntrinsicInst>(I));
+  if (!ST.hasSDWA())
+    return false;
+  Type *Ty = V->getType();
+  switch (I->getOpcode()) {
+  case Instruction::FAdd:
+  case Instruction::FSub: {
+    const Instruction *FMul = getFusedFMul(TLI, Ty, I);
+    return !FMul || FMul == V || fmaReadsHighHalf(ST);
+  }
+  case Instruction::FMul:
+    return fmaReadsHighHalf(ST) || none_of(I->users(), [&](const User *FU) {
+             const auto *FAddSub = dyn_cast<Instruction>(FU);
+             return FAddSub &&
+                    (FAddSub->getOpcode() == Instruction::FAdd ||
+                     FAddSub->getOpcode() == Instruction::FSub) &&
+                    getFusedFMul(TLI, Ty, FAddSub) == I;
+           });
+  case Instruction::FPExt:
+  case Instruction::FPToSI:
+  case Instruction::FPToUI:
+  case Instruction::SIToFP:
+  case Instruction::UIToFP:
+  case Instruction::FCmp:
+    return true;
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::Mul:
+  case Instruction::And:
+  case Instruction::Or:
+  case Instruction::Xor:
+  case Instruction::Shl:
+  case Instruction::LShr:
+  case Instruction::AShr:
+  case Instruction::ICmp:
+    return hasSDWAByteLanes(ST);
+  case Instruction::Call:
+    switch (cast<CallBase>(I)->getIntrinsicID()) {
+    case Intrinsic::fma:
+    case Intrinsic::fmuladd:
+      return fmaReadsHighHalf(ST);
+    case Intrinsic::minnum:
+    case Intrinsic::maxnum:
+      return true;
+    case Intrinsic::smin:
+    case Intrinsic::smax:
+    case Intrinsic::umin:
+    case Intrinsic::umax:
+      return hasSDWAByteLanes(ST);
+    default:
+      return false;
+    }
+  default:
+    return false;
+  }
+}
+
+InstructionCost GCNTTIImpl::getVectorInstrCost(
+    unsigned Opcode, Type *ValTy, TTI::TargetCostKind CostKind, unsigned Index,
+    Value *Scalar, ArrayRef<std::tuple<Value *, User *, int>> ScalarUserAndIdx,
+    TTI::VectorInstrContext VIC) const {
+  // An odd 16-bit lane is the high half of its register, which its users may
+  // read in place.
+  auto *VecTy = dyn_cast<VectorType>(ValTy);
+  if (Opcode == Instruction::ExtractElement && Scalar && VecTy &&
+      Index != ~0u && Index % 2 == 1 && ST->has16BitInsts() &&
+      (VecTy->getElementType()->isHalfTy() ||
+       VecTy->getElementType()->isIntegerTy(16))) {
+    auto ReadsInPlace = [&](const User *U) {
+      return readsHighHalfInPlace(*ST, *TLI, Scalar, U);
+    };
+    bool HasUser = false;
+    bool InPlace = true;
+    for (const auto &[S, U, L] : ScalarUserAndIdx) {
+      if (S != Scalar)
+        continue;
+      HasUser = true;
+      InPlace = U ? ReadsInPlace(U) : all_of(Scalar->users(), ReadsInPlace);
+      if (!InPlace)
+        break;
+    }
+    if (HasUser && InPlace)
+      return TargetTransformInfo::TCC_Free;
+  }
+  return getVectorInstrCost(Opcode, ValTy, CostKind, Index, nullptr, nullptr,
+                            VIC);
+}
+
 InstructionCost GCNTTIImpl::getVectorInstrCost(
     unsigned Opcode, Type *ValTy, TTI::TargetCostKind CostKind, unsigned Index,
     const Value *Op0, const Value *Op1, TTI::VectorInstrContext VIC) const {
@@ -2664,7 +2774,11 @@ InstructionCost GCNTTIImpl::getVectorInstrCost(
     if (Index == ~0u)
       return Unfolded + 2;
     if (EltSize < 32) {
-      if (EltSize == 16 && Index == 0 && ST->has16BitInsts())
+      // An even 16-bit lane is the low half of its register, read in place
+      // like lane 0.
+      if (EltSize == 16 && ST->has16BitInsts() &&
+          (Index == 0 ||
+           (Index % 2 == 0 && Opcode == Instruction::ExtractElement)))
         return Unfolded;
       // Inserts of booleans are free.
       // TODO: Extracts are free too.

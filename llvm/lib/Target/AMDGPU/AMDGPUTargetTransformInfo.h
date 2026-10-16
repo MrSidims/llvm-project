@@ -215,6 +215,12 @@ public:
                      unsigned Index, const Value *Op0, const Value *Op1,
                      TTI::VectorInstrContext VIC =
                          TTI::VectorInstrContext::None) const override;
+  InstructionCost getVectorInstrCost(
+      unsigned Opcode, Type *ValTy, TTI::TargetCostKind CostKind,
+      unsigned Index, Value *Scalar,
+      ArrayRef<std::tuple<Value *, User *, int>> ScalarUserAndIdx,
+      TTI::VectorInstrContext VIC =
+          TTI::VectorInstrContext::None) const override;
   InstructionCost getUnfoldedCost(const Value *V,
                                   TTI::TargetCostKind CostKind) const;
 
