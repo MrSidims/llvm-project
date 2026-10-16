@@ -31813,6 +31813,41 @@ public:
     });
   }
 
+  /// \returns the first and the second operands of the reduced values, if the
+  /// reduction is an ordered fadd and the target fuses every reduced value
+  /// into its reduction operation.
+  SmallVector<SmallVector<Value *>, 2>
+  getFusedFMulOperands(DominatorTree &DT, const DataLayout &DL,
+                       TargetTransformInfo &TTI, const TargetLibraryInfo &TLI,
+                       const BoUpSLP &R) const {
+    if (RK != ReductionOrdering::Ordered || RdxKind != RecurKind::FAdd)
+      return {};
+    SmallVector<SmallVector<Value *>, 2> Ops(2);
+    for (ArrayRef<Value *> Vals : ReducedVals) {
+      for (Value *V : Vals) {
+        auto *I = dyn_cast<Instruction>(V);
+        if (!I || !I->hasOneUse())
+          return {};
+        auto *U = cast<Instruction>(I->user_back());
+        if (getFusableFMulOperand(U, TTI) != I ||
+            !canConvertToFMA(U, getSameOpcode(U, TLI), DT, DL, TTI, TLI, R)
+                 .isValid())
+          return {};
+        Ops[0].push_back(I->getOperand(0));
+        Ops[1].push_back(I->getOperand(1));
+      }
+    }
+    return Ops;
+  }
+
+  /// Marks every operation of the reduction as an analyzed reduction root.
+  void markReductionOpsAnalyzed(BoUpSLP &R) const {
+    for (const ReductionOpsType &RdxOps : ReductionOps)
+      for (Value *RdxOp : RdxOps)
+        if (RdxOp)
+          R.analyzedReductionRoot(cast<Instruction>(RdxOp));
+  }
+
   bool matchReductionForOperands() {
     // Analyze "regular" integer/FP types for reductions - no target-specific
     // types or pointers.
@@ -35621,6 +35656,18 @@ bool SLPVectorizerPass::vectorizeHorReduction(
     HorizontalReduction HorRdx(*Opts);
     Value *Res = nullptr;
     if (HorRdx.matchAssociativeReduction(R, Inst, *SE, *DT, *DL, *TTI, *TLI)) {
+      bool FMulOpsVectorized = false;
+      for (ArrayRef<Value *> Ops :
+           HorRdx.getFusedFMulOperands(*DT, *DL, *TTI, *TLI, R))
+        if (none_of(Ops, [&](Value *V) {
+              auto *I = dyn_cast<Instruction>(V);
+              return I && R.isDeleted(I);
+            }))
+          FMulOpsVectorized |= tryToVectorizeList(Ops, R);
+      if (FMulOpsVectorized) {
+        HorRdx.markReductionOpsAnalyzed(R);
+        return Inst;
+      }
       Value *Red =
           HorRdx.tryToReduce(R, *DL, TTI, *TLI, AC, *DT, *LI, IsSeedRoot);
       // The chain with the flattened fsub/fneg links produced no vector part:
