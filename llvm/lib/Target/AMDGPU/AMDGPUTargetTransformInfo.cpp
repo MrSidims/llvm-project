@@ -2211,11 +2211,15 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
       if (NElts == 1) {
         const auto *Load = I ? dyn_cast<LoadInst>(I->getOperand(0)) : nullptr;
         // The lane of a load merged with its neighbours is taken out of the
-        // wider register, unless SDWA reads it in place for the user.
+        // wider register, unless SDWA reads it in place for the user. Real
+        // true16 then moves a sign extended byte into a 16 bit register.
         if (Load && isCoalescedLoad(Load)) {
           if (readsLaneThroughSDWA(*I))
             return TargetTransformInfo::TCC_Free;
-          return (IsSigned && DstBits == 64 ? 2 : 1) * getFullRateInstrCost();
+          const bool MovedToHalf = IsSigned && SrcBits == 8 && DstBits == 16 &&
+                                   ST->useRealTrue16Insts();
+          return ((IsSigned && DstBits == 64) || MovedToHalf ? 2 : 1) *
+                 getFullRateInstrCost();
         }
         const bool FromLoad = Load != nullptr;
         if (IsSigned && DstBits == 64 && !FromLoad &&
