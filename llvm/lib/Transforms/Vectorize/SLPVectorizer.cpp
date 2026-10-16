@@ -16883,7 +16883,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
           function_ref<InstructionCost(InstructionCost)> VectorCost) {
         // Calculate the cost of this instruction.
         InstructionCost ScalarCost = 0;
-        if (isa<CastInst, CallInst>(VL0)) {
+        if (isa<CallInst>(VL0)) {
           // For some of the instructions no need to calculate cost for each
           // particular instruction, we can use the cost of the single
           // instruction x total number of scalar instructions.
@@ -17342,10 +17342,10 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
       VecOpcode = Instruction::UIToFP;
     }
     auto GetScalarCost = [&](unsigned Idx) -> InstructionCost {
-      assert(Idx == 0 && "Expected 0 index only");
-      return TTI->getCastInstrCost(Opcode, VL0->getType(),
-                                   VL0->getOperand(0)->getType(),
-                                   TTI::getCastContextHint(VL0), CostKind, VL0);
+      auto *VI = cast<Instruction>(UniqueValues[Idx]);
+      return TTI->getCastInstrCost(Opcode, VI->getType(),
+                                   VI->getOperand(0)->getType(),
+                                   TTI::getCastContextHint(VI), CostKind, VI);
     };
     auto GetVectorCost = [=](InstructionCost CommonCost) {
       TTI::CastContextHint CCH = GetCastContextHint(VL0->getOperand(0));
