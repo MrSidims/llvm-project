@@ -872,7 +872,7 @@ static bool isFoldedIntoIntUser(const GCNSubtarget &ST, const Instruction &I,
             !isOneUseInBlock(First, I.getParent()) ||
             !isThreeInputFold(ST, *First, U);
   }
-  constexpr unsigned MaxDepth = 8;
+  constexpr unsigned MaxDepth = 64;
   return Folds && (Depth == MaxDepth || !isFoldedIntoIntUser(ST, U, Depth + 1));
 }
 
@@ -915,8 +915,9 @@ static bool isLowHalfOfMul64(const GCNSubtarget &ST, const Instruction &I) {
 
 /// \returns true if instruction selection folds a one use multiply operand
 /// of the add \p I into a v_mad instruction, or drops the mask \p I of a
-/// 24-bit multiply operand.
-static bool isFoldedIntoMul(const GCNSubtarget &ST, const Instruction &I) {
+/// 24-bit multiply operand. A 24-bit multiply of a lane that SDWA reads in
+/// place stays apart from the add.
+bool GCNTTIImpl::isFoldedIntoMul(const Instruction &I) const {
   using namespace PatternMatch;
   const DataLayout &DL = I.getDataLayout();
   const Value *A, *B;
@@ -929,14 +930,28 @@ static bool isFoldedIntoMul(const GCNSubtarget &ST, const Instruction &I) {
   const unsigned Bits = I.getType()->getScalarSizeInBits();
   if (Bits == 64 ? I.getType()->isVectorTy() : Bits != 16 && Bits != 32)
     return false;
+  auto IsSDWALane = [&](const Value *V) {
+    const Value *X;
+    const APInt *C;
+    if (match(V, m_ZExtOrSExt(m_Value(X)))) {
+      const unsigned XBits = X->getType()->getScalarSizeInBits();
+      const auto *Load = dyn_cast<LoadInst>(X);
+      return (XBits == 8 || XBits == 16) && (!Load || isCoalescedLoad(Load));
+    }
+    if (match(V, m_And(m_Value(), m_APInt(C))))
+      return *C == 0xff || *C == 0xffff;
+    return match(V, m_Shr(m_Value(), m_APInt(C))) && C->urem(8) == 0;
+  };
   return any_of(I.operands(), [&](const Value *Op) {
     if (!isOneUseInBlock(Op, I.getParent()) ||
         !match(Op, m_Mul(m_Value(A), m_Value(B))))
       return false;
+    if (Bits == 32 && isNarrowMul(A, B, 24, DL))
+      return !ST->hasSDWA() || (!IsSDWALane(A) && !IsSDWALane(B));
     if (Bits != 64)
-      return ST.hasGFX9Insts() || (Bits == 32 && isNarrowMul(A, B, 24, DL));
+      return ST->hasGFX9Insts();
     return !isNarrowMul(A, B, 24, DL) &&
-           (!ST.useVMulU64Inst() || isNarrowMul(A, B, 32, DL));
+           (!ST->useVMulU64Inst() || isNarrowMul(A, B, 32, DL));
   });
 }
 
@@ -1050,18 +1065,27 @@ static bool hasSDWAByteLanes(const GCNSubtarget &ST) {
 }
 
 /// \returns true if the only user of the integer extension \p Ext reads the
-/// extended lane of a register in place through SDWA.
-static bool readsLaneThroughSDWA(const GCNSubtarget &ST,
-                                 const Instruction &Ext) {
+/// extended lane of a register in place through SDWA. A user that selects to
+/// a three input instruction has no SDWA form.
+bool GCNTTIImpl::readsLaneThroughSDWA(const Instruction &Ext) const {
   using namespace llvm::PatternMatch;
-  if (!ST.hasSDWA() || !Ext.hasOneUse())
+  if (!ST->hasSDWA() || !Ext.hasOneUse())
     return false;
   const auto *U = dyn_cast<Instruction>(Ext.user_back());
   if (!U || U->getParent() != Ext.getParent())
     return false;
   const unsigned Bits = Ext.getType()->getScalarSizeInBits();
-  if (Bits == 16 ? !hasSDWAByteLanes(ST) : Bits != 32)
+  if (Bits == 16 ? !hasSDWAByteLanes(*ST) : Bits != 32)
     return false;
+  auto IsThreeInput = [&] {
+    if (isFoldedIntoIntUser(*ST, *U) || isFoldedIntoMul(*U))
+      return true;
+    return any_of(U->operands(), [&](const Value *Op) {
+      const auto *OpI = dyn_cast<Instruction>(Op);
+      return OpI && OpI->getParent() == U->getParent() &&
+             isFoldedIntoIntUser(*ST, *OpI);
+    });
+  };
   switch (U->getOpcode()) {
   case Instruction::Add:
   case Instruction::Sub:
@@ -1071,6 +1095,7 @@ static bool readsLaneThroughSDWA(const GCNSubtarget &ST,
   case Instruction::Shl:
   case Instruction::LShr:
   case Instruction::AShr:
+    return !IsThreeInput();
   case Instruction::ICmp:
   case Instruction::SIToFP:
   case Instruction::UIToFP:
@@ -1158,7 +1183,7 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
   MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
 
   if (CtxI && CtxI->getOpcode() == Opcode &&
-      (isFoldedIntoIntUser(*ST, *CtxI) || isFoldedIntoMul(*ST, *CtxI) ||
+      (isFoldedIntoIntUser(*ST, *CtxI) || isFoldedIntoMul(*CtxI) ||
        (!Ty->isVectorTy() &&
         (isFoldedIntoDot4(*ST, *CtxI) || isDot4ChainAdd(*ST, *CtxI)))))
     return TargetTransformInfo::TCC_Free;
@@ -2191,7 +2216,7 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
         // The lane of a load merged with its neighbours is taken out of the
         // wider register, unless SDWA reads it in place for the user.
         if (Load && isCoalescedLoad(Load)) {
-          if (readsLaneThroughSDWA(*ST, *I))
+          if (readsLaneThroughSDWA(*I))
             return TargetTransformInfo::TCC_Free;
           return (IsSigned && DstBits == 64 ? 2 : 1) * getFullRateInstrCost();
         }

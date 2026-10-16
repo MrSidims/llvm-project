@@ -164,6 +164,8 @@ public:
   bool consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts, Align Alignment,
                                 unsigned AddrSpace) const;
   bool isCoalescedLoad(const LoadInst *LI, unsigned *Lane = nullptr) const;
+  bool isFoldedIntoMul(const Instruction &I) const;
+  bool readsLaneThroughSDWA(const Instruction &Ext) const;
 
   bool isLegalToVectorizeMemChain(unsigned ChainSizeInBytes, Align Alignment,
                                   unsigned AddrSpace) const;
