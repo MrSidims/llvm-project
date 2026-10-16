@@ -218,3 +218,214 @@ entry:
   %s8 = fadd fast double %s7, %m7
   ret double %s8
 }
+
+; A reassociable reduction of eight double products loaded at a variable row
+; plus a constant lane offset. The lane offsets fold into the memory
+; instructions as they do for a wide load, so the scalar addresses cost no
+; more than the vector address and no target vectorizes.
+define double @dot8_f64_acc_var_index(ptr addrspace(1) noalias readonly align 8 %a, ptr addrspace(1) noalias readonly align 8 %b, i32 %row, double %acc) {
+; PACKED-LABEL: define double @dot8_f64_acc_var_index(
+; PACKED-SAME: ptr addrspace(1) noalias readonly align 8 [[A:%.*]], ptr addrspace(1) noalias readonly align 8 [[B:%.*]], i32 [[ROW:%.*]], double [[ACC:%.*]]) {
+; PACKED-NEXT:  [[ENTRY:.*:]]
+; PACKED-NEXT:    [[BASE:%.*]] = shl nsw i32 [[ROW]], 3
+; PACKED-NEXT:    [[X0:%.*]] = sext i32 [[BASE]] to i64
+; PACKED-NEXT:    [[PA0:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X0]]
+; PACKED-NEXT:    [[LA0:%.*]] = load double, ptr addrspace(1) [[PA0]], align 8
+; PACKED-NEXT:    [[PB0:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X0]]
+; PACKED-NEXT:    [[LB0:%.*]] = load double, ptr addrspace(1) [[PB0]], align 8
+; PACKED-NEXT:    [[M0:%.*]] = fmul contract double [[LA0]], [[LB0]]
+; PACKED-NEXT:    [[O1:%.*]] = or disjoint i32 [[BASE]], 1
+; PACKED-NEXT:    [[X1:%.*]] = sext i32 [[O1]] to i64
+; PACKED-NEXT:    [[PA1:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X1]]
+; PACKED-NEXT:    [[LA1:%.*]] = load double, ptr addrspace(1) [[PA1]], align 8
+; PACKED-NEXT:    [[PB1:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X1]]
+; PACKED-NEXT:    [[LB1:%.*]] = load double, ptr addrspace(1) [[PB1]], align 8
+; PACKED-NEXT:    [[M1:%.*]] = fmul contract double [[LA1]], [[LB1]]
+; PACKED-NEXT:    [[O2:%.*]] = or disjoint i32 [[BASE]], 2
+; PACKED-NEXT:    [[X2:%.*]] = sext i32 [[O2]] to i64
+; PACKED-NEXT:    [[PA2:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X2]]
+; PACKED-NEXT:    [[LA2:%.*]] = load double, ptr addrspace(1) [[PA2]], align 8
+; PACKED-NEXT:    [[PB2:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X2]]
+; PACKED-NEXT:    [[LB2:%.*]] = load double, ptr addrspace(1) [[PB2]], align 8
+; PACKED-NEXT:    [[M2:%.*]] = fmul contract double [[LA2]], [[LB2]]
+; PACKED-NEXT:    [[O3:%.*]] = or disjoint i32 [[BASE]], 3
+; PACKED-NEXT:    [[X3:%.*]] = sext i32 [[O3]] to i64
+; PACKED-NEXT:    [[PA3:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X3]]
+; PACKED-NEXT:    [[LA3:%.*]] = load double, ptr addrspace(1) [[PA3]], align 8
+; PACKED-NEXT:    [[PB3:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X3]]
+; PACKED-NEXT:    [[LB3:%.*]] = load double, ptr addrspace(1) [[PB3]], align 8
+; PACKED-NEXT:    [[M3:%.*]] = fmul contract double [[LA3]], [[LB3]]
+; PACKED-NEXT:    [[O4:%.*]] = or disjoint i32 [[BASE]], 4
+; PACKED-NEXT:    [[X4:%.*]] = sext i32 [[O4]] to i64
+; PACKED-NEXT:    [[PA4:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X4]]
+; PACKED-NEXT:    [[LA4:%.*]] = load double, ptr addrspace(1) [[PA4]], align 8
+; PACKED-NEXT:    [[PB4:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X4]]
+; PACKED-NEXT:    [[LB4:%.*]] = load double, ptr addrspace(1) [[PB4]], align 8
+; PACKED-NEXT:    [[M4:%.*]] = fmul contract double [[LA4]], [[LB4]]
+; PACKED-NEXT:    [[O5:%.*]] = or disjoint i32 [[BASE]], 5
+; PACKED-NEXT:    [[X5:%.*]] = sext i32 [[O5]] to i64
+; PACKED-NEXT:    [[PA5:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X5]]
+; PACKED-NEXT:    [[LA5:%.*]] = load double, ptr addrspace(1) [[PA5]], align 8
+; PACKED-NEXT:    [[PB5:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X5]]
+; PACKED-NEXT:    [[LB5:%.*]] = load double, ptr addrspace(1) [[PB5]], align 8
+; PACKED-NEXT:    [[M5:%.*]] = fmul contract double [[LA5]], [[LB5]]
+; PACKED-NEXT:    [[O6:%.*]] = or disjoint i32 [[BASE]], 6
+; PACKED-NEXT:    [[X6:%.*]] = sext i32 [[O6]] to i64
+; PACKED-NEXT:    [[PA6:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X6]]
+; PACKED-NEXT:    [[LA6:%.*]] = load double, ptr addrspace(1) [[PA6]], align 8
+; PACKED-NEXT:    [[PB6:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X6]]
+; PACKED-NEXT:    [[LB6:%.*]] = load double, ptr addrspace(1) [[PB6]], align 8
+; PACKED-NEXT:    [[M6:%.*]] = fmul contract double [[LA6]], [[LB6]]
+; PACKED-NEXT:    [[O7:%.*]] = or disjoint i32 [[BASE]], 7
+; PACKED-NEXT:    [[X7:%.*]] = sext i32 [[O7]] to i64
+; PACKED-NEXT:    [[PA7:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X7]]
+; PACKED-NEXT:    [[LA7:%.*]] = load double, ptr addrspace(1) [[PA7]], align 8
+; PACKED-NEXT:    [[PB7:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X7]]
+; PACKED-NEXT:    [[LB7:%.*]] = load double, ptr addrspace(1) [[PB7]], align 8
+; PACKED-NEXT:    [[M7:%.*]] = fmul contract double [[LA7]], [[LB7]]
+; PACKED-NEXT:    [[S1:%.*]] = fadd fast double [[ACC]], [[M0]]
+; PACKED-NEXT:    [[S2:%.*]] = fadd fast double [[S1]], [[M1]]
+; PACKED-NEXT:    [[S3:%.*]] = fadd fast double [[S2]], [[M2]]
+; PACKED-NEXT:    [[S4:%.*]] = fadd fast double [[S3]], [[M3]]
+; PACKED-NEXT:    [[S5:%.*]] = fadd fast double [[S4]], [[M4]]
+; PACKED-NEXT:    [[S6:%.*]] = fadd fast double [[S5]], [[M5]]
+; PACKED-NEXT:    [[S7:%.*]] = fadd fast double [[S6]], [[M6]]
+; PACKED-NEXT:    [[S8:%.*]] = fadd fast double [[S7]], [[M7]]
+; PACKED-NEXT:    ret double [[S8]]
+;
+; SCALARFMA-LABEL: define double @dot8_f64_acc_var_index(
+; SCALARFMA-SAME: ptr addrspace(1) noalias readonly align 8 [[A:%.*]], ptr addrspace(1) noalias readonly align 8 [[B:%.*]], i32 [[ROW:%.*]], double [[ACC:%.*]]) {
+; SCALARFMA-NEXT:  [[ENTRY:.*:]]
+; SCALARFMA-NEXT:    [[BASE:%.*]] = shl nsw i32 [[ROW]], 3
+; SCALARFMA-NEXT:    [[X0:%.*]] = sext i32 [[BASE]] to i64
+; SCALARFMA-NEXT:    [[PA0:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X0]]
+; SCALARFMA-NEXT:    [[LA0:%.*]] = load double, ptr addrspace(1) [[PA0]], align 8
+; SCALARFMA-NEXT:    [[PB0:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X0]]
+; SCALARFMA-NEXT:    [[LB0:%.*]] = load double, ptr addrspace(1) [[PB0]], align 8
+; SCALARFMA-NEXT:    [[M0:%.*]] = fmul contract double [[LA0]], [[LB0]]
+; SCALARFMA-NEXT:    [[O1:%.*]] = or disjoint i32 [[BASE]], 1
+; SCALARFMA-NEXT:    [[X1:%.*]] = sext i32 [[O1]] to i64
+; SCALARFMA-NEXT:    [[PA1:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X1]]
+; SCALARFMA-NEXT:    [[LA1:%.*]] = load double, ptr addrspace(1) [[PA1]], align 8
+; SCALARFMA-NEXT:    [[PB1:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X1]]
+; SCALARFMA-NEXT:    [[LB1:%.*]] = load double, ptr addrspace(1) [[PB1]], align 8
+; SCALARFMA-NEXT:    [[M1:%.*]] = fmul contract double [[LA1]], [[LB1]]
+; SCALARFMA-NEXT:    [[O2:%.*]] = or disjoint i32 [[BASE]], 2
+; SCALARFMA-NEXT:    [[X2:%.*]] = sext i32 [[O2]] to i64
+; SCALARFMA-NEXT:    [[PA2:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X2]]
+; SCALARFMA-NEXT:    [[LA2:%.*]] = load double, ptr addrspace(1) [[PA2]], align 8
+; SCALARFMA-NEXT:    [[PB2:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X2]]
+; SCALARFMA-NEXT:    [[LB2:%.*]] = load double, ptr addrspace(1) [[PB2]], align 8
+; SCALARFMA-NEXT:    [[M2:%.*]] = fmul contract double [[LA2]], [[LB2]]
+; SCALARFMA-NEXT:    [[O3:%.*]] = or disjoint i32 [[BASE]], 3
+; SCALARFMA-NEXT:    [[X3:%.*]] = sext i32 [[O3]] to i64
+; SCALARFMA-NEXT:    [[PA3:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X3]]
+; SCALARFMA-NEXT:    [[LA3:%.*]] = load double, ptr addrspace(1) [[PA3]], align 8
+; SCALARFMA-NEXT:    [[PB3:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X3]]
+; SCALARFMA-NEXT:    [[LB3:%.*]] = load double, ptr addrspace(1) [[PB3]], align 8
+; SCALARFMA-NEXT:    [[M3:%.*]] = fmul contract double [[LA3]], [[LB3]]
+; SCALARFMA-NEXT:    [[O4:%.*]] = or disjoint i32 [[BASE]], 4
+; SCALARFMA-NEXT:    [[X4:%.*]] = sext i32 [[O4]] to i64
+; SCALARFMA-NEXT:    [[PA4:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X4]]
+; SCALARFMA-NEXT:    [[LA4:%.*]] = load double, ptr addrspace(1) [[PA4]], align 8
+; SCALARFMA-NEXT:    [[PB4:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X4]]
+; SCALARFMA-NEXT:    [[LB4:%.*]] = load double, ptr addrspace(1) [[PB4]], align 8
+; SCALARFMA-NEXT:    [[M4:%.*]] = fmul contract double [[LA4]], [[LB4]]
+; SCALARFMA-NEXT:    [[O5:%.*]] = or disjoint i32 [[BASE]], 5
+; SCALARFMA-NEXT:    [[X5:%.*]] = sext i32 [[O5]] to i64
+; SCALARFMA-NEXT:    [[PA5:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X5]]
+; SCALARFMA-NEXT:    [[LA5:%.*]] = load double, ptr addrspace(1) [[PA5]], align 8
+; SCALARFMA-NEXT:    [[PB5:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X5]]
+; SCALARFMA-NEXT:    [[LB5:%.*]] = load double, ptr addrspace(1) [[PB5]], align 8
+; SCALARFMA-NEXT:    [[M5:%.*]] = fmul contract double [[LA5]], [[LB5]]
+; SCALARFMA-NEXT:    [[O6:%.*]] = or disjoint i32 [[BASE]], 6
+; SCALARFMA-NEXT:    [[X6:%.*]] = sext i32 [[O6]] to i64
+; SCALARFMA-NEXT:    [[PA6:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X6]]
+; SCALARFMA-NEXT:    [[LA6:%.*]] = load double, ptr addrspace(1) [[PA6]], align 8
+; SCALARFMA-NEXT:    [[PB6:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X6]]
+; SCALARFMA-NEXT:    [[LB6:%.*]] = load double, ptr addrspace(1) [[PB6]], align 8
+; SCALARFMA-NEXT:    [[M6:%.*]] = fmul contract double [[LA6]], [[LB6]]
+; SCALARFMA-NEXT:    [[O7:%.*]] = or disjoint i32 [[BASE]], 7
+; SCALARFMA-NEXT:    [[X7:%.*]] = sext i32 [[O7]] to i64
+; SCALARFMA-NEXT:    [[PA7:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[A]], i64 [[X7]]
+; SCALARFMA-NEXT:    [[LA7:%.*]] = load double, ptr addrspace(1) [[PA7]], align 8
+; SCALARFMA-NEXT:    [[PB7:%.*]] = getelementptr inbounds double, ptr addrspace(1) [[B]], i64 [[X7]]
+; SCALARFMA-NEXT:    [[LB7:%.*]] = load double, ptr addrspace(1) [[PB7]], align 8
+; SCALARFMA-NEXT:    [[M7:%.*]] = fmul contract double [[LA7]], [[LB7]]
+; SCALARFMA-NEXT:    [[S1:%.*]] = fadd fast double [[ACC]], [[M0]]
+; SCALARFMA-NEXT:    [[S2:%.*]] = fadd fast double [[S1]], [[M1]]
+; SCALARFMA-NEXT:    [[S3:%.*]] = fadd fast double [[S2]], [[M2]]
+; SCALARFMA-NEXT:    [[S4:%.*]] = fadd fast double [[S3]], [[M3]]
+; SCALARFMA-NEXT:    [[S5:%.*]] = fadd fast double [[S4]], [[M4]]
+; SCALARFMA-NEXT:    [[S6:%.*]] = fadd fast double [[S5]], [[M5]]
+; SCALARFMA-NEXT:    [[S7:%.*]] = fadd fast double [[S6]], [[M6]]
+; SCALARFMA-NEXT:    [[S8:%.*]] = fadd fast double [[S7]], [[M7]]
+; SCALARFMA-NEXT:    ret double [[S8]]
+;
+entry:
+  %base = shl nsw i32 %row, 3
+  %x0 = sext i32 %base to i64
+  %pa0 = getelementptr inbounds double, ptr addrspace(1) %a, i64 %x0
+  %la0 = load double, ptr addrspace(1) %pa0, align 8
+  %pb0 = getelementptr inbounds double, ptr addrspace(1) %b, i64 %x0
+  %lb0 = load double, ptr addrspace(1) %pb0, align 8
+  %m0 = fmul contract double %la0, %lb0
+  %o1 = or disjoint i32 %base, 1
+  %x1 = sext i32 %o1 to i64
+  %pa1 = getelementptr inbounds double, ptr addrspace(1) %a, i64 %x1
+  %la1 = load double, ptr addrspace(1) %pa1, align 8
+  %pb1 = getelementptr inbounds double, ptr addrspace(1) %b, i64 %x1
+  %lb1 = load double, ptr addrspace(1) %pb1, align 8
+  %m1 = fmul contract double %la1, %lb1
+  %o2 = or disjoint i32 %base, 2
+  %x2 = sext i32 %o2 to i64
+  %pa2 = getelementptr inbounds double, ptr addrspace(1) %a, i64 %x2
+  %la2 = load double, ptr addrspace(1) %pa2, align 8
+  %pb2 = getelementptr inbounds double, ptr addrspace(1) %b, i64 %x2
+  %lb2 = load double, ptr addrspace(1) %pb2, align 8
+  %m2 = fmul contract double %la2, %lb2
+  %o3 = or disjoint i32 %base, 3
+  %x3 = sext i32 %o3 to i64
+  %pa3 = getelementptr inbounds double, ptr addrspace(1) %a, i64 %x3
+  %la3 = load double, ptr addrspace(1) %pa3, align 8
+  %pb3 = getelementptr inbounds double, ptr addrspace(1) %b, i64 %x3
+  %lb3 = load double, ptr addrspace(1) %pb3, align 8
+  %m3 = fmul contract double %la3, %lb3
+  %o4 = or disjoint i32 %base, 4
+  %x4 = sext i32 %o4 to i64
+  %pa4 = getelementptr inbounds double, ptr addrspace(1) %a, i64 %x4
+  %la4 = load double, ptr addrspace(1) %pa4, align 8
+  %pb4 = getelementptr inbounds double, ptr addrspace(1) %b, i64 %x4
+  %lb4 = load double, ptr addrspace(1) %pb4, align 8
+  %m4 = fmul contract double %la4, %lb4
+  %o5 = or disjoint i32 %base, 5
+  %x5 = sext i32 %o5 to i64
+  %pa5 = getelementptr inbounds double, ptr addrspace(1) %a, i64 %x5
+  %la5 = load double, ptr addrspace(1) %pa5, align 8
+  %pb5 = getelementptr inbounds double, ptr addrspace(1) %b, i64 %x5
+  %lb5 = load double, ptr addrspace(1) %pb5, align 8
+  %m5 = fmul contract double %la5, %lb5
+  %o6 = or disjoint i32 %base, 6
+  %x6 = sext i32 %o6 to i64
+  %pa6 = getelementptr inbounds double, ptr addrspace(1) %a, i64 %x6
+  %la6 = load double, ptr addrspace(1) %pa6, align 8
+  %pb6 = getelementptr inbounds double, ptr addrspace(1) %b, i64 %x6
+  %lb6 = load double, ptr addrspace(1) %pb6, align 8
+  %m6 = fmul contract double %la6, %lb6
+  %o7 = or disjoint i32 %base, 7
+  %x7 = sext i32 %o7 to i64
+  %pa7 = getelementptr inbounds double, ptr addrspace(1) %a, i64 %x7
+  %la7 = load double, ptr addrspace(1) %pa7, align 8
+  %pb7 = getelementptr inbounds double, ptr addrspace(1) %b, i64 %x7
+  %lb7 = load double, ptr addrspace(1) %pb7, align 8
+  %m7 = fmul contract double %la7, %lb7
+  %s1 = fadd fast double %acc, %m0
+  %s2 = fadd fast double %s1, %m1
+  %s3 = fadd fast double %s2, %m2
+  %s4 = fadd fast double %s3, %m3
+  %s5 = fadd fast double %s4, %m4
+  %s6 = fadd fast double %s5, %m5
+  %s7 = fadd fast double %s6, %m6
+  %s8 = fadd fast double %s7, %m7
+  ret double %s8
+}

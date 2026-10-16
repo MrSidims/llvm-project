@@ -378,6 +378,11 @@ public:
       const Instruction *I = nullptr,
       ArrayRef<const Value *> Scalars = {}) const override;
 
+  InstructionCost
+  getPointersChainCost(ArrayRef<const Value *> Ptrs, const Value *Base,
+                       const TTI::PointersChainInfo &Info, Type *AccessTy,
+                       TTI::TargetCostKind CostKind) const override;
+
   /// When counting parts on AMD GPUs, account for i8s being grouped
   /// together under a single i32 value. Otherwise fall back to base
   /// implementation.

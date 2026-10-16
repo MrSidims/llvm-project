@@ -3893,6 +3893,24 @@ static bool hasUniformPointerOperand(const Instruction *I) {
   return isa<Constant>(Ptr);
 }
 
+InstructionCost GCNTTIImpl::getPointersChainCost(
+    ArrayRef<const Value *> Ptrs, const Value *Base,
+    const TTI::PointersChainInfo &Info, Type *AccessTy,
+    TTI::TargetCostKind CostKind) const {
+  // The constant distances from the base become immediate offsets or vanish
+  // when the accesses are merged.
+  if (Info.isKnownStride()) {
+    if (const auto *BaseGEP = dyn_cast<GetElementPtrInst>(Base)) {
+      SmallVector<const Value *> Indices(BaseGEP->indices());
+      return getGEPCost(BaseGEP->getSourceElementType(),
+                        BaseGEP->getPointerOperand(), Indices, CostKind,
+                        nullptr);
+    }
+    return TTI::TCC_Free;
+  }
+  return BaseT::getPointersChainCost(Ptrs, Base, Info, AccessTy, CostKind);
+}
+
 InstructionCost
 GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                             unsigned AddressSpace, TTI::TargetCostKind CostKind,
