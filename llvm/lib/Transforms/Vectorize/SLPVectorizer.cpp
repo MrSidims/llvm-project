@@ -17972,10 +17972,28 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
           VecLdCost += getShuffleCost(*TTI, TTI::SK_PermuteSingleSrc, LoadVecTy,
                                       CostKind, CompressCostMask);
         } else {
+          SmallVector<const Value *> Lanes(
+              cast<FixedVectorType>(LoadVecTy)->getNumElements(), nullptr);
+          SmallVector<int64_t> Offsets;
+          for (Value *V : Scalars)
+            if (std::optional<int64_t> Diff = getPointersDiff(
+                    ScalarTy, LI0->getPointerOperand(), ScalarTy,
+                    cast<LoadInst>(V)->getPointerOperand(), *DL, *SE))
+              Offsets.push_back(*Diff);
+          if (!ScalarTy->isVectorTy() && Offsets.size() == Scalars.size()) {
+            const int64_t Base = *min_element(Offsets);
+            for (auto [V, Off] : zip(Scalars, Offsets))
+              if (Off - Base < static_cast<int64_t>(Lanes.size()) &&
+                  getTreeEntries(V).front() == E)
+                Lanes[Off - Base] = V;
+          }
+          if (all_of(Lanes, [](const Value *V) { return V == nullptr; }))
+            Lanes.clear();
           VecLdCost = TTI->getMemoryOpCost(
               Instruction::Load, LoadVecTy, CommonAlignment,
               LI0->getPointerAddressSpace(), CostKind,
-              TTI::getOperandInfo(LI0->getPointerOperand()));
+              TTI::getOperandInfo(LI0->getPointerOperand()), /*I=*/nullptr,
+              Lanes);
           // TODO: include this cost into CommonCost.
           VecLdCost += getShuffleCost(*TTI, TTI::SK_PermuteSingleSrc, LoadVecTy,
                                       CostKind, CompressCostMask);
