@@ -3913,6 +3913,39 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
     }
   }
 
+  // The vector store saves nothing over scalar stores the backend merges as
+  // well, except the packing of narrow lanes into their dwords.
+  auto *StoreVecTy = dyn_cast<FixedVectorType>(Src);
+  if (Opcode == Instruction::Store && StoreVecTy &&
+      StoreVecTy->getNumElements() == Scalars.size() &&
+      all_of(Scalars, [&](const Value *V) {
+        const auto *SI = dyn_cast_or_null<StoreInst>(V);
+        return SI &&
+               SI->getValueOperand()->getType() == StoreVecTy->getElementType();
+      })) {
+    InstructionCost Cost = getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
+                                           CostKind, OpInfo, I);
+    Type *StoreTy = StoreVecTy->getElementType();
+    Align BestAlign = Alignment;
+    for (const Value *V : Scalars)
+      BestAlign = std::max(BestAlign, cast<StoreInst>(V)->getAlign());
+    if (!consecutiveLoadsCoalesce(StoreTy, Scalars.size(), BestAlign,
+                                  AddressSpace))
+      return Cost;
+    const unsigned StoreBits = DL.getTypeSizeInBits(StoreTy);
+    const unsigned LanesPerDword = StoreBits < 32 ? 32 / StoreBits : 1;
+    InstructionCost ScalarCost =
+        Scalars.size() *
+        getMemoryOpCost(Opcode, StoreTy, BestAlign, AddressSpace, CostKind);
+    InstructionCost VecCost =
+        getMemoryOpCost(Opcode, Src, BestAlign, AddressSpace, CostKind) +
+        divideCeil(Scalars.size(), LanesPerDword) * (LanesPerDword - 1) *
+            getFullRateInstrCost();
+    if (VecCost < ScalarCost)
+      Cost += ScalarCost - VecCost;
+    return Cost;
+  }
+
   Type *EltTy = Src->getScalarType();
   if ((Opcode != Instruction::Load && Opcode != Instruction::Store) ||
       CostKind == TTI::TCK_Latency || isa<ScalableVectorType>(Src) ||
