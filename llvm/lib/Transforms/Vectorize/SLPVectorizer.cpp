@@ -37188,9 +37188,12 @@ bool SLPVectorizerPass::vectorizeOnceUsedSeeds(BasicBlock *BB, BoUpSLP &R) {
   SmallDenseMap<std::pair<size_t, size_t>, unsigned> KeyToGroup;
   SmallDenseMap<Value *, unsigned> SeedGroups;
   PoorThroughputOpCache PoorThroughputCache;
+  // The tree of the last rejected attempt is still built, its scalars are not
+  // vectorized.
+  R.deleteTree();
   for (Instruction &I : make_filter_range(*BB, [&](Instruction &I) {
          return !R.isDeleted(&I) && I.hasOneUse() && !R.isEphemeralValue(&I) &&
-                !R.isVectorized(&I) && !R.isAnalyzedScalar(&I) &&
+                !R.isAnalyzedScalar(&I) &&
                 isValidElementType(getValueType(&I, Opts->slp_revec),
                                    Opts->slp_revec) &&
                 isOnceUsedSeed(&I) && !isNonVectorizableInst(*Opts, &I, TLI) &&
