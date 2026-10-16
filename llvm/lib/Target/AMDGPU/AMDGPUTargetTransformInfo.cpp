@@ -3430,6 +3430,43 @@ InstructionCost GCNTTIImpl::getShuffleCost(
     }
   }
 
+  // Packed fp32 instructions read each operand from an aligned register pair
+  // and take either half of it for either lane, so only a destination pair
+  // whose lanes come from two source pairs needs a move.
+  if (ScalarSize == 32 && ST->hasAnyPackedFP32Ops() &&
+      SrcTy->getElementType()->isFloatTy()) {
+    unsigned NumSrcElts = cast<FixedVectorType>(SrcTy)->getNumElements();
+    SmallVector<int> PairMask(Mask);
+    if (PairMask.empty() && SubTp && isa<FixedVectorType>(SubTp)) {
+      unsigned NumSubElts = cast<FixedVectorType>(SubTp)->getNumElements();
+      if (Kind == TTI::SK_ExtractSubvector) {
+        for (unsigned I = 0; I < NumSubElts; ++I)
+          PairMask.push_back(Index + I);
+      } else if (Kind == TTI::SK_InsertSubvector) {
+        for (unsigned I = 0; I < NumSrcElts; ++I)
+          PairMask.push_back(I >= (unsigned)Index && I < Index + NumSubElts
+                                 ? NumSrcElts + I - Index
+                                 : I);
+      }
+    }
+    if (!PairMask.empty()) {
+      auto GetPair = [&](int SrcIdx) {
+        return SrcIdx < (int)NumSrcElts
+                   ? SrcIdx / 2
+                   : NumSrcElts + (SrcIdx - NumSrcElts) / 2;
+      };
+      unsigned Cost = 0;
+      for (unsigned DstIdx = 0; DstIdx + 1 < PairMask.size(); DstIdx += 2) {
+        int Lo = PairMask[DstIdx];
+        int Hi = PairMask[DstIdx + 1];
+        if (Lo != PoisonMaskElem && Hi != PoisonMaskElem &&
+            GetPair(Lo) != GetPair(Hi))
+          ++Cost;
+      }
+      return Cost;
+    }
+  }
+
   return BaseT::getShuffleCost(Kind, DstTy, SrcTy, CostKind, Mask, Index,
                                SubTp);
 }
