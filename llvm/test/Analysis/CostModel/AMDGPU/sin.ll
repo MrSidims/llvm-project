@@ -29,7 +29,7 @@ define void @sin_f16() {
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v5f16 = call <5 x half> @llvm.sin.v5f16(<5 x half> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f16 = call <8 x half> @llvm.sin.v8f16(<8 x half> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v16f16 = call <16 x half> @llvm.sin.v16f16(<16 x half> poison)
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX9-LABEL: 'sin_f16'
@@ -40,7 +40,7 @@ define void @sin_f16() {
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v5f16 = call <5 x half> @llvm.sin.v5f16(<5 x half> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f16 = call <8 x half> @llvm.sin.v8f16(<8 x half> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v16f16 = call <16 x half> @llvm.sin.v16f16(<16 x half> poison)
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX10-LABEL: 'sin_f16'
@@ -51,7 +51,7 @@ define void @sin_f16() {
 ; GFX10-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v5f16 = call <5 x half> @llvm.sin.v5f16(<5 x half> poison)
 ; GFX10-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f16 = call <8 x half> @llvm.sin.v8f16(<8 x half> poison)
 ; GFX10-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v16f16 = call <16 x half> @llvm.sin.v16f16(<16 x half> poison)
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
+; GFX10-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
 ; GFX10-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; BASE-SIZE-LABEL: 'sin_f16'
@@ -73,7 +73,7 @@ define void @sin_f16() {
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v5f16 = call <5 x half> @llvm.sin.v5f16(<5 x half> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f16 = call <8 x half> @llvm.sin.v8f16(<8 x half> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f16 = call <16 x half> @llvm.sin.v16f16(<16 x half> poison)
-; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX9-SIZE-LABEL: 'sin_f16'
@@ -84,7 +84,7 @@ define void @sin_f16() {
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v5f16 = call <5 x half> @llvm.sin.v5f16(<5 x half> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f16 = call <8 x half> @llvm.sin.v8f16(<8 x half> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f16 = call <16 x half> @llvm.sin.v16f16(<16 x half> poison)
-; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX10-SIZE-LABEL: 'sin_f16'
@@ -95,7 +95,7 @@ define void @sin_f16() {
 ; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v5f16 = call <5 x half> @llvm.sin.v5f16(<5 x half> poison)
 ; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f16 = call <8 x half> @llvm.sin.v8f16(<8 x half> poison)
 ; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f16 = call <16 x half> @llvm.sin.v16f16(<16 x half> poison)
-; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
+; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17f16 = call <17 x half> @llvm.sin.v17f16(<17 x half> poison)
 ; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f16 = call half @llvm.sin.f16(half poison)
@@ -363,7 +363,7 @@ define void @cos_f16() {
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v5f16 = call <5 x half> @llvm.cos.v5f16(<5 x half> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f16 = call <8 x half> @llvm.cos.v8f16(<8 x half> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v16f16 = call <16 x half> @llvm.cos.v16f16(<16 x half> poison)
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX9-LABEL: 'cos_f16'
@@ -374,7 +374,7 @@ define void @cos_f16() {
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v5f16 = call <5 x half> @llvm.cos.v5f16(<5 x half> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f16 = call <8 x half> @llvm.cos.v8f16(<8 x half> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v16f16 = call <16 x half> @llvm.cos.v16f16(<16 x half> poison)
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX10-LABEL: 'cos_f16'
@@ -385,7 +385,7 @@ define void @cos_f16() {
 ; GFX10-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v5f16 = call <5 x half> @llvm.cos.v5f16(<5 x half> poison)
 ; GFX10-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f16 = call <8 x half> @llvm.cos.v8f16(<8 x half> poison)
 ; GFX10-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v16f16 = call <16 x half> @llvm.cos.v16f16(<16 x half> poison)
-; GFX10-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
+; GFX10-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
 ; GFX10-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; BASE-SIZE-LABEL: 'cos_f16'
@@ -407,7 +407,7 @@ define void @cos_f16() {
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v5f16 = call <5 x half> @llvm.cos.v5f16(<5 x half> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f16 = call <8 x half> @llvm.cos.v8f16(<8 x half> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f16 = call <16 x half> @llvm.cos.v16f16(<16 x half> poison)
-; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX9-SIZE-LABEL: 'cos_f16'
@@ -418,7 +418,7 @@ define void @cos_f16() {
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v5f16 = call <5 x half> @llvm.cos.v5f16(<5 x half> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f16 = call <8 x half> @llvm.cos.v8f16(<8 x half> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f16 = call <16 x half> @llvm.cos.v16f16(<16 x half> poison)
-; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX10-SIZE-LABEL: 'cos_f16'
@@ -429,7 +429,7 @@ define void @cos_f16() {
 ; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v5f16 = call <5 x half> @llvm.cos.v5f16(<5 x half> poison)
 ; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f16 = call <8 x half> @llvm.cos.v8f16(<8 x half> poison)
 ; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f16 = call <16 x half> @llvm.cos.v16f16(<16 x half> poison)
-; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
+; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17f16 = call <17 x half> @llvm.cos.v17f16(<17 x half> poison)
 ; GFX10-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f16 = call half @llvm.cos.f16(half poison)

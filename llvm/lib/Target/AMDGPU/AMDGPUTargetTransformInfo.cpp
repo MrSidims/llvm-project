@@ -3068,7 +3068,7 @@ unsigned GCNTTIImpl::getNumberOfParts(Type *Tp) const {
   if (VectorType *VecTy = dyn_cast<VectorType>(Tp)) {
     if (VecTy->getElementType()->isIntegerTy(8)) {
       unsigned ElementCount = VecTy->getElementCount().getFixedValue();
-      return divideCeil(ElementCount - 1, 4);
+      return divideCeil(ElementCount, 4);
     }
   }
   return BaseT::getNumberOfParts(Tp);

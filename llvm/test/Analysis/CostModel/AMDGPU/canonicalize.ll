@@ -252,8 +252,8 @@ define void @canonicalize_f32() {
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4f32 = call <4 x float> @llvm.canonicalize.v4f32(<4 x float> undef)
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %v5f32 = call <5 x float> @llvm.canonicalize.v5f32(<5 x float> undef)
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v8f32 = call <8 x float> @llvm.canonicalize.v8f32(<8 x float> undef)
-; GFX1250-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %v9f32 = call <9 x float> @llvm.canonicalize.v9f32(<9 x float> undef)
-; GFX1250-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.canonicalize.v16f32(<16 x float> undef)
+; GFX1250-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v9f32 = call <9 x float> @llvm.canonicalize.v9f32(<9 x float> undef)
+; GFX1250-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f32 = call <16 x float> @llvm.canonicalize.v16f32(<16 x float> undef)
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'canonicalize_f32'
@@ -274,8 +274,8 @@ define void @canonicalize_f32() {
 ; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4f32 = call <4 x float> @llvm.canonicalize.v4f32(<4 x float> undef)
 ; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %v5f32 = call <5 x float> @llvm.canonicalize.v5f32(<5 x float> undef)
 ; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v8f32 = call <8 x float> @llvm.canonicalize.v8f32(<8 x float> undef)
-; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %v9f32 = call <9 x float> @llvm.canonicalize.v9f32(<9 x float> undef)
-; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.canonicalize.v16f32(<16 x float> undef)
+; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v9f32 = call <9 x float> @llvm.canonicalize.v9f32(<9 x float> undef)
+; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f32 = call <16 x float> @llvm.canonicalize.v16f32(<16 x float> undef)
 ; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f32 = call float @llvm.canonicalize.f32(float undef) #1

@@ -15,40 +15,40 @@ define i32 @ceil(i32 %arg) {
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.ceil.f32(float undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.ceil.v4f32(<4 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.ceil.v8f32(<8 x float> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.ceil.f64(double undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.ceil.v2f64(<2 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.ceil.v4f64(<4 x double> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX90A-LABEL: 'ceil'
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.ceil.f32(float undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.ceil.v4f32(<4 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.ceil.v8f32(<8 x float> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.ceil.f64(double undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.ceil.v2f64(<2 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.ceil.v4f64(<4 x double> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX900-LABEL: 'ceil'
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.ceil.f32(float undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.ceil.v4f32(<4 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.ceil.v8f32(<8 x float> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.ceil.f64(double undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.ceil.v2f64(<2 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.ceil.v4f64(<4 x double> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; SLOW-LABEL: 'ceil'
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.ceil.f32(float undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.ceil.v4f32(<4 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.ceil.v8f32(<8 x float> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.ceil.f64(double undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.ceil.v2f64(<2 x double> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.ceil.v4f64(<4 x double> undef)
@@ -59,40 +59,40 @@ define i32 @ceil(i32 %arg) {
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.ceil.f32(float undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.ceil.v4f32(<4 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.ceil.v8f32(<8 x float> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.ceil.f64(double undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.ceil.v2f64(<2 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.ceil.v4f64(<4 x double> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX90A-SIZE-LABEL: 'ceil'
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.ceil.f32(float undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.ceil.v4f32(<4 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.ceil.v8f32(<8 x float> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.ceil.f64(double undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.ceil.v2f64(<2 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.ceil.v4f64(<4 x double> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX900-SIZE-LABEL: 'ceil'
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.ceil.f32(float undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.ceil.v4f32(<4 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.ceil.v8f32(<8 x float> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.ceil.f64(double undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.ceil.v2f64(<2 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.ceil.v4f64(<4 x double> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.ceil.v8f64(<8 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SLOW-SIZE-LABEL: 'ceil'
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.ceil.f32(float undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.ceil.v4f32(<4 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.ceil.v8f32(<8 x float> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.ceil.v16f32(<16 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.ceil.f64(double undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.ceil.v2f64(<2 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.ceil.v4f64(<4 x double> undef)
@@ -117,88 +117,88 @@ define i32 @floor(i32 %arg) {
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.floor.f32(float undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.floor.v4f32(<4 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.floor.v8f32(<8 x float> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.floor.f64(double undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.floor.v2f64(<2 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.floor.v4f64(<4 x double> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX90A-LABEL: 'floor'
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.floor.f32(float undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.floor.v4f32(<4 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.floor.v8f32(<8 x float> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.floor.f64(double undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.floor.v2f64(<2 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.floor.v4f64(<4 x double> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX900-LABEL: 'floor'
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.floor.f32(float undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.floor.v4f32(<4 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.floor.v8f32(<8 x float> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.floor.f64(double undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.floor.v2f64(<2 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.floor.v4f64(<4 x double> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; SLOW-LABEL: 'floor'
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.floor.f32(float undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.floor.v4f32(<4 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.floor.v8f32(<8 x float> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.floor.f64(double undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.floor.v2f64(<2 x double> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.floor.v4f64(<4 x double> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX1010-SIZE-LABEL: 'floor'
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.floor.f32(float undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.floor.v4f32(<4 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.floor.v8f32(<8 x float> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.floor.f64(double undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.floor.v2f64(<2 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.floor.v4f64(<4 x double> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX90A-SIZE-LABEL: 'floor'
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.floor.f32(float undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.floor.v4f32(<4 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.floor.v8f32(<8 x float> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.floor.f64(double undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.floor.v2f64(<2 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.floor.v4f64(<4 x double> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX900-SIZE-LABEL: 'floor'
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.floor.f32(float undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.floor.v4f32(<4 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.floor.v8f32(<8 x float> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.floor.f64(double undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.floor.v2f64(<2 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.floor.v4f64(<4 x double> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SLOW-SIZE-LABEL: 'floor'
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.floor.f32(float undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.floor.v4f32(<4 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.floor.v8f32(<8 x float> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.floor.v16f32(<16 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.floor.f64(double undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.floor.v2f64(<2 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.floor.v4f64(<4 x double> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.floor.v8f64(<8 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
   %F32 = call float @llvm.floor.f32(float undef)
@@ -219,40 +219,40 @@ define i32 @nearbyint(i32 %arg) {
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.nearbyint.f32(float undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.nearbyint.f64(double undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX90A-LABEL: 'nearbyint'
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.nearbyint.f32(float undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.nearbyint.f64(double undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX900-LABEL: 'nearbyint'
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.nearbyint.f32(float undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.nearbyint.f64(double undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; SLOW-LABEL: 'nearbyint'
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.nearbyint.f32(float undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.nearbyint.f64(double undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> undef)
@@ -263,40 +263,40 @@ define i32 @nearbyint(i32 %arg) {
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.nearbyint.f32(float undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.nearbyint.f64(double undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX90A-SIZE-LABEL: 'nearbyint'
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.nearbyint.f32(float undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.nearbyint.f64(double undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX900-SIZE-LABEL: 'nearbyint'
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.nearbyint.f32(float undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.nearbyint.f64(double undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.nearbyint.v8f64(<8 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SLOW-SIZE-LABEL: 'nearbyint'
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.nearbyint.f32(float undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.nearbyint.v4f32(<4 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.nearbyint.v8f32(<8 x float> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.nearbyint.v16f32(<16 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.nearbyint.f64(double undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.nearbyint.v2f64(<2 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.nearbyint.v4f64(<4 x double> undef)
@@ -321,40 +321,40 @@ define i32 @rint(i32 %arg) {
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.rint.f32(float undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.rint.v4f32(<4 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.rint.v8f32(<8 x float> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.rint.f64(double undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.rint.v2f64(<2 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.rint.v4f64(<4 x double> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX90A-LABEL: 'rint'
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.rint.f32(float undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.rint.v4f32(<4 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.rint.v8f32(<8 x float> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.rint.f64(double undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.rint.v2f64(<2 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.rint.v4f64(<4 x double> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX900-LABEL: 'rint'
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.rint.f32(float undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.rint.v4f32(<4 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.rint.v8f32(<8 x float> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.rint.f64(double undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.rint.v2f64(<2 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.rint.v4f64(<4 x double> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; SLOW-LABEL: 'rint'
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.rint.f32(float undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.rint.v4f32(<4 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.rint.v8f32(<8 x float> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.rint.f64(double undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.rint.v2f64(<2 x double> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.rint.v4f64(<4 x double> undef)
@@ -365,40 +365,40 @@ define i32 @rint(i32 %arg) {
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.rint.f32(float undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.rint.v4f32(<4 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.rint.v8f32(<8 x float> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.rint.f64(double undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.rint.v2f64(<2 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.rint.v4f64(<4 x double> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX90A-SIZE-LABEL: 'rint'
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.rint.f32(float undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.rint.v4f32(<4 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.rint.v8f32(<8 x float> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.rint.f64(double undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.rint.v2f64(<2 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.rint.v4f64(<4 x double> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX900-SIZE-LABEL: 'rint'
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.rint.f32(float undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.rint.v4f32(<4 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.rint.v8f32(<8 x float> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.rint.f64(double undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.rint.v2f64(<2 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.rint.v4f64(<4 x double> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.rint.v8f64(<8 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SLOW-SIZE-LABEL: 'rint'
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.rint.f32(float undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.rint.v4f32(<4 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.rint.v8f32(<8 x float> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.rint.v16f32(<16 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.rint.f64(double undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.rint.v2f64(<2 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.rint.v4f64(<4 x double> undef)
@@ -423,40 +423,40 @@ define i32 @roundeven(i32 %arg) {
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.roundeven.f32(float undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.roundeven.v4f32(<4 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.roundeven.v8f32(<8 x float> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.roundeven.f64(double undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.roundeven.v2f64(<2 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.roundeven.v4f64(<4 x double> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX90A-LABEL: 'roundeven'
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.roundeven.f32(float undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.roundeven.v4f32(<4 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.roundeven.v8f32(<8 x float> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.roundeven.f64(double undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.roundeven.v2f64(<2 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.roundeven.v4f64(<4 x double> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX900-LABEL: 'roundeven'
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.roundeven.f32(float undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.roundeven.v4f32(<4 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.roundeven.v8f32(<8 x float> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.roundeven.f64(double undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.roundeven.v2f64(<2 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.roundeven.v4f64(<4 x double> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; SLOW-LABEL: 'roundeven'
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.roundeven.f32(float undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.roundeven.v4f32(<4 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.roundeven.v8f32(<8 x float> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.roundeven.f64(double undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.roundeven.v2f64(<2 x double> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.roundeven.v4f64(<4 x double> undef)
@@ -467,40 +467,40 @@ define i32 @roundeven(i32 %arg) {
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.roundeven.f32(float undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.roundeven.v4f32(<4 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.roundeven.v8f32(<8 x float> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.roundeven.f64(double undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.roundeven.v2f64(<2 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.roundeven.v4f64(<4 x double> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX90A-SIZE-LABEL: 'roundeven'
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.roundeven.f32(float undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.roundeven.v4f32(<4 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.roundeven.v8f32(<8 x float> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.roundeven.f64(double undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.roundeven.v2f64(<2 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.roundeven.v4f64(<4 x double> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX900-SIZE-LABEL: 'roundeven'
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.roundeven.f32(float undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.roundeven.v4f32(<4 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.roundeven.v8f32(<8 x float> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.roundeven.f64(double undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.roundeven.v2f64(<2 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.roundeven.v4f64(<4 x double> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.roundeven.v8f64(<8 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SLOW-SIZE-LABEL: 'roundeven'
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.roundeven.f32(float undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.roundeven.v4f32(<4 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.roundeven.v8f32(<8 x float> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.roundeven.v16f32(<16 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.roundeven.f64(double undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.roundeven.v2f64(<2 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.roundeven.v4f64(<4 x double> undef)
@@ -525,40 +525,40 @@ define i32 @trunc(i32 %arg) {
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.trunc.f32(float undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.trunc.v4f32(<4 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.trunc.v8f32(<8 x float> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.trunc.f64(double undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.trunc.v2f64(<2 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.trunc.v4f64(<4 x double> undef)
-; GFX1010-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
+; GFX1010-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
 ; GFX1010-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX90A-LABEL: 'trunc'
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.trunc.f32(float undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.trunc.v4f32(<4 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.trunc.v8f32(<8 x float> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.trunc.f64(double undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.trunc.v2f64(<2 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.trunc.v4f64(<4 x double> undef)
-; GFX90A-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
+; GFX90A-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
 ; GFX90A-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; GFX900-LABEL: 'trunc'
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.trunc.f32(float undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.trunc.v4f32(<4 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.trunc.v8f32(<8 x float> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %F64 = call double @llvm.trunc.f64(double undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2F64 = call <2 x double> @llvm.trunc.v2f64(<2 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4F64 = call <4 x double> @llvm.trunc.v4f64(<4 x double> undef)
-; GFX900-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
+; GFX900-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
 ; GFX900-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; SLOW-LABEL: 'trunc'
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.trunc.f32(float undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.trunc.v4f32(<4 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.trunc.v8f32(<8 x float> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.trunc.f64(double undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.trunc.v2f64(<2 x double> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.trunc.v4f64(<4 x double> undef)
@@ -569,40 +569,40 @@ define i32 @trunc(i32 %arg) {
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.trunc.f32(float undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.trunc.v4f32(<4 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.trunc.v8f32(<8 x float> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.trunc.f64(double undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.trunc.v2f64(<2 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.trunc.v4f64(<4 x double> undef)
-; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
+; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
 ; GFX1010-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX90A-SIZE-LABEL: 'trunc'
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.trunc.f32(float undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.trunc.v4f32(<4 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.trunc.v8f32(<8 x float> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F64 = call double @llvm.trunc.f64(double undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V2F64 = call <2 x double> @llvm.trunc.v2f64(<2 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F64 = call <4 x double> @llvm.trunc.v4f64(<4 x double> undef)
-; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
+; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
 ; GFX90A-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; GFX900-SIZE-LABEL: 'trunc'
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.trunc.f32(float undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.trunc.v4f32(<4 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.trunc.v8f32(<8 x float> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.trunc.f64(double undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.trunc.v2f64(<2 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.trunc.v4f64(<4 x double> undef)
-; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
+; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8F64 = call <8 x double> @llvm.trunc.v8f64(<8 x double> undef)
 ; GFX900-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SLOW-SIZE-LABEL: 'trunc'
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %F32 = call float @llvm.trunc.f32(float undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V4F32 = call <4 x float> @llvm.trunc.v4f32(<4 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V8F32 = call <8 x float> @llvm.trunc.v8f32(<8 x float> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V16F32 = call <16 x float> @llvm.trunc.v16f32(<16 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %F64 = call double @llvm.trunc.f64(double undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V2F64 = call <2 x double> @llvm.trunc.v2f64(<2 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4F64 = call <4 x double> @llvm.trunc.v4f64(<4 x double> undef)

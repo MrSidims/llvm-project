@@ -66,7 +66,7 @@ define amdgpu_kernel void @add_i64() #0 {
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i64 = add <2 x i64> undef, undef
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i64 = add <3 x i64> undef, undef
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v4i64 = add <4 x i64> undef, undef
-; FAST64-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v5i64 = add <5 x i64> undef, undef
+; FAST64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v5i64 = add <5 x i64> undef, undef
 ; FAST64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FAST16-SIZE-LABEL: 'add_i64'
@@ -90,7 +90,7 @@ define amdgpu_kernel void @add_i64() #0 {
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i64 = add <2 x i64> undef, undef
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i64 = add <3 x i64> undef, undef
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v4i64 = add <4 x i64> undef, undef
-; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v5i64 = add <5 x i64> undef, undef
+; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v5i64 = add <5 x i64> undef, undef
 ; FAST64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %i64 = add i64 undef, undef
