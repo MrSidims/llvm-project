@@ -131,6 +131,12 @@ using namespace SCEVPatternMatch;
 
 #define DEBUG_TYPE "loop-reduce"
 
+STATISTIC(NumRegExcessRatings,
+          "Number of formula ratings charged for registers beyond the count");
+STATISTIC(NumRegExcessLoops,
+          "Number of loops with a rating charged for registers beyond the count");
+static bool RegExcessSeen = false;
+
 /// MaxIVUsers is an arbitrary threshold that provides an early opportunity for
 /// bail out. This threshold is far beyond the number of users that LSR can
 /// conceivably solve, so it should not affect generated code, but catches the
@@ -1567,6 +1573,8 @@ void Cost::RateFormula(const Formula &F, SmallPtrSetImpl<const SCEV *> &Regs,
   unsigned TTIRegNum = TTI->getNumberOfRegisters(
                        TTI->getRegisterClassForType(false, F.getType())) - 1;
   if (C.NumRegs > TTIRegNum) {
+    ++NumRegExcessRatings;
+    RegExcessSeen = true;
     // Cost already exceeded TTIRegNum, then only newly added register can add
     // new instructions.
     if (PrevNumRegs > TTIRegNum)
@@ -6380,6 +6388,7 @@ LSRInstance::LSRInstance(const ScalarOptions &Opts, Loop *L, IVUsers &IU,
   Rewriter.disableCanonicalMode();
   Rewriter.enableLSRMode();
 
+  RegExcessSeen = false;
   // First, perform some low-level loop optimizations.
   OptimizeShadowIV();
   OptimizeLoopTermCond();
@@ -6422,6 +6431,8 @@ LSRInstance::LSRInstance(const ScalarOptions &Opts, Loop *L, IVUsers &IU,
 
   SmallVector<const Formula *, 8> Solution;
   Solve(Solution);
+  if (RegExcessSeen)
+    ++NumRegExcessLoops;
 
   // Release memory that is no longer needed.
   Factors.clear();

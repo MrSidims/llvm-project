@@ -169,6 +169,8 @@ const char VerboseDebug[] = DEBUG_TYPE "-verbose";
 #endif
 
 STATISTIC(LoopsVectorized, "Number of loops vectorized");
+STATISTIC(LoopsICRegLimited,
+          "Number of loops whose interleave count the register budget limits");
 STATISTIC(LoopsAnalyzed, "Number of loops analyzed for vectorization");
 STATISTIC(LoopsEpilogueVectorized, "Number of epilogues vectorized");
 STATISTIC(LoopsEarlyExitVectorized, "Number of early exit loops vectorized");
@@ -3486,6 +3488,8 @@ LoopVectorizationPlanner::selectInterleaveCount(VPlan &Plan, ElementCount VF,
   MaxInterleaveCount = (VF.isScalar() ? Opts.force_target_max_scalar_interleave
                                       : Opts.force_target_max_vector_interleave)
                            .value_or(MaxInterleaveCount);
+  if (IC < MaxInterleaveCount)
+    ++LoopsICRegLimited;
 
   // Try to get the exact trip count, or an estimate based on profiling data or
   // ConstantMax from PSE, failing that.

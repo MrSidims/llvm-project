@@ -126,6 +126,13 @@ STATISTIC(NumVectorInstructions, "Number of vector instructions generated");
 STATISTIC(NumStridedStoreChains, "Number of vectorized stride stores");
 STATISTIC(NumStoreChains, "Number of vector stores created");
 STATISTIC(NumVectorizedStores, "Number of vectorized stores");
+STATISTIC(NumRdxRegFitNarrowed,
+          "Number of reductions narrowed by the register count");
+STATISTIC(NumSpillEstimates, "Number of tree entries over the register count");
+STATISTIC(NumAccumulatorSpills,
+          "Number of accumulators over the register count");
+STATISTIC(NumHighRegPressure,
+          "Number of blocks under high register pressure");
 
 DEBUG_COUNTER(VectorizedGraphs, "slp-vectorized",
               "Controls which SLP graphs should be vectorized.");
@@ -16663,6 +16670,7 @@ BoUpSLP::getVectorSpillReloadCost(const TreeEntry *E, Type *ScalarTy,
     if (NumAvailRegs == 0 || UsedRegs <= NumAvailRegs)
       continue;
     const unsigned SpillCount = UsedRegs - NumAvailRegs;
+    ++NumSpillEstimates;
     InstructionCost SingleRegSpillReload =
         TTI->getRegisterClassReloadCost(RegClass, CostKind);
     // No need to spill cost only for the root entry (Idx == 0), for reduction
@@ -20506,8 +20514,10 @@ static bool hasHighRegisterPressure(const VectorizeOptions &Opts,
       break;
     Live.erase(&I);
     Live.insert_range(make_filter_range(I.operand_values(), IsLiveCandidate));
-    if (Live.size() > NumRegs)
+    if (Live.size() > NumRegs) {
+      ++NumHighRegPressure;
       return true;
+    }
   }
   return false;
 }
@@ -32539,8 +32549,10 @@ public:
           TTI.getRegisterClassSpillCost(RC, CostKind) +
           TTI.getRegisterClassReloadCost(RC, CostKind);
       InstructionCost Spilled = 0;
-      if (NumRegs != 0 && NumLiveVectors * Regs > NumRegs)
+      if (NumRegs != 0 && NumLiveVectors * Regs > NumRegs) {
         Spilled = SpillReload * (NumLiveVectors * Regs - NumRegs);
+        ++NumAccumulatorSpills;
+      }
       Cost += Spilled;
       // The vector accumulator replaces the scalar one across the calls of
       // the loop: without callee-saved registers of the class it is spilled
@@ -33472,6 +33484,7 @@ public:
         NumRegs = V.getRegUsageForType(Tp, ScalarTy);
         NumAvailRegs =
             TTI.getNumberOfRegisters(TTI.getRegisterClassForType(true, Tp));
+        const unsigned WidthBeforeFit = ReduxWidth;
         while (NumRegs > NumAvailRegs) {
           assert(ReduxWidth > 0 && "ReduxWidth is unexpectedly 0.");
           ReduxWidth = bit_floor(ReduxWidth - 1);
@@ -33483,6 +33496,8 @@ public:
         }
         if (NumRegs > NumAvailRegs / 2)
           ReduxWidth = bit_floor(ReduxWidth);
+        if (ReduxWidth != WidthBeforeFit)
+          ++NumRdxRegFitNarrowed;
         return ReduxWidth;
       };
       if (!isAllowedNonPowerOf2VF(ReduxWidth,
@@ -34225,6 +34240,7 @@ public:
       unsigned NumParts = V.getNumberOfParts(Tp, ScalarTy);
       unsigned NumRegs =
           TTI.getNumberOfRegisters(TTI.getRegisterClassForType(true, Tp));
+      const unsigned WidthBeforeFit = ReduxWidth;
       while (NumParts > NumRegs) {
         assert(ReduxWidth > 0 && "ReduxWidth is unexpectedly 0.");
         ReduxWidth = bit_floor(ReduxWidth - 1);
@@ -34235,6 +34251,8 @@ public:
       }
       if (NumParts > NumRegs / 2)
         ReduxWidth = bit_floor(ReduxWidth);
+      if (ReduxWidth != WidthBeforeFit)
+        ++NumRdxRegFitNarrowed;
       return ReduxWidth;
     };
     auto ShrinkReduxWidth = [&]() {

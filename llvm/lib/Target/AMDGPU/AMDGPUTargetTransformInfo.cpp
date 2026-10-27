@@ -86,6 +86,14 @@ static cl::opt<unsigned> MemcpyLoopUnroll(
              "memset as a loop"),
     cl::init(16), cl::Hidden);
 
+static cl::opt<int> NumRegsScalarOpt(
+    "amdgpu-num-regs-scalar", cl::Hidden, cl::init(-1),
+    cl::desc("Scalar register count TTI reports, -1 for the VGPR budget"));
+
+static cl::opt<int> NumRegsVectorOpt(
+    "amdgpu-num-regs-vector", cl::Hidden, cl::init(-1),
+    cl::desc("Vector register count TTI reports, -1 for the VGPR budget"));
+
 static bool dependsOnLocalPhi(const Loop *L, const Value *Cond,
                               unsigned Depth = 0) {
   const Instruction *I = dyn_cast<Instruction>(Cond);
@@ -294,6 +302,8 @@ GCNTTIImpl::GCNTTIImpl(const AMDGPUTargetMachine *TM, const Function &F)
   SIModeRegisterDefaults Mode(F, *ST);
   HasFP32Denormals = Mode.FP32Denormals != DenormalMode::getPreserveSign();
   MaxVGPRs = ST->getMaxNumVGPRs(F);
+  LLVM_DEBUG(dbgs() << "AMDGPUtti: " << F.getName() << " VGPR budget "
+                    << MaxVGPRs << '\n');
 }
 
 bool GCNTTIImpl::hasBranchDivergence(const Function *F) const {
@@ -307,6 +317,9 @@ unsigned GCNTTIImpl::getNumberOfRegisters(unsigned RCID) const {
   // VGPRs, but those which can hold multiple values.
   // Uniform values live in SGPRs, but the divergence of a value is unknown
   // here, so both classes get the VGPR budget of the function.
+  const int Override = RCID == 0 ? NumRegsScalarOpt : NumRegsVectorOpt;
+  if (Override >= 0)
+    return Override;
   return MaxVGPRs;
 }
 
