@@ -2295,6 +2295,111 @@ static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars,
   return false;
 }
 
+/// \returns the single user of \p V that continues its chain, or null if it is
+/// a phi, an insertelement or produces no value.
+static const Instruction *getLaneChainUser(const Value *V) {
+  if (!V->hasOneUser())
+    return nullptr;
+  const auto *U = cast<Instruction>(V->user_back());
+  if (isa<PHINode, InsertElementInst>(U) || U->getType()->isVoidTy())
+    return nullptr;
+  return U;
+}
+
+/// \returns the root of the reduction that the chains of single users of all
+/// the lanes \p Scalars join, or null if they do not join one chain.
+static const Instruction *findLanesReduction(ArrayRef<const Value *> Scalars) {
+  SmallDenseMap<const Instruction *, unsigned, 32> ChainPos;
+  const Instruction *U = getLaneChainUser(Scalars.front());
+  for (unsigned Pos = 1; U && Pos <= MaxLaneChainSteps;
+       ++Pos, U = getLaneChainUser(U))
+    ChainPos.try_emplace(U, Pos);
+  const Instruction *Rdx = nullptr;
+  unsigned RdxPos = 0;
+  for (const Value *V : Scalars.drop_front()) {
+    auto It = ChainPos.end();
+    U = getLaneChainUser(V);
+    for (unsigned Step = 0; U && Step < MaxLaneChainSteps;
+         ++Step, U = getLaneChainUser(U))
+      if ((It = ChainPos.find(U)) != ChainPos.end())
+        break;
+    if (It == ChainPos.end())
+      return nullptr;
+    if (It->second > RdxPos) {
+      Rdx = It->first;
+      RdxPos = It->second;
+    }
+  }
+  auto IsSameOp = [](const Instruction *I1, const Instruction *I2) {
+    if (I1->getOpcode() != I2->getOpcode())
+      return false;
+    const auto *II1 = dyn_cast<IntrinsicInst>(I1);
+    const auto *II2 = dyn_cast<IntrinsicInst>(I2);
+    return !II1 || (II2 && II1->getIntrinsicID() == II2->getIntrinsicID());
+  };
+  for (unsigned Step = 0; Rdx && Step < MaxLaneChainSteps; ++Step) {
+    U = getLaneChainUser(Rdx);
+    if (!U || !IsSameOp(U, Rdx))
+      break;
+    Rdx = U;
+  }
+  return Rdx;
+}
+
+/// \returns the bit width of the integer reduction \p Rdx narrowed to the bits
+/// of its result that are known and demanded.
+static unsigned getReductionBitWidth(const Instruction *Rdx,
+                                     const DataLayout &DL) {
+  unsigned BitWidth =
+      Rdx->getType()->getScalarSizeInBits() - ComputeNumSignBits(Rdx, DL);
+  if (!isKnownNonNegative(Rdx, SimplifyQuery(DL)))
+    ++BitWidth;
+  if (!isa<MinMaxIntrinsic>(Rdx) && Rdx->hasOneUser())
+    if (const auto *Trunc = dyn_cast<TruncInst>(Rdx->user_back()))
+      BitWidth = std::min(BitWidth, Trunc->getDestTy()->getScalarSizeInBits());
+  if (BitWidth > 1 && BitWidth < 8)
+    BitWidth = 8;
+  return bit_ceil(BitWidth);
+}
+
+/// \returns the widest type of the casts that follow the lanes \p Scalars, or
+/// null if the lanes are not widened or join a floating point reduction. It is
+/// null as well if the lanes join an integer reduction that keeps no more bits
+/// than they load, or if the single users of the first lane reach a trunc to no
+/// more bits, whatever they compute before it.
+static Type *getWidenedLaneType(ArrayRef<const Value *> Scalars,
+                                const DataLayout &DL) {
+  const auto *Cast = dyn_cast_or_null<CastInst>(getLaneChainUser(Scalars[0]));
+  if (!Cast || any_of(Scalars, [&](const Value *V) {
+        const auto *C = dyn_cast_or_null<CastInst>(getLaneChainUser(V));
+        return !C || C->getOpcode() != Cast->getOpcode() ||
+               C->getDestTy() != Cast->getDestTy();
+      }))
+    return nullptr;
+  TypeSize LoadBits = DL.getTypeSizeInBits(Scalars[0]->getType());
+  Type *WidestTy = Cast->getDestTy();
+  const Instruction *U = getLaneChainUser(Cast);
+  for (unsigned Step = 0;
+       isa_and_nonnull<CastInst>(U) && Step < MaxLaneChainSteps;
+       ++Step, U = getLaneChainUser(U))
+    if (DL.getTypeSizeInBits(U->getType()) > DL.getTypeSizeInBits(WidestTy))
+      WidestTy = U->getType();
+  if (DL.getTypeSizeInBits(WidestTy) <= LoadBits)
+    return nullptr;
+  if (const Instruction *Rdx = findLanesReduction(Scalars)) {
+    if (!Rdx->getType()->isIntegerTy() ||
+        getReductionBitWidth(Rdx, DL) <= LoadBits)
+      return nullptr;
+    return WidestTy;
+  }
+  U = Cast;
+  for (unsigned Step = 0; U && Step < MaxLaneChainSteps;
+       ++Step, U = getLaneChainUser(U))
+    if (isa<TruncInst>(U) && DL.getTypeSizeInBits(U->getType()) <= LoadBits)
+      return nullptr;
+  return WidestTy;
+}
+
 static unsigned getNumMemoryInsts(unsigned Bytes, unsigned MaxBytes,
                                   bool HasDwordx3) {
   unsigned NumInsts = Bytes / MaxBytes;
@@ -2322,7 +2427,8 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                             TTI::OperandValueInfo OpInfo, const Instruction *I,
                             ArrayRef<const Value *> Scalars) const {
   // The vector load saves nothing over scalar loads the backend coalesces as
-  // well. A reduction that loses the fmas of the scalars pays that saving back.
+  // well. A reduction that loses the fmas of the scalars pays that saving back,
+  // and so do lanes that a cast widens, unless they pack two to a register.
   auto *LoadVecTy = dyn_cast<FixedVectorType>(Src);
   if (Opcode == Instruction::Load && LoadVecTy && Scalars.size() > 1 &&
       all_of(Scalars, IsaPred<LoadInst>)) {
@@ -2334,8 +2440,12 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
         LoadVecTy->getNumElements() == Scalars.size() * NumLoadElts &&
         all_of(Scalars,
                [&](const Value *V) { return V->getType() == LoadTy; })) {
-      if (loadsFeedFMAChain(Scalars,
-                            isPackedLaneType(LoadTy->getScalarType()))) {
+      bool LosesFMAs =
+          loadsFeedFMAChain(Scalars, isPackedLaneType(LoadTy->getScalarType()));
+      Type *WidenedTy = LosesFMAs ? nullptr : getWidenedLaneType(Scalars, DL);
+      if (LosesFMAs ||
+          (WidenedTy && !isPackedLaneType(LoadTy->getScalarType()) &&
+           !isPackedLaneType(WidenedTy->getScalarType()))) {
         InstructionCost Cost = getMemoryOpCost(
             Opcode, Src, Alignment, AddressSpace, CostKind, OpInfo, I);
         Align BestAlign = Alignment;
