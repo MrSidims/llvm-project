@@ -1375,12 +1375,10 @@ static bool isBswapIntrinsicCall(const Value *V) {
   return false;
 }
 
-InstructionCost SystemZTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
-                                                Align Alignment,
-                                                unsigned AddressSpace,
-                                                TTI::TargetCostKind CostKind,
-                                                TTI::OperandValueInfo OpInfo,
-                                                const Instruction *I) const {
+InstructionCost SystemZTTIImpl::getMemoryOpCost(
+    unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
+    TTI::TargetCostKind CostKind, TTI::OperandValueInfo OpInfo,
+    const Instruction *I, ArrayRef<const Value *> Scalars) const {
   assert(!Src->isVoidTy() && "Invalid type");
 
   // FIXME: Load latency isn't handled here

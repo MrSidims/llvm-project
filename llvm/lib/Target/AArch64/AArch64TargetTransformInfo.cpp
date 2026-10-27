@@ -5919,12 +5919,10 @@ bool AArch64TTIImpl::useNeonVector(const Type *Ty) const {
   return isa<FixedVectorType>(Ty) && !ST->useSVEForFixedLengthVectors();
 }
 
-InstructionCost AArch64TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Ty,
-                                                Align Alignment,
-                                                unsigned AddressSpace,
-                                                TTI::TargetCostKind CostKind,
-                                                TTI::OperandValueInfo OpInfo,
-                                                const Instruction *I) const {
+InstructionCost AArch64TTIImpl::getMemoryOpCost(
+    unsigned Opcode, Type *Ty, Align Alignment, unsigned AddressSpace,
+    TTI::TargetCostKind CostKind, TTI::OperandValueInfo OpInfo,
+    const Instruction *I, ArrayRef<const Value *> Scalars) const {
   EVT VT = TLI->getValueType(DL, Ty, true);
   // Type legalization can't handle structs
   if (VT == MVT::Other)

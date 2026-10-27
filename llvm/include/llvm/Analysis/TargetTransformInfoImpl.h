@@ -926,7 +926,8 @@ public:
   virtual InstructionCost
   getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                   unsigned AddressSpace, TTI::TargetCostKind CostKind,
-                  TTI::OperandValueInfo OpInfo, const Instruction *I) const {
+                  TTI::OperandValueInfo OpInfo, const Instruction *I,
+                  ArrayRef<const Value *> Scalars = {}) const {
     return 1;
   }
 

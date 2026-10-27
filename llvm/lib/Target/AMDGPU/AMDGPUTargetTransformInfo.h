@@ -140,6 +140,9 @@ public:
                                 unsigned ChainSizeInBytes,
                                 VectorType *VecTy) const override;
   unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const override;
+  bool consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts, Align Alignment,
+                                unsigned AddrSpace) const;
+  bool isPackedLaneType(Type *Ty) const;
 
   bool isLegalToVectorizeMemChain(unsigned ChainSizeInBytes, Align Alignment,
                                   unsigned AddrSpace) const;
@@ -329,7 +332,8 @@ public:
       unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind,
       TTI::OperandValueInfo OpInfo = {TTI::OK_AnyValue, TTI::OP_None},
-      const Instruction *I = nullptr) const override;
+      const Instruction *I = nullptr,
+      ArrayRef<const Value *> Scalars = {}) const override;
 
   /// When counting parts on AMD GPUs, account for i8s being grouped
   /// together under a single i32 value. Otherwise fall back to base

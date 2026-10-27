@@ -1587,12 +1587,11 @@ InstructionCost ARMTTIImpl::getArithmeticInstrCost(
   return BaseCost;
 }
 
-InstructionCost ARMTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
-                                            Align Alignment,
-                                            unsigned AddressSpace,
-                                            TTI::TargetCostKind CostKind,
-                                            TTI::OperandValueInfo OpInfo,
-                                            const Instruction *I) const {
+InstructionCost
+ARMTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
+                            unsigned AddressSpace, TTI::TargetCostKind CostKind,
+                            TTI::OperandValueInfo OpInfo, const Instruction *I,
+                            ArrayRef<const Value *> Scalars) const {
   // FIXME: Load latency isn't handled here
   if (Opcode == Instruction::Load && CostKind == TTI::TCK_Latency)
     return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,

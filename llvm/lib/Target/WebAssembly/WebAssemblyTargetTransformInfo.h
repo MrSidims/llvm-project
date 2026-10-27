@@ -81,7 +81,8 @@ public:
       unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind,
       TTI::OperandValueInfo OpInfo = {TTI::OK_AnyValue, TTI::OP_None},
-      const Instruction *I = nullptr) const override;
+      const Instruction *I = nullptr,
+      ArrayRef<const Value *> Scalars = {}) const override;
   InstructionCost getInterleavedMemoryOpCost(
       unsigned Opcode, Type *Ty, unsigned Factor, ArrayRef<unsigned> Indices,
       Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
