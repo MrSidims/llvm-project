@@ -293,6 +293,7 @@ GCNTTIImpl::GCNTTIImpl(const AMDGPUTargetMachine *TM, const Function &F)
       IsGraphics(AMDGPU::isGraphics(F.getCallingConv())) {
   SIModeRegisterDefaults Mode(F, *ST);
   HasFP32Denormals = Mode.FP32Denormals != DenormalMode::getPreserveSign();
+  MaxVGPRs = ST->getMaxNumVGPRs(F);
 }
 
 bool GCNTTIImpl::hasBranchDivergence(const Function *F) const {
@@ -304,10 +305,9 @@ unsigned GCNTTIImpl::getNumberOfRegisters(unsigned RCID) const {
   // registers. See getRegisterClassForType for the implementation.
   // In this case vector registers are not vector in terms of
   // VGPRs, but those which can hold multiple values.
-
-  // This is really the number of registers to fill when vectorizing /
-  // interleaving loops, so we lie to avoid trying to use all registers.
-  return 4;
+  // Uniform values live in SGPRs, but the divergence of a value is unknown
+  // here, so both classes get the VGPR budget of the function.
+  return MaxVGPRs;
 }
 
 unsigned GCNTTIImpl::getNumberOfRegistersForInterleaving(unsigned RCID) const {

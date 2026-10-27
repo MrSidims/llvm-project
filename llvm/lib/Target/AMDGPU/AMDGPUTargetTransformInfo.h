@@ -71,6 +71,7 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
   AMDGPUTTIImpl CommonTTI;
   bool IsGraphics;
   bool HasFP32Denormals;
+  unsigned MaxVGPRs;
   static constexpr bool InlinerVectorBonusPercent = 0;
 
   static const FeatureBitset InlineFeatureIgnoreList;
