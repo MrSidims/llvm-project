@@ -284,7 +284,7 @@ define amdgpu_kernel void @ds_wmma_permute(ptr addrspace(3) %base, ptr addrspace
 ; COEXEC-NEXT:    v_nop
 ; COEXEC-NEXT:    v_nop
 ; COEXEC-NEXT:    v_dual_mov_b32 v124, s2 :: v_dual_mov_b32 v156, s7
-; COEXEC-NEXT:    s_add_co_i32 s6, s6, s3
+; COEXEC-NEXT:    s_or_b32 s6, s6, s3
 ; COEXEC-NEXT:    ds_load_tr16_b128 v[32:35], v124
 ; COEXEC-NEXT:    ds_load_tr16_b128 v[40:43], v156
 ; COEXEC-NEXT:    ds_load_tr16_b128 v[44:47], v156 offset:64
@@ -393,7 +393,7 @@ define amdgpu_kernel void @ds_wmma_permute(ptr addrspace(3) %base, ptr addrspace
 ; GCN-NEXT:    s_add_co_i32 s6, s0, s2
 ; GCN-NEXT:    s_add_co_i32 s7, s1, s2
 ; GCN-NEXT:    v_dual_mov_b32 v96, s6 :: v_dual_mov_b32 v97, s7
-; GCN-NEXT:    s_add_co_i32 s2, s2, s3
+; GCN-NEXT:    s_or_b32 s2, s2, s3
 ; GCN-NEXT:    ds_load_tr16_b128 v[32:35], v96
 ; GCN-NEXT:    ds_load_tr16_b128 v[36:39], v96 offset:64
 ; GCN-NEXT:    ds_load_tr16_b128 v[40:43], v97
