@@ -131,6 +131,10 @@ using namespace SCEVPatternMatch;
 
 #define DEBUG_TYPE "loop-reduce"
 
+STATISTIC(NumSolutionsRated,
+          "Number of LSR solutions rated against the baseline");
+STATISTIC(NumSolutionsDropped,
+          "Number of LSR solutions dropped for the baseline");
 STATISTIC(NumRegExcessRatings,
           "Number of formula ratings charged for registers beyond the count");
 STATISTIC(NumRegExcessLoops,
@@ -5721,6 +5725,7 @@ void LSRInstance::Solve(SmallVectorImpl<const Formula *> &Solution) const {
   const bool EnableDropUnprofitableSolution = valueOr(
       Opts.lsr_drop_solution, TTI.shouldDropLSRSolutionIfLessProfitable());
 
+  ++NumSolutionsRated;
   if (BaselineCost.isLess(SolutionCost)) {
     if (!EnableDropUnprofitableSolution)
       LLVM_DEBUG(
@@ -5729,6 +5734,7 @@ void LSRInstance::Solve(SmallVectorImpl<const Formula *> &Solution) const {
     else {
       LLVM_DEBUG(dbgs() << "Baseline is more profitable than chosen "
                            "solution, dropping LSR solution.\n";);
+      ++NumSolutionsDropped;
       Solution.clear();
     }
   }
