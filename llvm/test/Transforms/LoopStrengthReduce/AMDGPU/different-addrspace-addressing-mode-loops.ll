@@ -1,4 +1,5 @@
 ; RUN: opt -S -mtriple=amdgpu7.01-- -loop-reduce < %s | FileCheck -check-prefix=OPT %s
+; RUN: opt -S -mtriple=amdgpu9.0a-unknown-amdhsa -loop-reduce < %s | FileCheck -check-prefix=GFX9 %s
 
 ; Test that loops with different maximum offsets for different address
 ; spaces are correctly handled.
@@ -151,6 +152,62 @@ bb:
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
   br i1 %exitcond, label %._crit_edge.loopexit, label %.lr.ph
+}
+
+; With three bases and a variable stride the rewrite into pointer induction
+; variables is not cheaper than the original addressing and is not applied.
+
+; GFX9-LABEL: @test_global_addressing_loop_three_bases_variable_stride(
+; GFX9: {{^}}loop:
+; GFX9: %idx = sext i32 %i to i64
+; GFX9-NEXT: %acc.p = getelementptr inbounds [16 x i8], ptr addrspace(1) %acc, i64 %idx
+; GFX9: %vel.p = getelementptr inbounds [8 x i8], ptr addrspace(1) %vel, i64 %idx
+; GFX9: %pos.p = getelementptr inbounds [16 x i8], ptr addrspace(1) %pos, i64 %idx
+; GFX9-NOT: lsr.iv
+define amdgpu_kernel void @test_global_addressing_loop_three_bases_variable_stride(i32 %n, ptr addrspace(1) %acc, ptr addrspace(1) %vel, ptr addrspace(1) %pos, i32 %start, i32 %stride) #0 {
+entry:
+  %cmp = icmp slt i32 %start, %n
+  br i1 %cmp, label %loop, label %exit
+
+loop:
+  %i = phi i32 [ %i.next, %loop ], [ %start, %entry ]
+  %idx = sext i32 %i to i64
+  %acc.p = getelementptr inbounds [16 x i8], ptr addrspace(1) %acc, i64 %idx
+  %acc0 = load float, ptr addrspace(1) %acc.p, align 16
+  %acc.p1 = getelementptr inbounds nuw i8, ptr addrspace(1) %acc.p, i64 4
+  %acc1 = load float, ptr addrspace(1) %acc.p1, align 4
+  %acc.p2 = getelementptr inbounds nuw i8, ptr addrspace(1) %acc.p, i64 8
+  %acc2 = load float, ptr addrspace(1) %acc.p2, align 8
+  %acc.p3 = getelementptr inbounds nuw i8, ptr addrspace(1) %acc.p, i64 12
+  %acc3 = load float, ptr addrspace(1) %acc.p3, align 4
+  %vel.p = getelementptr inbounds [8 x i8], ptr addrspace(1) %vel, i64 %idx
+  %vel0 = load float, ptr addrspace(1) %vel.p, align 8
+  %vel.p1 = getelementptr inbounds nuw i8, ptr addrspace(1) %vel.p, i64 4
+  %vel1 = load float, ptr addrspace(1) %vel.p1, align 4
+  %pos.p = getelementptr inbounds [16 x i8], ptr addrspace(1) %pos, i64 %idx
+  %pos0 = load float, ptr addrspace(1) %pos.p, align 16
+  %pos.p1 = getelementptr inbounds nuw i8, ptr addrspace(1) %pos.p, i64 4
+  %pos1 = load float, ptr addrspace(1) %pos.p1, align 4
+  %pos.p2 = getelementptr inbounds nuw i8, ptr addrspace(1) %pos.p, i64 8
+  %pos2 = load float, ptr addrspace(1) %pos.p2, align 8
+  %v0 = fadd float %acc0, %vel0
+  %v1 = fadd float %acc1, %vel1
+  %v2 = fadd float %acc2, %acc3
+  %p0 = fadd float %pos0, %v0
+  %p1 = fadd float %pos1, %v1
+  %p2 = fadd float %pos2, %v2
+  store float %p0, ptr addrspace(1) %pos.p, align 16
+  store float %p1, ptr addrspace(1) %pos.p1, align 4
+  store float %p2, ptr addrspace(1) %pos.p2, align 8
+  store float %v0, ptr addrspace(1) %vel.p, align 8
+  store float %v1, ptr addrspace(1) %vel.p1, align 4
+  store float %v2, ptr addrspace(1) %acc.p3, align 4
+  %i.next = add nsw i32 %i, %stride
+  %cmp2 = icmp slt i32 %i.next, %n
+  br i1 %cmp2, label %loop, label %exit
+
+exit:
+  ret void
 }
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "frame-pointer"="all" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "use-soft-float"="false" }
