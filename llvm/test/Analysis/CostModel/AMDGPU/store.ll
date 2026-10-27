@@ -764,21 +764,21 @@ define void @stores_addrspace_7(i32 %arg) {
 ; CHECK-LABEL: 'stores_addrspace_7'
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i32 poison, ptr addrspace(7) poison, align 4
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store i64 poison, ptr addrspace(7) poison, align 4
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr addrspace(7) poison, align 4
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <2 x i32> poison, ptr addrspace(7) poison, align 4
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i32> poison, ptr addrspace(7) poison, align 8
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr addrspace(7) poison, align 4
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr addrspace(7) poison, align 8
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: store <3 x i32> poison, ptr addrspace(7) poison, align 4
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i32> poison, ptr addrspace(7) poison, align 8
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <3 x i32> poison, ptr addrspace(7) poison, align 16
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr addrspace(7) poison, align 4
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr addrspace(7) poison, align 8
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store <4 x i32> poison, ptr addrspace(7) poison, align 4
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <4 x i32> poison, ptr addrspace(7) poison, align 8
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i32> poison, ptr addrspace(7) poison, align 16
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i64> poison, ptr addrspace(7) poison, align 8
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <8 x i32> poison, ptr addrspace(7) poison, align 32
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <4 x i8> poison, ptr addrspace(7) poison, align 4
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <2 x i16> poison, ptr addrspace(7) poison, align 4
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: store <8 x half> poison, ptr addrspace(7) poison, align 16
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: store <4 x i24> poison, ptr addrspace(7) poison, align 4
-; CHECK-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store <3 x i12> poison, ptr addrspace(7) poison, align 4
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <2 x i64> poison, ptr addrspace(7) poison, align 8
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <8 x i32> poison, ptr addrspace(7) poison, align 32
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: store <4 x i8> poison, ptr addrspace(7) poison, align 4
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <2 x i16> poison, ptr addrspace(7) poison, align 4
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: store <8 x half> poison, ptr addrspace(7) poison, align 16
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: store <4 x i24> poison, ptr addrspace(7) poison, align 4
+; CHECK-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: store <3 x i12> poison, ptr addrspace(7) poison, align 4
 ; CHECK-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
   store i32 poison, ptr addrspace(7) poison, align 4

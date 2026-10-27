@@ -2202,16 +2202,9 @@ InstructionCost GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
 
   unsigned EltBits = std::max<unsigned>(8, DL.getTypeSizeInBits(EltTy));
 
-  if (AddressSpace == AMDGPUAS::BUFFER_FAT_POINTER) {
-    if (Src->isVectorTy() && EltTy->isIntegerTy(8))
-      return divideCeil(DL.getTypeSizeInBits(Src) - 1,
-                        getLoadStoreVecRegBitWidth(AddressSpace));
-    return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
-                                  CostKind, OpInfo, I);
-  }
-
   auto *VecTy = dyn_cast<FixedVectorType>(Src);
-  if (VecTy && EltBits % 8 == 0 && !isPowerOf2_32(EltBits) &&
+  if (VecTy && AddressSpace != AMDGPUAS::BUFFER_FAT_POINTER &&
+      EltBits % 8 == 0 && !isPowerOf2_32(EltBits) &&
       !TLI->shouldCombineMemoryType(TLI->getValueType(DL, Src))) {
     Align EltAlign = commonAlignment(Alignment, EltBits / 8);
     return VecTy->getNumElements() * getMemoryOpCost(Opcode, EltTy, EltAlign,
@@ -2248,14 +2241,24 @@ InstructionCost GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
     HasDwordx3 = HasDwordx3 &&
                  (Alignment >= 16 || (Alignment < 4 && HasUnalignedAccess));
   }
+  if (AddressSpace == AMDGPUAS::BUFFER_FAT_POINTER && Src->isVectorTy() &&
+      !ST->hasRelaxedBufferOOBMode()) {
+    unsigned Bits = DL.getTypeSizeInBits(EltTy);
+    if (Bits % 32 == 0)
+      MaxBytes = std::clamp<uint64_t>(Alignment.value(), 4, MaxBytes);
+    else if (Bits % 8 == 0 || isPowerOf2_32(Bits))
+      MaxBytes = MinAlign(MaxBytes, divideCeil(Bits, 8));
+  }
   if (Alignment < 4 && !HasUnalignedAccess)
     MaxBytes = std::min<unsigned>(MaxBytes, Alignment.value());
-  bool MergesDwords = ST->hasFlatInstOffsets() &&
-                      (AMDGPU::isExtendedGlobalAddrSpace(AddressSpace) ||
-                       (AddressSpace == AMDGPUAS::FLAT_ADDRESS &&
-                        !ST->hasFlatSegmentOffsetBug()));
+  bool MergesDwords = AddressSpace == AMDGPUAS::BUFFER_FAT_POINTER ||
+                      (ST->hasFlatInstOffsets() &&
+                       (AMDGPU::isExtendedGlobalAddrSpace(AddressSpace) ||
+                        (AddressSpace == AMDGPUAS::FLAT_ADDRESS &&
+                         !ST->hasFlatSegmentOffsetBug())));
 
-  if (Opcode == Instruction::Load) {
+  if (Opcode == Instruction::Load &&
+      AddressSpace != AMDGPUAS::BUFFER_FAT_POINTER) {
     if (VecTy && Alignment >= PowerOf2Ceil(Bytes))
       return divideCeil(Bytes, MaxBytes);
     if (EltBits <= 16 && Alignment >= 4 && Bytes % 4) {
