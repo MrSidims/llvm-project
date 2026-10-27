@@ -310,6 +310,12 @@ unsigned GCNTTIImpl::getNumberOfRegisters(unsigned RCID) const {
   return 4;
 }
 
+unsigned GCNTTIImpl::getNumberOfRegistersForInterleaving(unsigned RCID) const {
+  // Far below the register file, so the vectorizer does not try to fill it
+  // with interleaved copies of the loop.
+  return 4;
+}
+
 TypeSize
 GCNTTIImpl::getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
   switch (K) {

@@ -828,6 +828,11 @@ unsigned TargetTransformInfo::getNumberOfRegisters(unsigned ClassID) const {
   return TTIImpl->getNumberOfRegisters(ClassID);
 }
 
+unsigned TargetTransformInfo::getNumberOfRegistersForInterleaving(
+    unsigned ClassID) const {
+  return TTIImpl->getNumberOfRegistersForInterleaving(ClassID);
+}
+
 bool TargetTransformInfo::hasConditionalLoadStoreForType(Type *Ty,
                                                          bool IsStore) const {
   return TTIImpl->hasConditionalLoadStoreForType(Ty, IsStore);

@@ -1407,6 +1407,10 @@ public:
   /// \return the number of registers in the target-provided register class.
   LLVM_ABI unsigned getNumberOfRegisters(unsigned ClassID) const;
 
+  /// \return the number of registers in the target-provided register class
+  /// the loop vectorizer may fill with the interleaved copies of a loop.
+  LLVM_ABI unsigned getNumberOfRegistersForInterleaving(unsigned ClassID) const;
+
   /// \return true if the target supports load/store that enables fault
   /// suppression of memory operands when the source condition is false.
   LLVM_ABI bool hasConditionalLoadStoreForType(Type *Ty, bool IsStore) const;

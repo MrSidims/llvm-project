@@ -3446,7 +3446,8 @@ LoopVectorizationPlanner::selectInterleaveCount(VPlan &Plan, ElementCount VF,
   unsigned IC = UINT_MAX;
 
   for (const auto &Pair : R.MaxLocalUsers) {
-    unsigned TargetNumRegisters = TTI.getNumberOfRegisters(Pair.first);
+    unsigned TargetNumRegisters =
+        TTI.getNumberOfRegistersForInterleaving(Pair.first);
     LLVM_DEBUG(dbgs() << "LV: The target has " << TargetNumRegisters
                       << " registers of "
                       << TTI.getRegisterClassName(Pair.first)
