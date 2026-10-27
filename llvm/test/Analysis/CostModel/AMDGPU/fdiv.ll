@@ -20,7 +20,7 @@ define amdgpu_kernel void @fdiv_f32_ieee() #0 {
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %v4f32 = fdiv <4 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 70 for instruction: %v5f32 = fdiv <5 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %v8f32 = fdiv <8 x float> undef, undef
-; ALL-NEXT:  Cost Model: Found an estimated cost of 378 for instruction: %v9f32 = fdiv <9 x float> undef, undef
+; ALL-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %v9f32 = fdiv <9 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'fdiv_f32_ieee'
@@ -30,7 +30,7 @@ define amdgpu_kernel void @fdiv_f32_ieee() #0 {
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v4f32 = fdiv <4 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 60 for instruction: %v5f32 = fdiv <5 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v8f32 = fdiv <8 x float> undef, undef
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 324 for instruction: %v9f32 = fdiv <9 x float> undef, undef
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 108 for instruction: %v9f32 = fdiv <9 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f32 = fdiv float undef, undef
@@ -51,7 +51,7 @@ define amdgpu_kernel void @fdiv_f32_afn_ieee() #0 {
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v4f32 = fdiv afn <4 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 25 for instruction: %v5f32 = fdiv afn <5 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f32 = fdiv afn <8 x float> undef, undef
-; ALL-NEXT:  Cost Model: Found an estimated cost of 135 for instruction: %v9f32 = fdiv afn <9 x float> undef, undef
+; ALL-NEXT:  Cost Model: Found an estimated cost of 45 for instruction: %v9f32 = fdiv afn <9 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'fdiv_f32_afn_ieee'
@@ -61,7 +61,7 @@ define amdgpu_kernel void @fdiv_f32_afn_ieee() #0 {
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = fdiv afn <4 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %v5f32 = fdiv afn <5 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = fdiv afn <8 x float> undef, undef
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 81 for instruction: %v9f32 = fdiv afn <9 x float> undef, undef
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %v9f32 = fdiv afn <9 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f32 = fdiv afn float undef, undef
@@ -82,7 +82,7 @@ define amdgpu_kernel void @fdiv_f32_ftzdaz() #1 {
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v4f32 = fdiv <4 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v5f32 = fdiv <5 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %v8f32 = fdiv <8 x float> undef, undef
-; ALL-NEXT:  Cost Model: Found an estimated cost of 432 for instruction: %v9f32 = fdiv <9 x float> undef, undef
+; ALL-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v9f32 = fdiv <9 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'fdiv_f32_ftzdaz'
@@ -92,7 +92,7 @@ define amdgpu_kernel void @fdiv_f32_ftzdaz() #1 {
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %v4f32 = fdiv <4 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 70 for instruction: %v5f32 = fdiv <5 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %v8f32 = fdiv <8 x float> undef, undef
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 378 for instruction: %v9f32 = fdiv <9 x float> undef, undef
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %v9f32 = fdiv <9 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f32 = fdiv float undef, undef
@@ -113,7 +113,7 @@ define amdgpu_kernel void @fdiv_f32_afn_ftzdaz() #1 {
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v4f32 = fdiv afn <4 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 25 for instruction: %v5f32 = fdiv afn <5 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v8f32 = fdiv afn <8 x float> undef, undef
-; ALL-NEXT:  Cost Model: Found an estimated cost of 135 for instruction: %v9f32 = fdiv afn <9 x float> undef, undef
+; ALL-NEXT:  Cost Model: Found an estimated cost of 45 for instruction: %v9f32 = fdiv afn <9 x float> undef, undef
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'fdiv_f32_afn_ftzdaz'
@@ -123,7 +123,7 @@ define amdgpu_kernel void @fdiv_f32_afn_ftzdaz() #1 {
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = fdiv afn <4 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %v5f32 = fdiv afn <5 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = fdiv afn <8 x float> undef, undef
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 81 for instruction: %v9f32 = fdiv afn <9 x float> undef, undef
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %v9f32 = fdiv afn <9 x float> undef, undef
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f32 = fdiv afn float undef, undef
@@ -142,7 +142,7 @@ define amdgpu_kernel void @fdiv_f64() #0 {
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v2f64 = fdiv <2 x double> undef, undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %v3f64 = fdiv <3 x double> undef, undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v4f64 = fdiv <4 x double> undef, undef
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 576 for instruction: %v5f64 = fdiv <5 x double> undef, undef
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v5f64 = fdiv <5 x double> undef, undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; CISLOWF64-LABEL: 'fdiv_f64'
@@ -150,7 +150,7 @@ define amdgpu_kernel void @fdiv_f64() #0 {
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v2f64 = fdiv <2 x double> undef, undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 114 for instruction: %v3f64 = fdiv <3 x double> undef, undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v4f64 = fdiv <4 x double> undef, undef
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 912 for instruction: %v5f64 = fdiv <5 x double> undef, undef
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %v5f64 = fdiv <5 x double> undef, undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SIFASTF64-LABEL: 'fdiv_f64'
@@ -158,7 +158,7 @@ define amdgpu_kernel void @fdiv_f64() #0 {
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 54 for instruction: %v2f64 = fdiv <2 x double> undef, undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 81 for instruction: %v3f64 = fdiv <3 x double> undef, undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 108 for instruction: %v4f64 = fdiv <4 x double> undef, undef
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 648 for instruction: %v5f64 = fdiv <5 x double> undef, undef
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 216 for instruction: %v5f64 = fdiv <5 x double> undef, undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SISLOWF64-LABEL: 'fdiv_f64'
@@ -166,7 +166,7 @@ define amdgpu_kernel void @fdiv_f64() #0 {
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 82 for instruction: %v2f64 = fdiv <2 x double> undef, undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 123 for instruction: %v3f64 = fdiv <3 x double> undef, undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 164 for instruction: %v4f64 = fdiv <4 x double> undef, undef
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 984 for instruction: %v5f64 = fdiv <5 x double> undef, undef
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 328 for instruction: %v5f64 = fdiv <5 x double> undef, undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FP16-LABEL: 'fdiv_f64'
@@ -174,7 +174,7 @@ define amdgpu_kernel void @fdiv_f64() #0 {
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v2f64 = fdiv <2 x double> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 114 for instruction: %v3f64 = fdiv <3 x double> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v4f64 = fdiv <4 x double> undef, undef
-; FP16-NEXT:  Cost Model: Found an estimated cost of 912 for instruction: %v5f64 = fdiv <5 x double> undef, undef
+; FP16-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %v5f64 = fdiv <5 x double> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; CI-SIZE-LABEL: 'fdiv_f64'
@@ -182,7 +182,7 @@ define amdgpu_kernel void @fdiv_f64() #0 {
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2f64 = fdiv <2 x double> undef, undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %v3f64 = fdiv <3 x double> undef, undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 88 for instruction: %v4f64 = fdiv <4 x double> undef, undef
-; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 528 for instruction: %v5f64 = fdiv <5 x double> undef, undef
+; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 176 for instruction: %v5f64 = fdiv <5 x double> undef, undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SI-SIZE-LABEL: 'fdiv_f64'
@@ -190,7 +190,7 @@ define amdgpu_kernel void @fdiv_f64() #0 {
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 50 for instruction: %v2f64 = fdiv <2 x double> undef, undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 75 for instruction: %v3f64 = fdiv <3 x double> undef, undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 100 for instruction: %v4f64 = fdiv <4 x double> undef, undef
-; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 600 for instruction: %v5f64 = fdiv <5 x double> undef, undef
+; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 200 for instruction: %v5f64 = fdiv <5 x double> undef, undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FP16-SIZE-LABEL: 'fdiv_f64'
@@ -198,7 +198,7 @@ define amdgpu_kernel void @fdiv_f64() #0 {
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2f64 = fdiv <2 x double> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %v3f64 = fdiv <3 x double> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 88 for instruction: %v4f64 = fdiv <4 x double> undef, undef
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 528 for instruction: %v5f64 = fdiv <5 x double> undef, undef
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 176 for instruction: %v5f64 = fdiv <5 x double> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f64 = fdiv double undef, undef
@@ -217,7 +217,7 @@ define amdgpu_kernel void @fdiv_f16_f32ieee() #0 {
 ; NOFP16-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %v4f16 = fdiv <4 x half> undef, undef
 ; NOFP16-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %v5f16 = fdiv <5 x half> undef, undef
 ; NOFP16-NEXT:  Cost Model: Found an estimated cost of 224 for instruction: %v16f16 = fdiv <16 x half> undef, undef
-; NOFP16-NEXT:  Cost Model: Found an estimated cost of 476 for instruction: %v17f16 = fdiv <17 x half> undef, undef
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 448 for instruction: %v17f16 = fdiv <17 x half> undef, undef
 ; NOFP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FP16-LABEL: 'fdiv_f16_f32ieee'
@@ -227,7 +227,7 @@ define amdgpu_kernel void @fdiv_f16_f32ieee() #0 {
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v4f16 = fdiv <4 x half> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v5f16 = fdiv <5 x half> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v16f16 = fdiv <16 x half> undef, undef
-; FP16-NEXT:  Cost Model: Found an estimated cost of 1152 for instruction: %v17f16 = fdiv <17 x half> undef, undef
+; FP16-NEXT:  Cost Model: Found an estimated cost of 384 for instruction: %v17f16 = fdiv <17 x half> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; NOFP16-SIZE-LABEL: 'fdiv_f16_f32ieee'
@@ -237,7 +237,7 @@ define amdgpu_kernel void @fdiv_f16_f32ieee() #0 {
 ; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v4f16 = fdiv <4 x half> undef, undef
 ; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v5f16 = fdiv <5 x half> undef, undef
 ; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v16f16 = fdiv <16 x half> undef, undef
-; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 408 for instruction: %v17f16 = fdiv <17 x half> undef, undef
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 384 for instruction: %v17f16 = fdiv <17 x half> undef, undef
 ; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FP16-SIZE-LABEL: 'fdiv_f16_f32ieee'
@@ -247,7 +247,7 @@ define amdgpu_kernel void @fdiv_f16_f32ieee() #0 {
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v4f16 = fdiv <4 x half> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v5f16 = fdiv <5 x half> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %v16f16 = fdiv <16 x half> undef, undef
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 768 for instruction: %v17f16 = fdiv <17 x half> undef, undef
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 256 for instruction: %v17f16 = fdiv <17 x half> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f16 = fdiv half undef, undef
@@ -268,7 +268,7 @@ define amdgpu_kernel void @fdiv_f16_f32ftzdaz() #1 {
 ; NOFP16-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v4f16 = fdiv <4 x half> undef, undef
 ; NOFP16-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %v5f16 = fdiv <5 x half> undef, undef
 ; NOFP16-NEXT:  Cost Model: Found an estimated cost of 256 for instruction: %v16f16 = fdiv <16 x half> undef, undef
-; NOFP16-NEXT:  Cost Model: Found an estimated cost of 544 for instruction: %v17f16 = fdiv <17 x half> undef, undef
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 512 for instruction: %v17f16 = fdiv <17 x half> undef, undef
 ; NOFP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FP16-LABEL: 'fdiv_f16_f32ftzdaz'
@@ -278,7 +278,7 @@ define amdgpu_kernel void @fdiv_f16_f32ftzdaz() #1 {
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v4f16 = fdiv <4 x half> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v5f16 = fdiv <5 x half> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v16f16 = fdiv <16 x half> undef, undef
-; FP16-NEXT:  Cost Model: Found an estimated cost of 1152 for instruction: %v17f16 = fdiv <17 x half> undef, undef
+; FP16-NEXT:  Cost Model: Found an estimated cost of 384 for instruction: %v17f16 = fdiv <17 x half> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; NOFP16-SIZE-LABEL: 'fdiv_f16_f32ftzdaz'
@@ -288,7 +288,7 @@ define amdgpu_kernel void @fdiv_f16_f32ftzdaz() #1 {
 ; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %v4f16 = fdiv <4 x half> undef, undef
 ; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %v5f16 = fdiv <5 x half> undef, undef
 ; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 224 for instruction: %v16f16 = fdiv <16 x half> undef, undef
-; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 476 for instruction: %v17f16 = fdiv <17 x half> undef, undef
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 448 for instruction: %v17f16 = fdiv <17 x half> undef, undef
 ; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FP16-SIZE-LABEL: 'fdiv_f16_f32ftzdaz'
@@ -298,7 +298,7 @@ define amdgpu_kernel void @fdiv_f16_f32ftzdaz() #1 {
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v4f16 = fdiv <4 x half> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v5f16 = fdiv <5 x half> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %v16f16 = fdiv <16 x half> undef, undef
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 768 for instruction: %v17f16 = fdiv <17 x half> undef, undef
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 256 for instruction: %v17f16 = fdiv <17 x half> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f16 = fdiv half undef, undef
@@ -327,7 +327,7 @@ define amdgpu_kernel void @rcp_ieee() #0 {
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 576 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; CISLOWF64-LABEL: 'rcp_ieee'
@@ -345,7 +345,7 @@ define amdgpu_kernel void @rcp_ieee() #0 {
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 114 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 912 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SIFASTF64-LABEL: 'rcp_ieee'
@@ -363,7 +363,7 @@ define amdgpu_kernel void @rcp_ieee() #0 {
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 54 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 81 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 108 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 648 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 216 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SISLOWF64-LABEL: 'rcp_ieee'
@@ -381,7 +381,7 @@ define amdgpu_kernel void @rcp_ieee() #0 {
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 82 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 123 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 164 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 984 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 328 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FP16-LABEL: 'rcp_ieee'
@@ -399,7 +399,7 @@ define amdgpu_kernel void @rcp_ieee() #0 {
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 114 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; FP16-NEXT:  Cost Model: Found an estimated cost of 912 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; FP16-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; CI-SIZE-LABEL: 'rcp_ieee'
@@ -417,7 +417,7 @@ define amdgpu_kernel void @rcp_ieee() #0 {
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 88 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 528 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 176 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SI-SIZE-LABEL: 'rcp_ieee'
@@ -435,7 +435,7 @@ define amdgpu_kernel void @rcp_ieee() #0 {
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 50 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 75 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 100 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 600 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 200 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FP16-SIZE-LABEL: 'rcp_ieee'
@@ -453,7 +453,7 @@ define amdgpu_kernel void @rcp_ieee() #0 {
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 88 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 528 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 176 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f16 = fdiv half 1.0, undef
@@ -490,7 +490,7 @@ define amdgpu_kernel void @rcp_ftzdaz() #1 {
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 576 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; CISLOWF64-LABEL: 'rcp_ftzdaz'
@@ -508,7 +508,7 @@ define amdgpu_kernel void @rcp_ftzdaz() #1 {
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 114 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 912 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SIFASTF64-LABEL: 'rcp_ftzdaz'
@@ -526,7 +526,7 @@ define amdgpu_kernel void @rcp_ftzdaz() #1 {
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 54 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 81 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 108 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 648 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 216 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SISLOWF64-LABEL: 'rcp_ftzdaz'
@@ -544,7 +544,7 @@ define amdgpu_kernel void @rcp_ftzdaz() #1 {
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 82 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 123 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 164 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 984 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 328 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FP16-LABEL: 'rcp_ftzdaz'
@@ -562,7 +562,7 @@ define amdgpu_kernel void @rcp_ftzdaz() #1 {
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 114 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; FP16-NEXT:  Cost Model: Found an estimated cost of 912 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; FP16-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; CI-SIZE-LABEL: 'rcp_ftzdaz'
@@ -580,7 +580,7 @@ define amdgpu_kernel void @rcp_ftzdaz() #1 {
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 88 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 528 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 176 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SI-SIZE-LABEL: 'rcp_ftzdaz'
@@ -598,7 +598,7 @@ define amdgpu_kernel void @rcp_ftzdaz() #1 {
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 50 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 75 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 100 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 600 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 200 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FP16-SIZE-LABEL: 'rcp_ftzdaz'
@@ -616,7 +616,7 @@ define amdgpu_kernel void @rcp_ftzdaz() #1 {
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2f64 = fdiv <2 x double> splat (double 1.000000e+00), undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %v3f64 = fdiv <3 x double> splat (double 1.000000e+00), undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 88 for instruction: %v4f64 = fdiv <4 x double> splat (double 1.000000e+00), undef
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 528 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 176 for instruction: %v5f64 = fdiv <5 x double> splat (double 1.000000e+00), undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f16 = fdiv half 1.0, undef
@@ -642,88 +642,88 @@ define i32 @frem(i32 %arg) {
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %F32 = frem float undef, undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %V4F32 = frem <4 x float> undef, undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %V8F32 = frem <8 x float> undef, undef
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 672 for instruction: %V16F32 = frem <16 x float> undef, undef
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 224 for instruction: %V16F32 = frem <16 x float> undef, undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %F64 = frem double undef, undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V2F64 = frem <2 x double> undef, undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V4F64 = frem <4 x double> undef, undef
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 576 for instruction: %V8F64 = frem <8 x double> undef, undef
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %V8F64 = frem <8 x double> undef, undef
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; CISLOWF64-LABEL: 'frem'
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %F32 = frem float undef, undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %V4F32 = frem <4 x float> undef, undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %V8F32 = frem <8 x float> undef, undef
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 672 for instruction: %V16F32 = frem <16 x float> undef, undef
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 224 for instruction: %V16F32 = frem <16 x float> undef, undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %F64 = frem double undef, undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %V2F64 = frem <2 x double> undef, undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %V4F64 = frem <4 x double> undef, undef
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 912 for instruction: %V8F64 = frem <8 x double> undef, undef
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %V8F64 = frem <8 x double> undef, undef
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; SIFASTF64-LABEL: 'frem'
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %F32 = frem float undef, undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %V4F32 = frem <4 x float> undef, undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %V8F32 = frem <8 x float> undef, undef
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 672 for instruction: %V16F32 = frem <16 x float> undef, undef
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 224 for instruction: %V16F32 = frem <16 x float> undef, undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %F64 = frem double undef, undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 54 for instruction: %V2F64 = frem <2 x double> undef, undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 108 for instruction: %V4F64 = frem <4 x double> undef, undef
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 648 for instruction: %V8F64 = frem <8 x double> undef, undef
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 216 for instruction: %V8F64 = frem <8 x double> undef, undef
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; SISLOWF64-LABEL: 'frem'
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %F32 = frem float undef, undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %V4F32 = frem <4 x float> undef, undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %V8F32 = frem <8 x float> undef, undef
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 672 for instruction: %V16F32 = frem <16 x float> undef, undef
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 224 for instruction: %V16F32 = frem <16 x float> undef, undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 41 for instruction: %F64 = frem double undef, undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 82 for instruction: %V2F64 = frem <2 x double> undef, undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 164 for instruction: %V4F64 = frem <4 x double> undef, undef
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 984 for instruction: %V8F64 = frem <8 x double> undef, undef
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 328 for instruction: %V8F64 = frem <8 x double> undef, undef
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; FP16-LABEL: 'frem'
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %F32 = frem float undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 56 for instruction: %V4F32 = frem <4 x float> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %V8F32 = frem <8 x float> undef, undef
-; FP16-NEXT:  Cost Model: Found an estimated cost of 672 for instruction: %V16F32 = frem <16 x float> undef, undef
+; FP16-NEXT:  Cost Model: Found an estimated cost of 224 for instruction: %V16F32 = frem <16 x float> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %F64 = frem double undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %V2F64 = frem <2 x double> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %V4F64 = frem <4 x double> undef, undef
-; FP16-NEXT:  Cost Model: Found an estimated cost of 912 for instruction: %V8F64 = frem <8 x double> undef, undef
+; FP16-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %V8F64 = frem <8 x double> undef, undef
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret i32 undef
 ;
 ; CI-SIZE-LABEL: 'frem'
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %F32 = frem float undef, undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V4F32 = frem <4 x float> undef, undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F32 = frem <8 x float> undef, undef
-; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 576 for instruction: %V16F32 = frem <16 x float> undef, undef
+; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %V16F32 = frem <16 x float> undef, undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %F64 = frem double undef, undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %V2F64 = frem <2 x double> undef, undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 88 for instruction: %V4F64 = frem <4 x double> undef, undef
-; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 528 for instruction: %V8F64 = frem <8 x double> undef, undef
+; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 176 for instruction: %V8F64 = frem <8 x double> undef, undef
 ; CI-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; SI-SIZE-LABEL: 'frem'
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %F32 = frem float undef, undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V4F32 = frem <4 x float> undef, undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F32 = frem <8 x float> undef, undef
-; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 576 for instruction: %V16F32 = frem <16 x float> undef, undef
+; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %V16F32 = frem <16 x float> undef, undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 25 for instruction: %F64 = frem double undef, undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 50 for instruction: %V2F64 = frem <2 x double> undef, undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 100 for instruction: %V4F64 = frem <4 x double> undef, undef
-; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 600 for instruction: %V8F64 = frem <8 x double> undef, undef
+; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 200 for instruction: %V8F64 = frem <8 x double> undef, undef
 ; SI-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
 ; FP16-SIZE-LABEL: 'frem'
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %F32 = frem float undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V4F32 = frem <4 x float> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V8F32 = frem <8 x float> undef, undef
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 576 for instruction: %V16F32 = frem <16 x float> undef, undef
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %V16F32 = frem <16 x float> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %F64 = frem double undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %V2F64 = frem <2 x double> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 88 for instruction: %V4F64 = frem <4 x double> undef, undef
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 528 for instruction: %V8F64 = frem <8 x double> undef, undef
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 176 for instruction: %V8F64 = frem <8 x double> undef, undef
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret i32 undef
 ;
   %F32 = frem float undef, undef

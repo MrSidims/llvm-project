@@ -722,6 +722,12 @@ public:
     return MaxVF ? MaxVF : UINT_MAX;
   }
 
+  unsigned getMaximumReductionVF(Type *ScalarTy) const {
+    unsigned MaxVF =
+        TTI->getMaximumReductionVF(DL->getTypeSizeInBits(ScalarTy));
+    return MaxVF ? MaxVF : UINT_MAX;
+  }
+
   /// Check if homogeneous aggregate is isomorphic to some VectorType.
   /// Accepts homogeneous multidimensional aggregate of scalars/vectors like
   /// {[4 x i16], [4 x i16]}, { <2 x float>, <2 x float> },
@@ -33461,11 +33467,14 @@ public:
       const unsigned MaxElts = std::clamp<unsigned>(
           llvm::bit_floor(MaxVecRegSize / EltSize), RedValsMaxNumber,
           RegMaxNumber * RedValsMaxNumber);
+      const unsigned MaxRdxVF =
+          V.getMaximumReductionVF(Candidates.front()->getType());
 
       unsigned ReduxWidth = NumReducedVals;
       auto GetVectorFactor = [&, &TTI = *TTI](unsigned ReduxWidth) {
         unsigned NumRegs, NumAvailRegs;
         Type *ScalarTy = Candidates.front()->getType();
+        ReduxWidth = std::min(ReduxWidth, MaxRdxVF);
         ReduxWidth = getFloorFullVectorNumberOfElements(
             TTI, ScalarTy, ReduxWidth, Opts.slp_revec);
         VectorType *Tp = cast<VectorType>(getWidenedType(ScalarTy, ReduxWidth));
@@ -33488,7 +33497,7 @@ public:
       if (!isAllowedNonPowerOf2VF(ReduxWidth,
                                   Opts.slp_vectorize_non_power_of_2))
         ReduxWidth = GetVectorFactor(ReduxWidth);
-      ReduxWidth = std::min(ReduxWidth, MaxElts);
+      ReduxWidth = std::min({ReduxWidth, MaxElts, MaxRdxVF});
 
       unsigned Start = 0;
       unsigned Pos = Start;
@@ -34215,10 +34224,13 @@ public:
     const unsigned MaxElts =
         std::clamp<unsigned>(llvm::bit_floor(MaxVecRegSize / EltSize),
                              RedValsMaxNumber, RegMaxNumber * RedValsMaxNumber);
+    const unsigned MaxRdxVF =
+        V.getMaximumReductionVF(Candidates.front()->getType());
 
     unsigned ReduxWidth = 0;
     auto GetVectorFactor = [&, &TTI = *TTI](unsigned ReduxWidth) {
       Type *ScalarTy = Candidates.front()->getType();
+      ReduxWidth = std::min(ReduxWidth, MaxRdxVF);
       ReduxWidth = getFloorFullVectorNumberOfElements(TTI, ScalarTy, ReduxWidth,
                                                       Opts.slp_revec);
       Type *Tp = getWidenedType(ScalarTy, ReduxWidth);
@@ -34335,7 +34347,7 @@ public:
     ReduxWidth = N;
     if (!Opts.slp_vectorize_non_power_of_2 || !has_single_bit(ReduxWidth + 1))
       ReduxWidth = GetVectorFactor(ReduxWidth);
-    ReduxWidth = std::min(ReduxWidth, MaxElts);
+    ReduxWidth = std::min({ReduxWidth, MaxElts, MaxRdxVF});
 
     while (ReduxWidth >= ReductionLimit) {
       if (TryWindow(0, ReduxWidth))

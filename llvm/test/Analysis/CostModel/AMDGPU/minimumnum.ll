@@ -234,7 +234,7 @@ define void @minimumnum_f32() {
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX7-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX8-LABEL: 'minimumnum_f32'
@@ -243,7 +243,7 @@ define void @minimumnum_f32() {
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX9-LABEL: 'minimumnum_f32'
@@ -252,7 +252,7 @@ define void @minimumnum_f32() {
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX12-LABEL: 'minimumnum_f32'
@@ -261,7 +261,7 @@ define void @minimumnum_f32() {
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX12-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1251-LABEL: 'minimumnum_f32'
@@ -270,7 +270,7 @@ define void @minimumnum_f32() {
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX1251-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX7-SIZE-LABEL: 'minimumnum_f32'
@@ -279,7 +279,7 @@ define void @minimumnum_f32() {
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX8-SIZE-LABEL: 'minimumnum_f32'
@@ -288,7 +288,7 @@ define void @minimumnum_f32() {
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX9-SIZE-LABEL: 'minimumnum_f32'
@@ -297,7 +297,7 @@ define void @minimumnum_f32() {
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX12-SIZE-LABEL: 'minimumnum_f32'
@@ -306,7 +306,7 @@ define void @minimumnum_f32() {
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX1251-SIZE-LABEL: 'minimumnum_f32'
@@ -315,7 +315,7 @@ define void @minimumnum_f32() {
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIZE-LABEL: 'minimumnum_f32'
@@ -341,8 +341,8 @@ define void @minimumnum_f64() {
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX7-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX7-NEXT:  Cost Model: Found an estimated cost of 960 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX8-LABEL: 'minimumnum_f64'
@@ -350,8 +350,8 @@ define void @minimumnum_f64() {
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 960 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX9-LABEL: 'minimumnum_f64'
@@ -359,8 +359,8 @@ define void @minimumnum_f64() {
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 960 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX12-LABEL: 'minimumnum_f64'
@@ -368,8 +368,8 @@ define void @minimumnum_f64() {
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX12-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX12-NEXT:  Cost Model: Found an estimated cost of 960 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1251-LABEL: 'minimumnum_f64'
@@ -377,8 +377,8 @@ define void @minimumnum_f64() {
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX1251-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX1251-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX7-SIZE-LABEL: 'minimumnum_f64'
@@ -386,8 +386,8 @@ define void @minimumnum_f64() {
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX8-SIZE-LABEL: 'minimumnum_f64'
@@ -395,8 +395,8 @@ define void @minimumnum_f64() {
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX9-SIZE-LABEL: 'minimumnum_f64'
@@ -404,8 +404,8 @@ define void @minimumnum_f64() {
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX12-SIZE-LABEL: 'minimumnum_f64'
@@ -413,8 +413,8 @@ define void @minimumnum_f64() {
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX1251-SIZE-LABEL: 'minimumnum_f64'
@@ -422,8 +422,8 @@ define void @minimumnum_f64() {
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIZE-LABEL: 'minimumnum_f64'
@@ -666,7 +666,7 @@ define void @minimumnum_f32_no_ieee() #0 {
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX7-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX8-LABEL: 'minimumnum_f32_no_ieee'
@@ -675,7 +675,7 @@ define void @minimumnum_f32_no_ieee() #0 {
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX9-LABEL: 'minimumnum_f32_no_ieee'
@@ -684,7 +684,7 @@ define void @minimumnum_f32_no_ieee() #0 {
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX12-LABEL: 'minimumnum_f32_no_ieee'
@@ -693,7 +693,7 @@ define void @minimumnum_f32_no_ieee() #0 {
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX12-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1251-LABEL: 'minimumnum_f32_no_ieee'
@@ -702,7 +702,7 @@ define void @minimumnum_f32_no_ieee() #0 {
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX1251-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX7-SIZE-LABEL: 'minimumnum_f32_no_ieee'
@@ -711,7 +711,7 @@ define void @minimumnum_f32_no_ieee() #0 {
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX8-SIZE-LABEL: 'minimumnum_f32_no_ieee'
@@ -720,7 +720,7 @@ define void @minimumnum_f32_no_ieee() #0 {
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX9-SIZE-LABEL: 'minimumnum_f32_no_ieee'
@@ -729,7 +729,7 @@ define void @minimumnum_f32_no_ieee() #0 {
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX12-SIZE-LABEL: 'minimumnum_f32_no_ieee'
@@ -738,7 +738,7 @@ define void @minimumnum_f32_no_ieee() #0 {
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX1251-SIZE-LABEL: 'minimumnum_f32_no_ieee'
@@ -747,7 +747,7 @@ define void @minimumnum_f32_no_ieee() #0 {
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %v3f32 = call <3 x float> @llvm.minimumnum.v3f32(<3 x float> poison, <3 x float> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4f32 = call <4 x float> @llvm.minimumnum.v4f32(<4 x float> poison, <4 x float> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8f32 = call <8 x float> @llvm.minimumnum.v8f32(<8 x float> poison, <8 x float> poison)
-; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16f32 = call <16 x float> @llvm.minimumnum.v16f32(<16 x float> poison, <16 x float> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIZE-LABEL: 'minimumnum_f32_no_ieee'
@@ -773,8 +773,8 @@ define void @minimumnum_f64_no_ieee() #0 {
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX7-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX7-NEXT:  Cost Model: Found an estimated cost of 320 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX8-LABEL: 'minimumnum_f64_no_ieee'
@@ -782,8 +782,8 @@ define void @minimumnum_f64_no_ieee() #0 {
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 320 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX9-LABEL: 'minimumnum_f64_no_ieee'
@@ -791,8 +791,8 @@ define void @minimumnum_f64_no_ieee() #0 {
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX9-NEXT:  Cost Model: Found an estimated cost of 320 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX12-LABEL: 'minimumnum_f64_no_ieee'
@@ -800,8 +800,8 @@ define void @minimumnum_f64_no_ieee() #0 {
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX12-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX12-NEXT:  Cost Model: Found an estimated cost of 960 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX12-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1251-LABEL: 'minimumnum_f64_no_ieee'
@@ -809,8 +809,8 @@ define void @minimumnum_f64_no_ieee() #0 {
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX1251-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX1251-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX7-SIZE-LABEL: 'minimumnum_f64_no_ieee'
@@ -818,8 +818,8 @@ define void @minimumnum_f64_no_ieee() #0 {
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX8-SIZE-LABEL: 'minimumnum_f64_no_ieee'
@@ -827,8 +827,8 @@ define void @minimumnum_f64_no_ieee() #0 {
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX9-SIZE-LABEL: 'minimumnum_f64_no_ieee'
@@ -836,8 +836,8 @@ define void @minimumnum_f64_no_ieee() #0 {
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX12-SIZE-LABEL: 'minimumnum_f64_no_ieee'
@@ -845,8 +845,8 @@ define void @minimumnum_f64_no_ieee() #0 {
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX1251-SIZE-LABEL: 'minimumnum_f64_no_ieee'
@@ -854,8 +854,8 @@ define void @minimumnum_f64_no_ieee() #0 {
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %v2f64 = call <2 x double> @llvm.minimumnum.v2f64(<2 x double> poison, <2 x double> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v3f64 = call <3 x double> @llvm.minimumnum.v3f64(<3 x double> poison, <3 x double> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v4f64 = call <4 x double> @llvm.minimumnum.v4f64(<4 x double> poison, <4 x double> poison)
-; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
-; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v8f64 = call <8 x double> @llvm.minimumnum.v8f64(<8 x double> poison, <8 x double> poison)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v16f64 = call <16 x double> @llvm.minimumnum.v16f64(<16 x double> poison, <16 x double> poison)
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIZE-LABEL: 'minimumnum_f64_no_ieee'

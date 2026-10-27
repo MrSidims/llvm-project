@@ -100,8 +100,6 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
   // quarter. This also applies to some integer operations.
   int get64BitInstrCost(TTI::TargetCostKind CostKind) const;
 
-  std::pair<InstructionCost, MVT> getTypeLegalizationCost(Type *Ty) const;
-
   /// \returns true if V might be divergent even when all of its operands
   /// are uniform.
   bool isSourceOfDivergence(const Value *V) const;
@@ -132,6 +130,7 @@ public:
   getRegisterBitWidth(TargetTransformInfo::RegisterKind Vector) const override;
   unsigned getMinVectorRegisterBitWidth() const override;
   unsigned getMaximumVF(unsigned ElemWidth, unsigned Opcode) const override;
+  unsigned getMaximumReductionVF(unsigned ElemWidth) const override;
   bool preferSLPInstCountCheck() const override;
   unsigned getLoadVectorFactor(unsigned VF, unsigned LoadSize,
                                unsigned ChainSizeInBytes,

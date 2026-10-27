@@ -18,7 +18,7 @@ define void @sqrt_f16() {
 ; BASE-NEXT:  Cost Model: Found an estimated cost of 168 for instruction: %v5f16 = call <5 x half> @llvm.sqrt.v5f16(<5 x half> poison)
 ; BASE-NEXT:  Cost Model: Found an estimated cost of 168 for instruction: %v8f16 = call <8 x half> @llvm.sqrt.v8f16(<8 x half> poison)
 ; BASE-NEXT:  Cost Model: Found an estimated cost of 336 for instruction: %v16f16 = call <16 x half> @llvm.sqrt.v16f16(<16 x half> poison)
-; BASE-NEXT:  Cost Model: Found an estimated cost of 714 for instruction: %v17f16 = call <17 x half> @llvm.sqrt.v17f16(<17 x half> poison)
+; BASE-NEXT:  Cost Model: Found an estimated cost of 672 for instruction: %v17f16 = call <17 x half> @llvm.sqrt.v17f16(<17 x half> poison)
 ; BASE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX8-LABEL: 'sqrt_f16'
@@ -62,7 +62,7 @@ define void @sqrt_f16() {
 ; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v5f16 = call <5 x half> @llvm.sqrt.v5f16(<5 x half> poison)
 ; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v8f16 = call <8 x half> @llvm.sqrt.v8f16(<8 x half> poison)
 ; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %v16f16 = call <16 x half> @llvm.sqrt.v16f16(<16 x half> poison)
-; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 646 for instruction: %v17f16 = call <17 x half> @llvm.sqrt.v17f16(<17 x half> poison)
+; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 608 for instruction: %v17f16 = call <17 x half> @llvm.sqrt.v17f16(<17 x half> poison)
 ; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX8-SIZE-LABEL: 'sqrt_f16'
@@ -118,7 +118,7 @@ define void @sqrt_bf16() {
 ; BASE-NEXT:  Cost Model: Found an estimated cost of 168 for instruction: %v5bf16 = call <5 x bfloat> @llvm.sqrt.v5bf16(<5 x bfloat> poison)
 ; BASE-NEXT:  Cost Model: Found an estimated cost of 168 for instruction: %v8bf16 = call <8 x bfloat> @llvm.sqrt.v8bf16(<8 x bfloat> poison)
 ; BASE-NEXT:  Cost Model: Found an estimated cost of 336 for instruction: %v16bf16 = call <16 x bfloat> @llvm.sqrt.v16bf16(<16 x bfloat> poison)
-; BASE-NEXT:  Cost Model: Found an estimated cost of 714 for instruction: %v17bf16 = call <17 x bfloat> @llvm.sqrt.v17bf16(<17 x bfloat> poison)
+; BASE-NEXT:  Cost Model: Found an estimated cost of 672 for instruction: %v17bf16 = call <17 x bfloat> @llvm.sqrt.v17bf16(<17 x bfloat> poison)
 ; BASE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX8-LABEL: 'sqrt_bf16'
@@ -162,7 +162,7 @@ define void @sqrt_bf16() {
 ; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v5bf16 = call <5 x bfloat> @llvm.sqrt.v5bf16(<5 x bfloat> poison)
 ; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v8bf16 = call <8 x bfloat> @llvm.sqrt.v8bf16(<8 x bfloat> poison)
 ; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %v16bf16 = call <16 x bfloat> @llvm.sqrt.v16bf16(<16 x bfloat> poison)
-; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 646 for instruction: %v17bf16 = call <17 x bfloat> @llvm.sqrt.v17bf16(<17 x bfloat> poison)
+; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 608 for instruction: %v17bf16 = call <17 x bfloat> @llvm.sqrt.v17bf16(<17 x bfloat> poison)
 ; BASE-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX8-SIZE-LABEL: 'sqrt_bf16'
@@ -217,8 +217,8 @@ define void @sqrt_f32() {
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %v4f32 = call <4 x float> @llvm.sqrt.v4f32(<4 x float> poison)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 105 for instruction: %v5f32 = call <5 x float> @llvm.sqrt.v5f32(<5 x float> poison)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 168 for instruction: %v8f32 = call <8 x float> @llvm.sqrt.v8f32(<8 x float> poison)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1008 for instruction: %v16f32 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 2688 for instruction: %v17f32 = call <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 336 for instruction: %v16f32 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 672 for instruction: %v17f32 = call <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'sqrt_f32'
@@ -228,8 +228,8 @@ define void @sqrt_f32() {
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v4f32 = call <4 x float> @llvm.sqrt.v4f32(<4 x float> poison)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 95 for instruction: %v5f32 = call <5 x float> @llvm.sqrt.v5f32(<5 x float> poison)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 152 for instruction: %v8f32 = call <8 x float> @llvm.sqrt.v8f32(<8 x float> poison)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 912 for instruction: %v16f32 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2432 for instruction: %v17f32 = call <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 304 for instruction: %v16f32 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 608 for instruction: %v17f32 = call <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f32 = call float @llvm.sqrt.f32(float poison)
@@ -285,8 +285,8 @@ define void @sqrt_f32_afn() #0 {
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v4f32 = call afn <4 x float> @llvm.sqrt.v4f32(<4 x float> poison)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v5f32 = call afn <5 x float> @llvm.sqrt.v5f32(<5 x float> poison)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v8f32 = call afn <8 x float> @llvm.sqrt.v8f32(<8 x float> poison)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v16f32 = call afn <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 512 for instruction: %v17f32 = call afn <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v16f32 = call afn <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %v17f32 = call afn <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'sqrt_f32_afn'
@@ -296,8 +296,8 @@ define void @sqrt_f32_afn() #0 {
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4f32 = call afn <4 x float> @llvm.sqrt.v4f32(<4 x float> poison)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %v5f32 = call afn <5 x float> @llvm.sqrt.v5f32(<5 x float> poison)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v8f32 = call afn <8 x float> @llvm.sqrt.v8f32(<8 x float> poison)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16f32 = call afn <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 256 for instruction: %v17f32 = call afn <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v16f32 = call afn <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v17f32 = call afn <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f32 = call afn float @llvm.sqrt.f32(float poison)
@@ -319,8 +319,8 @@ define void @sqrt_f32_daz() #1 {
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v4f32 = call <4 x float> @llvm.sqrt.v4f32(<4 x float> poison)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 100 for instruction: %v5f32 = call <5 x float> @llvm.sqrt.v5f32(<5 x float> poison)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v8f32 = call <8 x float> @llvm.sqrt.v8f32(<8 x float> poison)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 960 for instruction: %v16f32 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 2560 for instruction: %v17f32 = call <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 320 for instruction: %v16f32 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 640 for instruction: %v17f32 = call <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'sqrt_f32_daz'
@@ -330,8 +330,8 @@ define void @sqrt_f32_daz() #1 {
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %v4f32 = call <4 x float> @llvm.sqrt.v4f32(<4 x float> poison)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 90 for instruction: %v5f32 = call <5 x float> @llvm.sqrt.v5f32(<5 x float> poison)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v8f32 = call <8 x float> @llvm.sqrt.v8f32(<8 x float> poison)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 864 for instruction: %v16f32 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2304 for instruction: %v17f32 = call <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 288 for instruction: %v16f32 = call <16 x float> @llvm.sqrt.v16f32(<16 x float> poison)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 576 for instruction: %v17f32 = call <17 x float> @llvm.sqrt.v17f32(<17 x float> poison)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f32 = call float @llvm.sqrt.f32(float poison)

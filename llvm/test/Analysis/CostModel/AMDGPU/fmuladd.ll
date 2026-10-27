@@ -16,7 +16,7 @@ define void @fmuladd_f16() {
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v4f16 = call <4 x half> @llvm.fmuladd.v4f16(<4 x half> undef, <4 x half> undef, <4 x half> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v5f16 = call <5 x half> @llvm.fmuladd.v5f16(<5 x half> undef, <5 x half> undef, <5 x half> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v16f16 = call <16 x half> @llvm.fmuladd.v16f16(<16 x half> undef, <16 x half> undef, <16 x half> undef)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v17f16 = call <17 x half> @llvm.fmuladd.v17f16(<17 x half> undef, <17 x half> undef, <17 x half> undef)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v17f16 = call <17 x half> @llvm.fmuladd.v17f16(<17 x half> undef, <17 x half> undef, <17 x half> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SLOW-LABEL: 'fmuladd_f16'
@@ -26,7 +26,7 @@ define void @fmuladd_f16() {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v4f16 = call <4 x half> @llvm.fmuladd.v4f16(<4 x half> undef, <4 x half> undef, <4 x half> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v5f16 = call <5 x half> @llvm.fmuladd.v5f16(<5 x half> undef, <5 x half> undef, <5 x half> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v16f16 = call <16 x half> @llvm.fmuladd.v16f16(<16 x half> undef, <16 x half> undef, <16 x half> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 136 for instruction: %v17f16 = call <17 x half> @llvm.fmuladd.v17f16(<17 x half> undef, <17 x half> undef, <17 x half> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %v17f16 = call <17 x half> @llvm.fmuladd.v17f16(<17 x half> undef, <17 x half> undef, <17 x half> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FAST-SIZE-LABEL: 'fmuladd_f16'
@@ -36,7 +36,7 @@ define void @fmuladd_f16() {
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v4f16 = call <4 x half> @llvm.fmuladd.v4f16(<4 x half> undef, <4 x half> undef, <4 x half> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v5f16 = call <5 x half> @llvm.fmuladd.v5f16(<5 x half> undef, <5 x half> undef, <5 x half> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v16f16 = call <16 x half> @llvm.fmuladd.v16f16(<16 x half> undef, <16 x half> undef, <16 x half> undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v17f16 = call <17 x half> @llvm.fmuladd.v17f16(<17 x half> undef, <17 x half> undef, <17 x half> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v17f16 = call <17 x half> @llvm.fmuladd.v17f16(<17 x half> undef, <17 x half> undef, <17 x half> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SLOW-SIZE-LABEL: 'fmuladd_f16'
@@ -46,7 +46,7 @@ define void @fmuladd_f16() {
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4f16 = call <4 x half> @llvm.fmuladd.v4f16(<4 x half> undef, <4 x half> undef, <4 x half> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v5f16 = call <5 x half> @llvm.fmuladd.v5f16(<5 x half> undef, <5 x half> undef, <5 x half> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v16f16 = call <16 x half> @llvm.fmuladd.v16f16(<16 x half> undef, <16 x half> undef, <16 x half> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 68 for instruction: %v17f16 = call <17 x half> @llvm.fmuladd.v17f16(<17 x half> undef, <17 x half> undef, <17 x half> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v17f16 = call <17 x half> @llvm.fmuladd.v17f16(<17 x half> undef, <17 x half> undef, <17 x half> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f16 = call half @llvm.fmuladd.f16(half undef, half undef, half undef)
@@ -67,7 +67,7 @@ define void @fmuladd_bf16() {
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4bf16 = call <4 x bfloat> @llvm.fmuladd.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef, <4 x bfloat> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v5bf16 = call <5 x bfloat> @llvm.fmuladd.v5bf16(<5 x bfloat> undef, <5 x bfloat> undef, <5 x bfloat> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v16bf16 = call <16 x bfloat> @llvm.fmuladd.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef, <16 x bfloat> undef)
-; FAST-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v17bf16 = call <17 x bfloat> @llvm.fmuladd.v17bf16(<17 x bfloat> undef, <17 x bfloat> undef, <17 x bfloat> undef)
+; FAST-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v17bf16 = call <17 x bfloat> @llvm.fmuladd.v17bf16(<17 x bfloat> undef, <17 x bfloat> undef, <17 x bfloat> undef)
 ; FAST-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SLOW-LABEL: 'fmuladd_bf16'
@@ -77,7 +77,7 @@ define void @fmuladd_bf16() {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v4bf16 = call <4 x bfloat> @llvm.fmuladd.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef, <4 x bfloat> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v5bf16 = call <5 x bfloat> @llvm.fmuladd.v5bf16(<5 x bfloat> undef, <5 x bfloat> undef, <5 x bfloat> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v16bf16 = call <16 x bfloat> @llvm.fmuladd.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef, <16 x bfloat> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 136 for instruction: %v17bf16 = call <17 x bfloat> @llvm.fmuladd.v17bf16(<17 x bfloat> undef, <17 x bfloat> undef, <17 x bfloat> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %v17bf16 = call <17 x bfloat> @llvm.fmuladd.v17bf16(<17 x bfloat> undef, <17 x bfloat> undef, <17 x bfloat> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FAST-SIZE-LABEL: 'fmuladd_bf16'
@@ -87,7 +87,7 @@ define void @fmuladd_bf16() {
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4bf16 = call <4 x bfloat> @llvm.fmuladd.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef, <4 x bfloat> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v5bf16 = call <5 x bfloat> @llvm.fmuladd.v5bf16(<5 x bfloat> undef, <5 x bfloat> undef, <5 x bfloat> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v16bf16 = call <16 x bfloat> @llvm.fmuladd.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef, <16 x bfloat> undef)
-; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 192 for instruction: %v17bf16 = call <17 x bfloat> @llvm.fmuladd.v17bf16(<17 x bfloat> undef, <17 x bfloat> undef, <17 x bfloat> undef)
+; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v17bf16 = call <17 x bfloat> @llvm.fmuladd.v17bf16(<17 x bfloat> undef, <17 x bfloat> undef, <17 x bfloat> undef)
 ; FAST-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SLOW-SIZE-LABEL: 'fmuladd_bf16'
@@ -97,7 +97,7 @@ define void @fmuladd_bf16() {
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4bf16 = call <4 x bfloat> @llvm.fmuladd.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef, <4 x bfloat> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v5bf16 = call <5 x bfloat> @llvm.fmuladd.v5bf16(<5 x bfloat> undef, <5 x bfloat> undef, <5 x bfloat> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v16bf16 = call <16 x bfloat> @llvm.fmuladd.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef, <16 x bfloat> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 68 for instruction: %v17bf16 = call <17 x bfloat> @llvm.fmuladd.v17bf16(<17 x bfloat> undef, <17 x bfloat> undef, <17 x bfloat> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v17bf16 = call <17 x bfloat> @llvm.fmuladd.v17bf16(<17 x bfloat> undef, <17 x bfloat> undef, <17 x bfloat> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %bf16 = call bfloat @llvm.fmuladd.bf16(bfloat undef, bfloat undef, bfloat undef)
@@ -118,7 +118,7 @@ define void @fmuladd_f32() {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v4f32 = call <4 x float> @llvm.fmuladd.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v5f32 = call <5 x float> @llvm.fmuladd.v5f32(<5 x float> undef, <5 x float> undef, <5 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v8f32 = call <8 x float> @llvm.fmuladd.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 108 for instruction: %v9f32 = call <9 x float> @llvm.fmuladd.v9f32(<9 x float> undef, <9 x float> undef, <9 x float> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v9f32 = call <9 x float> @llvm.fmuladd.v9f32(<9 x float> undef, <9 x float> undef, <9 x float> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SLOW-SIZE-LABEL: 'fmuladd_f32'
@@ -128,7 +128,7 @@ define void @fmuladd_f32() {
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4f32 = call <4 x float> @llvm.fmuladd.v4f32(<4 x float> undef, <4 x float> undef, <4 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %v5f32 = call <5 x float> @llvm.fmuladd.v5f32(<5 x float> undef, <5 x float> undef, <5 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v8f32 = call <8 x float> @llvm.fmuladd.v8f32(<8 x float> undef, <8 x float> undef, <8 x float> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 54 for instruction: %v9f32 = call <9 x float> @llvm.fmuladd.v9f32(<9 x float> undef, <9 x float> undef, <9 x float> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v9f32 = call <9 x float> @llvm.fmuladd.v9f32(<9 x float> undef, <9 x float> undef, <9 x float> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f32 = call float @llvm.fmuladd.f32(float undef, float undef, float undef)
@@ -147,7 +147,7 @@ define void @fmuladd_f64() {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2f64 = call <2 x double> @llvm.fmuladd.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v3f64 = call <3 x double> @llvm.fmuladd.v3f64(<3 x double> undef, <3 x double> undef, <3 x double> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v4f64 = call <4 x double> @llvm.fmuladd.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
-; SLOW-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v5f64 = call <5 x double> @llvm.fmuladd.v5f64(<5 x double> undef, <5 x double> undef, <5 x double> undef)
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v5f64 = call <5 x double> @llvm.fmuladd.v5f64(<5 x double> undef, <5 x double> undef, <5 x double> undef)
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SLOW-SIZE-LABEL: 'fmuladd_f64'
@@ -155,7 +155,7 @@ define void @fmuladd_f64() {
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2f64 = call <2 x double> @llvm.fmuladd.v2f64(<2 x double> undef, <2 x double> undef, <2 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v3f64 = call <3 x double> @llvm.fmuladd.v3f64(<3 x double> undef, <3 x double> undef, <3 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4f64 = call <4 x double> @llvm.fmuladd.v4f64(<4 x double> undef, <4 x double> undef, <4 x double> undef)
-; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v5f64 = call <5 x double> @llvm.fmuladd.v5f64(<5 x double> undef, <5 x double> undef, <5 x double> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v5f64 = call <5 x double> @llvm.fmuladd.v5f64(<5 x double> undef, <5 x double> undef, <5 x double> undef)
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f64 = call double @llvm.fmuladd.f64(double undef, double undef, double undef)

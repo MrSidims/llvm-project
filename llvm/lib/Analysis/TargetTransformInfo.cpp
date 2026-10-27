@@ -880,6 +880,10 @@ unsigned TargetTransformInfo::getMaximumVF(unsigned ElemWidth,
   return TTIImpl->getMaximumVF(ElemWidth, Opcode);
 }
 
+unsigned TargetTransformInfo::getMaximumReductionVF(unsigned ElemWidth) const {
+  return TTIImpl->getMaximumReductionVF(ElemWidth);
+}
+
 unsigned TargetTransformInfo::getStoreMinimumVF(unsigned VF, Type *ScalarMemTy,
                                                 Type *ScalarValTy,
                                                 Align Alignment,

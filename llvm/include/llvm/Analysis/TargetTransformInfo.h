@@ -1470,6 +1470,11 @@ public:
   /// Currently only used by the SLP vectorizer.
   LLVM_ABI unsigned getMaximumVF(unsigned ElemWidth, unsigned Opcode) const;
 
+  /// \return The maximum number of reduced values of given bit width in one
+  /// vectorized horizontal reduction, or 0 if there is no maximum.
+  /// Currently only used by the SLP vectorizer.
+  LLVM_ABI unsigned getMaximumReductionVF(unsigned ElemWidth) const;
+
   /// \return The minimum vectorization factor for the store instruction. Given
   /// the initial estimation of the minimum vector factor and store value type,
   /// it tries to find possible lowest VF, which still might be profitable for

@@ -344,6 +344,11 @@ unsigned GCNTTIImpl::getMaximumVF(unsigned ElemWidth, unsigned Opcode) const {
              : 1;
 }
 
+unsigned GCNTTIImpl::getMaximumReductionVF(unsigned ElemWidth) const {
+  // A wider reduction keeps more registers live than its cost shows.
+  return std::max(2u, 256 / ElemWidth);
+}
+
 bool GCNTTIImpl::preferSLPInstCountCheck() const {
   // The integer inst-count heuristic causes regressions on gfx94x and gfx950
   // because 2-element vector trees that pass the scalar/vector instruction
@@ -2131,20 +2136,6 @@ int GCNTTIImpl::get64BitInstrCost(TTI::TargetCostKind CostKind) const {
              ? getFullRateInstrCost()
              : ST->hasHalfRate64Ops() ? getHalfRateInstrCost(CostKind)
                                       : getQuarterRateInstrCost(CostKind);
-}
-
-std::pair<InstructionCost, MVT>
-GCNTTIImpl::getTypeLegalizationCost(Type *Ty) const {
-  std::pair<InstructionCost, MVT> Cost = BaseT::getTypeLegalizationCost(Ty);
-  auto Size = DL.getTypeSizeInBits(Ty);
-  // Maximum load or store can handle 8 dwords for scalar and 4 for
-  // vector ALU. Let's assume anything above 8 dwords is expensive
-  // even if legal.
-  if (Size <= 256)
-    return Cost;
-
-  Cost.first += (Size + 255) / 256;
-  return Cost;
 }
 
 unsigned GCNTTIImpl::getCacheLineSize() const {
