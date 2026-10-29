@@ -102,6 +102,12 @@ static cl::opt<unsigned> InlineThresholdMultiplierOpt(
     "amdgpu-inline-threshold-multiplier", cl::Hidden, cl::init(11),
     cl::desc("Factor applied to the generic inline cost threshold"));
 
+static cl::opt<bool> InlineCountCopies(
+    "amdgpu-inline-count-copies", cl::Hidden, cl::init(true),
+    cl::desc("Multiply the inline cost of a call site by the number of copies "
+             "of the callee its caller would hold (sibling call sites, and the "
+             "copies full unrolling makes of each)"));
+
 static cl::opt<unsigned> InlineSGPRsUntilSpillOpt(
     "amdgpu-inline-sgprs-until-spill", cl::Hidden, cl::init(26),
     cl::desc("Number of SGPR call arguments assumed to be passed in registers "
@@ -221,6 +227,13 @@ void AMDGPUTTIImpl::getUnrollingPreferences(
         continue;
 
       unsigned AS = GEP->getAddressSpace();
+      // Before InferAddressSpaces runs, a private array is still addressed
+      // through a flat cast of its alloca; classify it by the alloca so the
+      // answer does not depend on where in the pipeline it is asked.
+      if (AS == AMDGPUAS::FLAT_ADDRESS)
+        if (const auto *AI = dyn_cast<AllocaInst>(
+                getUnderlyingObject(GEP->getPointerOperand())))
+          AS = AI->getAddressSpace();
       unsigned Threshold = 0;
       if (AS == AMDGPUAS::PRIVATE_ADDRESS)
         Threshold = ThresholdPrivate;
@@ -1708,6 +1721,14 @@ unsigned GCNTTIImpl::adjustInliningThreshold(const CallBase *CB) const {
   if (AllocaSize > 0)
     Threshold += ArgAllocaCost;
   return Threshold;
+}
+
+// Kernels routinely call one helper from many sites, and the private-array
+// unroll boost in getUnrollingPreferences multiplies a site inside a loop that
+// indexes a small alloca once per iteration. Every copy competes for one VGPR
+// budget, so price the decision by the copies it creates.
+bool GCNTTIImpl::inlineCostCountsReplicatedCopies() const {
+  return InlineCountCopies;
 }
 
 unsigned GCNTTIImpl::getCallerAllocaCost(const CallBase *CB,

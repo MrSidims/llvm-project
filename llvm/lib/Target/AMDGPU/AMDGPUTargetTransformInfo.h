@@ -268,6 +268,7 @@ public:
     return InlineThresholdMultiplier;
   }
   unsigned adjustInliningThreshold(const CallBase *CB) const override;
+  bool inlineCostCountsReplicatedCopies() const override;
   unsigned getCallerAllocaCost(const CallBase *CB,
                                const AllocaInst *AI) const override;
 

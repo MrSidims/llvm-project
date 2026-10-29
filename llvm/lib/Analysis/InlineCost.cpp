@@ -27,6 +27,7 @@
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -34,6 +35,7 @@
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/InlineAsm.h"
@@ -1129,10 +1131,106 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     if (IgnoreThreshold)
       return InlineResult::success();
 
+    // A per-call-site cost undercounts a callee the caller will hold several
+    // copies of: one per sibling call site, and one per unrolled iteration.
+    if (Cost > 0)
+      if (unsigned Copies = getReplicatedCopies(); Copies > 1)
+        Cost = static_cast<int>(
+            std::min<int64_t>(int64_t(Cost) * Copies, INT_MAX));
+
     DecidedByCostThreshold = true;
     return Cost < std::max(1, Threshold)
                ? InlineResult::success()
                : InlineResult::failure("Cost over threshold.");
+  }
+
+  /// Copies of the callee one call site of loop \p L becomes once the loop is
+  /// fully unrolled: its trip count if the unroller's own size test
+  /// ((LoopSize - BEInsns) * TripCount + BEInsns < Threshold) passes with the
+  /// call replaced by the callee's estimated size, 1 otherwise.
+  unsigned getUnrollCopies(Loop *L, ScalarEvolution &SE, AssumptionCache &AC) {
+    unsigned TripCount = SE.getSmallConstantTripCount(L);
+    // Until the loop is rotated the exit test sits in the header, which runs
+    // once more than the body that unrolling will copy.
+    BasicBlock *Latch = L->getLoopLatch();
+    if (TripCount && L->getExitingBlock() == L->getHeader() && Latch &&
+        Latch != L->getHeader())
+      --TripCount;
+    if (TripCount < 2)
+      return 1;
+
+    TargetTransformInfo::UnrollingPreferences UP = {};
+    UP.Threshold = 300;
+    UP.FullUnrollMaxCount = std::numeric_limits<unsigned>::max();
+    UP.BEInsns = 2;
+    TTI.getUnrollingPreferences(L, SE, UP, /*ORE=*/nullptr);
+    if (TripCount > UP.FullUnrollMaxCount)
+      return 1;
+
+    SmallPtrSet<const Value *, 32> EphValues;
+    CodeMetrics::collectEphemeralValues(L, &AC, EphValues);
+    CodeMetrics Metrics;
+    for (BasicBlock *BB : L->blocks())
+      Metrics.analyzeBasicBlock(BB, TTI, EphValues, /*PrepareForLTO=*/false, L);
+    if (Metrics.notDuplicatable || !Metrics.NumInsts.isValid())
+      return 1;
+    // Cost already credits the removed call and its argument setup, so it is
+    // the net growth of the loop body, in InstrCost units.
+    int64_t LoopSize =
+        Metrics.NumInsts.getValue() + Cost / std::max(1, int(InstrCost));
+    int64_t BE = UP.BEInsns;
+    int64_t Unrolled = (std::max(LoopSize, BE + 1) - BE) * TripCount + BE;
+    LLVM_DEBUG(dbgs() << "      Loop trip count " << TripCount
+                      << ", unrolled size " << Unrolled << " vs threshold "
+                      << UP.Threshold << "\n");
+    return Unrolled < UP.Threshold ? TripCount : 1;
+  }
+
+  /// How many copies of the callee the caller ends up with if this decision is
+  /// taken for every one of its call sites to the callee -- which it is: the
+  /// sites share a callee and so a cost, and are decided alike. Each site
+  /// counts the copies full unrolling will make of it. The total is the same
+  /// before unrolling (one site per loop, times the trip count) and after it
+  /// (one site per unrolled copy), which matters because HIP device code is
+  /// inlined twice, in the -flto pre-link pipeline and again at the LTO link.
+  unsigned getReplicatedCopies() {
+    if (!TTI.inlineCostCountsReplicatedCopies())
+      return 1;
+    Function &Caller = *CandidateCall.getFunction();
+    SmallVector<CallBase *, 8> Sites;
+    for (User *U : F.users())
+      if (auto *CB = dyn_cast<CallBase>(U))
+        if (CB->getCalledFunction() == &F && CB->getFunction() == &Caller)
+          Sites.push_back(CB);
+    if (Sites.empty())
+      return 1;
+
+    DominatorTree DT(Caller);
+    LoopInfo LI(DT);
+    std::optional<TargetLibraryInfo> TLI;
+    std::optional<ScalarEvolution> SE;
+    AssumptionCache &AC = GetAssumptionCache(Caller);
+    DenseMap<Loop *, unsigned> LoopCopies;
+    uint64_t Total = 0;
+    for (CallBase *CB : Sites) {
+      Loop *L = LI.getLoopFor(CB->getParent());
+      if (!L || !GetTLI) {
+        ++Total;
+        continue;
+      }
+      auto [It, Inserted] = LoopCopies.try_emplace(L, 1);
+      if (Inserted) {
+        if (!SE) {
+          TLI.emplace(GetTLI(Caller));
+          SE.emplace(Caller, *TLI, AC, DT, LI);
+        }
+        It->second = getUnrollCopies(L, *SE, AC);
+      }
+      Total += It->second;
+    }
+    LLVM_DEBUG(dbgs() << "      Replicated copies: " << Total << " over "
+                      << Sites.size() << " call sites\n");
+    return static_cast<unsigned>(std::min<uint64_t>(Total, UINT_MAX));
   }
 
   bool shouldStop() override {
