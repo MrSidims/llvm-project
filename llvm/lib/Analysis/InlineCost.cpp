@@ -2338,7 +2338,10 @@ bool CallAnalyzer::visitFNeg(UnaryOperator &I) {
   // Disable any SROA on arguments to arbitrary, unsimplified fneg.
   disableSROA(Op);
 
-  return false;
+  // Many targets fold fneg into a source modifier of its user; ask the target
+  // instead of always charging an instruction.
+  return TTI.getInstructionCost(&I, TargetTransformInfo::TCK_SizeAndLatency) ==
+         TargetTransformInfo::TCC_Free;
 }
 
 bool CallAnalyzer::visitLoad(LoadInst &I) {
