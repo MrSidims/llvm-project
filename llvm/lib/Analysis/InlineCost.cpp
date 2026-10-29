@@ -1131,6 +1131,15 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     if (IgnoreThreshold)
       return InlineResult::success();
 
+    // A call to a function that does not access memory is a value the
+    // optimizer can CSE, hoist or sink. Inlining a callee with live control
+    // flow turns it into a CFG region none of that applies to, so the target's
+    // call-cost boost is not credited to it.
+    if (!SingleBB && F.doesNotAccessMemory() && F.willReturn() &&
+        TTI.inlineThresholdMultiplierSkipsPureCFG())
+      if (unsigned Mult = TTI.getInliningThresholdMultiplier(); Mult > 1)
+        Threshold /= static_cast<int>(Mult);
+
     // A per-call-site cost undercounts a callee the caller will hold several
     // copies of: one per sibling call site, and one per unrolled iteration.
     if (Cost > 0)

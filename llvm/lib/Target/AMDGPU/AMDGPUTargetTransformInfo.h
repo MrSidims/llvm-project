@@ -269,6 +269,7 @@ public:
   }
   unsigned adjustInliningThreshold(const CallBase *CB) const override;
   bool inlineCostCountsReplicatedCopies() const override;
+  bool inlineThresholdMultiplierSkipsPureCFG() const override;
   unsigned getCallerAllocaCost(const CallBase *CB,
                                const AllocaInst *AI) const override;
 

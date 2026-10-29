@@ -458,6 +458,12 @@ public:
   /// each site.
   LLVM_ABI bool inlineCostCountsReplicatedCopies() const;
 
+  /// \returns True if the threshold multiplier should not be applied to a
+  /// callee that does not access memory but has live control flow. A call to
+  /// such a function is a value the optimizer can CSE, hoist or sink; once
+  /// inlined it is a region of the caller's CFG, and none of that applies.
+  LLVM_ABI bool inlineThresholdMultiplierSkipsPureCFG() const;
+
   /// \returns The cost of having an Alloca in the caller if not inlined, to be
   /// added to the threshold
   LLVM_ABI unsigned getCallerAllocaCost(const CallBase *CB,

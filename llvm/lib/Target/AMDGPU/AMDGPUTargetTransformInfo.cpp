@@ -108,6 +108,11 @@ static cl::opt<bool> InlineCountCopies(
              "of the callee its caller would hold (sibling call sites, and the "
              "copies full unrolling makes of each)"));
 
+static cl::opt<bool> InlineMultiplierSkipsPureCFG(
+    "amdgpu-inline-pure-cfg-no-multiplier", cl::Hidden, cl::init(true),
+    cl::desc("Do not apply the inline threshold multiplier to callees that do "
+             "not access memory but have live control flow"));
+
 static cl::opt<unsigned> InlineSGPRsUntilSpillOpt(
     "amdgpu-inline-sgprs-until-spill", cl::Hidden, cl::init(26),
     cl::desc("Number of SGPR call arguments assumed to be passed in registers "
@@ -1729,6 +1734,14 @@ unsigned GCNTTIImpl::adjustInliningThreshold(const CallBase *CB) const {
 // budget, so price the decision by the copies it creates.
 bool GCNTTIImpl::inlineCostCountsReplicatedCopies() const {
   return InlineCountCopies;
+}
+
+// The x11 threshold multiplier prices in how expensive a call is on GCN. For a
+// pure callee with branches that trade is often the wrong one: e.g. sin and
+// cos of one argument each inline their own copy of the same range reduction,
+// where as two calls the duplicate would simply have been CSE'd.
+bool GCNTTIImpl::inlineThresholdMultiplierSkipsPureCFG() const {
+  return InlineMultiplierSkipsPureCFG;
 }
 
 unsigned GCNTTIImpl::getCallerAllocaCost(const CallBase *CB,

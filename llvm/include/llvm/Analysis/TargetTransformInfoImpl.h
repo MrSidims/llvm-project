@@ -104,6 +104,7 @@ public:
     return 0;
   }
   virtual bool inlineCostCountsReplicatedCopies() const { return false; }
+  virtual bool inlineThresholdMultiplierSkipsPureCFG() const { return false; }
   virtual unsigned getCallerAllocaCost(const CallBase *CB,
                                        const AllocaInst *AI) const {
     return 0;

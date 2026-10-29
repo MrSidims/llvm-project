@@ -241,6 +241,10 @@ bool TargetTransformInfo::inlineCostCountsReplicatedCopies() const {
   return TTIImpl->inlineCostCountsReplicatedCopies();
 }
 
+bool TargetTransformInfo::inlineThresholdMultiplierSkipsPureCFG() const {
+  return TTIImpl->inlineThresholdMultiplierSkipsPureCFG();
+}
+
 unsigned TargetTransformInfo::getCallerAllocaCost(const CallBase *CB,
                                                   const AllocaInst *AI) const {
   return TTIImpl->getCallerAllocaCost(CB, AI);
