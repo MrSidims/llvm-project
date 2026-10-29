@@ -452,10 +452,10 @@ public:
   /// \returns A value to be added to the inlining threshold.
   LLVM_ABI unsigned adjustInliningThreshold(const CallBase *CB) const;
 
-  /// \returns True if the inline cost of a call site should be multiplied by
-  /// the number of copies of the callee its caller would end up holding: one
-  /// per call site to that callee, times the copies full unrolling makes of
-  /// each site.
+  /// \returns True if the inline cost of a call site to a callee with live
+  /// control flow should be multiplied by the number of copies of the callee
+  /// its caller would end up holding: one per call site to that callee, times
+  /// the copies full unrolling makes of each site.
   LLVM_ABI bool inlineCostCountsReplicatedCopies() const;
 
   /// \returns True if the threshold multiplier should not be applied to a

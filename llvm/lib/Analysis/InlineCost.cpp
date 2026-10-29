@@ -1142,7 +1142,11 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
     // A per-call-site cost undercounts a callee the caller will hold several
     // copies of: one per sibling call site, and one per unrolled iteration.
-    if (Cost > 0)
+    // Only a callee with live control flow is charged for it: straight-line
+    // copies merge into the caller's own blocks, where the scheduler and the
+    // register allocator see them as one region, while every branchy copy
+    // splits the caller and carries its live ranges across its own CFG.
+    if (Cost > 0 && !SingleBB)
       if (unsigned Copies = getReplicatedCopies(); Copies > 1)
         Cost = static_cast<int>(
             std::min<int64_t>(int64_t(Cost) * Copies, INT_MAX));
