@@ -145,6 +145,41 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
+; Check that we full unroll loop when the alloca is accessed through a flat cast
+; CHECK-LABEL: @non_invariant_ind_flat
+; CHECK:       for.body:
+; CHECK-NOT:   br
+; CHECK:       store i32 %tmp15, ptr addrspace(1) %arrayidx7, align 4
+; CHECK:       ret void
+
+define amdgpu_kernel void @non_invariant_ind_flat(ptr addrspace(1) nocapture %a, i32 %x) {
+entry:
+  %arr = alloca [64 x i32], align 4, addrspace(5)
+  %flat = addrspacecast ptr addrspace(5) %arr to ptr
+  %tmp1 = tail call i32 @llvm.amdgcn.workitem.id.x() #1
+  br label %for.body
+
+for.cond.cleanup:                                 ; preds = %for.body
+  %arrayidx5 = getelementptr inbounds [64 x i32], ptr %flat, i32 0, i32 %x
+  %tmp15 = load i32, ptr %arrayidx5, align 4
+  %arrayidx7 = getelementptr inbounds i32, ptr addrspace(1) %a, i32 %tmp1
+  store i32 %tmp15, ptr addrspace(1) %arrayidx7, align 4
+  ret void
+
+for.body:                                         ; preds = %for.body, %entry
+  %i.015 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
+  %idxprom = sext i32 %i.015 to i64
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %a, i64 %idxprom
+  %tmp16 = load i32, ptr addrspace(1) %arrayidx, align 4
+  %add = add nsw i32 %i.015, %tmp1
+  %rem = srem i32 %add, 64
+  %arrayidx3 = getelementptr inbounds [64 x i32], ptr %flat, i32 0, i32 %rem
+  store i32 %tmp16, ptr %arrayidx3, align 4
+  %inc = add nuw nsw i32 %i.015, 1
+  %exitcond = icmp eq i32 %inc, 100
+  br i1 %exitcond, label %for.cond.cleanup, label %for.body
+}
+
 declare ptr addrspace(4) @llvm.amdgcn.dispatch.ptr() #1
 
 declare i32 @llvm.amdgcn.workitem.id.x() #1

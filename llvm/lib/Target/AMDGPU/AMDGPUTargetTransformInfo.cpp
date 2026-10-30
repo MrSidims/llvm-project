@@ -197,6 +197,12 @@ void AMDGPUTTIImpl::getUnrollingPreferences(
         continue;
 
       unsigned AS = GEP->getAddressSpace();
+      // A private array is addressed through a flat cast of its alloca until
+      // address spaces are inferred.
+      if (AS == AMDGPUAS::FLAT_ADDRESS)
+        if (const auto *AI = dyn_cast<AllocaInst>(
+                getUnderlyingObject(GEP->getPointerOperand())))
+          AS = AI->getAddressSpace();
       unsigned Threshold = 0;
       if (AS == AMDGPUAS::PRIVATE_ADDRESS)
         Threshold = ThresholdPrivate;
