@@ -2249,7 +2249,8 @@ bool CallAnalyzer::visitFNeg(UnaryOperator &I) {
   // Disable any SROA on arguments to arbitrary, unsimplified fneg.
   disableSROA(Op);
 
-  return false;
+  return TTI.getInstructionCost(&I, TargetTransformInfo::TCK_SizeAndLatency) ==
+         TargetTransformInfo::TCC_Free;
 }
 
 bool CallAnalyzer::visitLoad(LoadInst &I) {
