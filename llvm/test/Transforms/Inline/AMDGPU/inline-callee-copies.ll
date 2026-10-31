@@ -2,6 +2,8 @@
 ; RUN: opt -mtriple=amdgcn-amd-amdhsa -passes='print<inline-cost>' -amdgpu-inline-count-copies=false -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,OFF
 ; RUN: opt -mtriple=amdgcn-amd-amdhsa -passes=inline -S < %s | FileCheck %s --check-prefix=INLINE-ON
 ; RUN: opt -mtriple=amdgcn-amd-amdhsa -passes=inline -amdgpu-inline-count-copies=false -S < %s | FileCheck %s --check-prefix=INLINE-OFF
+; RUN: opt -mtriple=amdgcn-amd-amdhsa -passes='default<O3>' -S < %s | FileCheck %s --check-prefixes=O3,O3-UNROLL
+; RUN: opt -mtriple=amdgcn-amd-amdhsa -passes='default<O3>' -disable-loop-unrolling -S < %s | FileCheck %s --check-prefixes=O3,O3-NO-UNROLL
 
 ; A call site of a callee with control flow is charged for every copy of the
 ; callee its caller would hold, one for each call site to the callee, times the
@@ -548,11 +550,50 @@ exit:
   ret void
 }
 
+; A pipeline that unrolls only the loops with a pragma makes one copy of the
+; body of any other loop.
+; O3-LABEL: define void @pipeline_loop_8(
+; O3-UNROLL: call void @callee(
+; O3-NO-UNROLL-NOT: call void @callee(
+; O3-NO-UNROLL: ret void
+define void @pipeline_loop_8(ptr %p) {
+entry:
+  br label %loop
+
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %loop ]
+  call void @callee(ptr %p, i32 %i) #3
+  %i.next = add nuw nsw i32 %i, 1
+  %done = icmp eq i32 %i.next, 8
+  br i1 %done, label %exit, label %loop
+
+exit:
+  ret void
+}
+
+; O3-LABEL: define void @pipeline_enable_8(
+; O3: call void @callee(
+define void @pipeline_enable_8(ptr %p) {
+entry:
+  br label %loop
+
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %loop ]
+  call void @callee(ptr %p, i32 %i) #3
+  %i.next = add nuw nsw i32 %i, 1
+  %done = icmp eq i32 %i.next, 8
+  br i1 %done, label %exit, label %loop, !llvm.loop !10
+
+exit:
+  ret void
+}
+
 declare void @llvm.amdgcn.s.barrier()
 
 attributes #0 = { "function-inline-cost"="50" "function-inline-threshold"="100000" }
 attributes #1 = { "function-inline-threshold"="1000" }
 attributes #2 = { noinline }
+attributes #3 = { "function-inline-threshold"="300" }
 
 !0 = distinct !{!0, !1}
 !1 = !{!"llvm.loop.unroll.disable"}
@@ -564,3 +605,4 @@ attributes #2 = { noinline }
 !7 = !{!"llvm.loop.unroll.enable"}
 !8 = distinct !{!8, !7}
 !9 = distinct !{!9, !5}
+!10 = distinct !{!10, !7}

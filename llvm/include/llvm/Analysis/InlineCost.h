@@ -242,6 +242,9 @@ struct InlineParams {
 
   /// Indicate whether we allow inlining for recursive call.
   std::optional<bool> AllowRecursiveCall = false;
+
+  /// Indicate whether loops without an unroll pragma get unrolled.
+  std::optional<bool> LoopUnrolling;
 };
 
 LLVM_ABI std::optional<int> getStringFnAttrAsInt(CallBase &CB,

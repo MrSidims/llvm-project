@@ -525,6 +525,7 @@ class CalleeCopyCounter {
   CallBase &Call;
   Function &Caller;
   uint64_t CalleeSize;
+  bool LoopUnrolling;
   const TargetTransformInfo &TTI;
   AssumptionCache &AC;
   function_ref<const TargetLibraryInfo &(Function &)> GetTLI;
@@ -705,7 +706,8 @@ class CalleeCopyCounter {
       return Count;
     bool Enabled = PragmaCount.has_value() ||
                    getBooleanLoopAttribute(L, "llvm.loop.unroll.enable");
-    if (!Enabled && getBooleanLoopAttribute(L, "llvm.loop.disable_nonforced"))
+    if (!Enabled && (!LoopUnrolling ||
+                     getBooleanLoopAttribute(L, "llvm.loop.disable_nonforced")))
       return 1;
 
     TargetTransformInfo::UnrollingPreferences UP = {};
@@ -737,10 +739,12 @@ class CalleeCopyCounter {
 
 public:
   CalleeCopyCounter(Function &Callee, CallBase &Call, uint64_t CalleeSize,
-                    const TargetTransformInfo &TTI, AssumptionCache &AC,
+                    bool LoopUnrolling, const TargetTransformInfo &TTI,
+                    AssumptionCache &AC,
                     function_ref<const TargetLibraryInfo &(Function &)> GetTLI)
       : Callee(Callee), Call(Call), Caller(*Call.getFunction()),
-        CalleeSize(CalleeSize), TTI(TTI), AC(AC), GetTLI(GetTLI) {}
+        CalleeSize(CalleeSize), LoopUnrolling(LoopUnrolling), TTI(TTI), AC(AC),
+        GetTLI(GetTLI) {}
 
   /// Returns the number of copies, or \p Limit if it is at least \p Limit.
   unsigned count(unsigned Limit) {
@@ -1306,7 +1310,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     if (Cost > 0 && Cost < Threshold && !SingleBB &&
         TTI.inlineCostCountsCalleeCopies()) {
       CalleeCopyCounter Counter(F, CandidateCall,
-                                Cost / std::max(1, int(InstrCost)), TTI,
+                                Cost / std::max(1, int(InstrCost)),
+                                Params.LoopUnrolling.value_or(true), TTI,
                                 GetAssumptionCache(*Caller), GetTLI);
       unsigned Copies =
           Counter.count(divideCeil(unsigned(Threshold), unsigned(Cost)));

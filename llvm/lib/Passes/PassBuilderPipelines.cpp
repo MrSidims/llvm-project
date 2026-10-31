@@ -358,9 +358,11 @@ static InlineParams getInlineParamsFromOptLevel(OptimizationLevel Level) {
 
 static void addModuleInlinerPass(ModulePassManager &MPM,
                                  const PassesOptions &Opts,
+                                 const PipelineTuningOptions &PTO,
                                  OptimizationLevel Level,
                                  ThinOrFullLTOPhase Phase) {
   InlineParams IP = ::getInlineParamsFromOptLevel(Level);
+  IP.LoopUnrolling = PTO.LoopUnrolling;
   if (Opts.enable_module_inliner)
     MPM.addPass(ModuleInlinerPass(IP, Opts.enable_ml_inliner, Phase));
   else
@@ -853,6 +855,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
     IP = ::getInlineParamsFromOptLevel(Level);
   else
     IP = getInlineParams(PTO.InlinerThreshold);
+  IP.LoopUnrolling = PTO.LoopUnrolling;
   // For PreLinkThinLTO + SamplePGO or PreLinkFullLTO + SamplePGO,
   // set hot-caller threshold to 0 to disable hot
   // callsite inline (as much as possible [1]) because it makes
@@ -958,6 +961,7 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
   ModulePassManager MPM;
 
   InlineParams IP = ::getInlineParamsFromOptLevel(Level);
+  IP.LoopUnrolling = PTO.LoopUnrolling;
   // For PreLinkThinLTO + SamplePGO or PreLinkFullLTO + SamplePGO,
   // set hot-caller threshold to 0 to disable hot
   // callsite inline (as much as possible [1]) because it makes
@@ -1630,7 +1634,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     // Also, we can't run devirtualization before inlining because the
     // devirtualization depends on the passes optimizing/eliminating vtable GVs
     // and those passes are only effective after inlining.
-    addModuleInlinerPass(MPM, Opts, Level, ThinOrFullLTOPhase::None);
+    addModuleInlinerPass(MPM, Opts, PTO, Level, ThinOrFullLTOPhase::None);
   }
 
   // Attach !implicit.ref metadata from all functions to copyright strings.
@@ -2090,7 +2094,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
   // Run the inliner now.
-  addModuleInlinerPass(MPM, Opts, Level, ThinOrFullLTOPhase::FullLTOPostLink);
+  addModuleInlinerPass(MPM, Opts, PTO, Level,
+                       ThinOrFullLTOPhase::FullLTOPostLink);
 
   // Perform context disambiguation after inlining, since that would reduce the
   // amount of additional cloning required to distinguish the allocation
