@@ -334,6 +334,120 @@ exit:
   ret void
 }
 
+; A convergent call forbids the remainder an unroll count leaves unless every
+; thread runs the same trip count.
+; CHECK-LABEL: Analyzing call of callee... (caller:count_4_convergent)
+; CHECK: {{^ *}}Cost: 50{{$}}
+define void @count_4_convergent(ptr %p, i32 %n) {
+entry:
+  br label %loop
+
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %loop ]
+  call void @llvm.amdgcn.s.barrier()
+  call void @callee(ptr %p, i32 %i)
+  %i.next = add nuw nsw i32 %i, 1
+  %done = icmp eq i32 %i.next, %n
+  br i1 %done, label %exit, label %loop, !llvm.loop !2
+
+exit:
+  ret void
+}
+
+; CHECK-LABEL: Analyzing call of callee... (caller:count_4_convergent_uniform)
+; ON: {{^ *}}Cost: 200{{$}}
+; OFF: {{^ *}}Cost: 50{{$}}
+define void @count_4_convergent_uniform(ptr %p, i32 inreg %n) {
+entry:
+  br label %loop
+
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %loop ]
+  call void @llvm.amdgcn.s.barrier()
+  call void @callee(ptr %p, i32 %i)
+  %i.next = add nuw nsw i32 %i, 1
+  %done = icmp eq i32 %i.next, %n
+  br i1 %done, label %exit, label %loop, !llvm.loop !2
+
+exit:
+  ret void
+}
+
+; An unroll count that divides the trip count leaves no remainder.
+; CHECK-LABEL: Analyzing call of callee... (caller:count_4_convergent_multiple)
+; ON: {{^ *}}Cost: 200{{$}}
+; OFF: {{^ *}}Cost: 50{{$}}
+define void @count_4_convergent_multiple(ptr %p, i32 %n) {
+entry:
+  %m = shl nuw i32 %n, 2
+  br label %loop
+
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %loop ]
+  call void @llvm.amdgcn.s.barrier()
+  call void @callee(ptr %p, i32 %i)
+  %i.next = add nuw nsw i32 %i, 1
+  %done = icmp eq i32 %i.next, %m
+  br i1 %done, label %exit, label %loop, !llvm.loop !2
+
+exit:
+  ret void
+}
+
+; A rejected unroll count falls back to full unrolling.
+; CHECK-LABEL: Analyzing call of callee... (caller:count_4_convergent_early_exit)
+; ON: {{^ *}}Cost: 300{{$}}
+; OFF: {{^ *}}Cost: 50{{$}}
+define void @count_4_convergent_early_exit(ptr %p, ptr %q) {
+entry:
+  br label %header
+
+header:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %latch ]
+  call void @llvm.amdgcn.s.barrier()
+  %gep = getelementptr inbounds i32, ptr %q, i32 %i
+  %v = load i32, ptr %gep
+  %neg = icmp slt i32 %v, 0
+  br i1 %neg, label %exit, label %latch
+
+latch:
+  call void @callee(ptr %p, i32 %i)
+  %i.next = add nuw nsw i32 %i, 1
+  %done = icmp eq i32 %i.next, 6
+  br i1 %done, label %exit, label %header, !llvm.loop !2
+
+exit:
+  ret void
+}
+
+; A convergent call in a subloop forbids the remainder of its parent loop too.
+; CHECK-LABEL: Analyzing call of callee... (caller:count_4_convergent_inner)
+; CHECK: {{^ *}}Cost: 50{{$}}
+define void @count_4_convergent_inner(ptr %p, i32 %n, i32 %k) {
+entry:
+  br label %outer
+
+outer:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %outer.latch ]
+  call void @callee(ptr %p, i32 %i)
+  br label %inner
+
+inner:
+  %j = phi i32 [ 0, %outer ], [ %j.next, %inner ]
+  call void @llvm.amdgcn.s.barrier()
+  %j.next = add nuw nsw i32 %j, 1
+  %inner.done = icmp eq i32 %j.next, %k
+  br i1 %inner.done, label %outer.latch, label %inner, !llvm.loop !0
+
+outer.latch:
+  %i.next = add nuw nsw i32 %i, 1
+  %done = icmp eq i32 %i.next, %n
+  br i1 %done, label %exit, label %outer, !llvm.loop !2
+
+exit:
+  ret void
+}
+
 ; CHECK-LABEL: Analyzing call of callee... (caller:full_100)
 ; ON: {{^ *}}Cost: 5000{{$}}
 ; OFF: {{^ *}}Cost: 50{{$}}
@@ -433,6 +547,8 @@ loop:
 exit:
   ret void
 }
+
+declare void @llvm.amdgcn.s.barrier()
 
 attributes #0 = { "function-inline-cost"="50" "function-inline-threshold"="100000" }
 attributes #1 = { "function-inline-threshold"="1000" }

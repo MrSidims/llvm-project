@@ -29,6 +29,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -544,6 +545,7 @@ class CalleeCopyCounter {
   };
   DenseMap<const Loop *, UnrollShape> UnrollShapes;
   DenseMap<const Loop *, std::pair<uint64_t, bool>> LoopSizes;
+  SmallPtrSet<const Loop *, 4> UncontrolledConvergence;
 
   ScalarEvolution &getSE() {
     if (!SE) {
@@ -580,6 +582,8 @@ class CalleeCopyCounter {
     }
     bool CanUnroll = !Metrics.notDuplicatable && Metrics.NumInsts.isValid() &&
                      Metrics.Convergence != ConvergenceKind::ExtendedLoop;
+    if (Metrics.Convergence == ConvergenceKind::Uncontrolled)
+      UncontrolledConvergence.insert(L);
     uint64_t Size = 0;
     if (CanUnroll)
       Size = SaturatingMultiplyAdd(NumCalls, CalleeSize,
@@ -589,6 +593,8 @@ class CalleeCopyCounter {
       CanUnroll &= SubCanUnroll;
       Size = SaturatingMultiplyAdd(SubSize, uint64_t(getUnrollShape(Sub).Count),
                                    Size);
+      if (UncontrolledConvergence.contains(Sub))
+        UncontrolledConvergence.insert(L);
     }
     LoopSizes[L] = {Size, CanUnroll};
     return {Size, CanUnroll};
@@ -647,18 +653,48 @@ class CalleeCopyCounter {
     return Shape;
   }
 
+  /// Whether a convergent call in loop \p L lets unrolling leave a remainder,
+  /// which needs every thread to run the same trip count.
+  bool convergenceAllowsRemainder(Loop *L) {
+    if (!UncontrolledConvergence.contains(L) && !getLoopConvergenceHeart(L))
+      return true;
+    if (!TTI.hasBranchDivergence(&Caller))
+      return false;
+    const SCEV *BTC = getSE().getBackedgeTakenCount(L);
+    return !isa<SCEVCouldNotCompute>(BTC) &&
+           !SCEVExprContains(BTC, [&](const SCEV *S) {
+             auto *U = dyn_cast<SCEVUnknown>(S);
+             if (!U || isa<Constant>(U->getValue()))
+               return false;
+             auto *A = dyn_cast<Argument>(U->getValue());
+             return !A ||
+                    TTI.getValueUniformity(A) == ValueUniformity::NeverUniform;
+           });
+  }
+
+  /// A constant that divides every trip count of loop \p L.
+  unsigned getTripMultiple(Loop *L, unsigned TripCount) {
+    if (TripCount)
+      return TripCount;
+    BasicBlock *ExitingBlock = L->getLoopLatch();
+    if (!ExitingBlock || !L->isLoopExiting(ExitingBlock))
+      ExitingBlock = L->getExitingBlock();
+    return ExitingBlock ? getSE().getSmallConstantTripMultiple(L, ExitingBlock)
+                        : 1;
+  }
+
   /// The copies full unrolling or an unroll count would make of the body of
   /// loop \p L that runs \p TripCount times.
   unsigned computeUnrollCount(Loop *L, unsigned TripCount) {
     unsigned Count = TripCount;
     bool Forced = getBooleanLoopAttribute(L, "llvm.loop.unroll.full");
-    if (std::optional<int> PragmaCount =
-            getOptionalIntLoopAttribute(L, "llvm.loop.unroll.count")) {
+    std::optional<int> PragmaCount =
+        getOptionalIntLoopAttribute(L, "llvm.loop.unroll.count");
+    if (PragmaCount) {
       if (*PragmaCount < 2)
         return 1;
       Count = TripCount ? std::min<unsigned>(*PragmaCount, TripCount)
                         : *PragmaCount;
-      Forced = true;
     }
     if (Count < 2)
       return 1;
@@ -667,7 +703,8 @@ class CalleeCopyCounter {
       return 1;
     if (Forced)
       return Count;
-    bool Enabled = getBooleanLoopAttribute(L, "llvm.loop.unroll.enable");
+    bool Enabled = PragmaCount.has_value() ||
+                   getBooleanLoopAttribute(L, "llvm.loop.unroll.enable");
     if (!Enabled && getBooleanLoopAttribute(L, "llvm.loop.disable_nonforced"))
       return 1;
 
@@ -675,7 +712,16 @@ class CalleeCopyCounter {
     UP.Threshold = 300;
     UP.FullUnrollMaxCount = std::numeric_limits<unsigned>::max();
     UP.BEInsns = 2;
+    UP.AllowRemainder = true;
     TTI.getUnrollingPreferences(L, getSE(), UP, /*ORE=*/nullptr);
+    if (PragmaCount) {
+      if ((UP.AllowRemainder && convergenceAllowsRemainder(L)) ||
+          getTripMultiple(L, TripCount) % *PragmaCount == 0)
+        return Count;
+      Count = TripCount;
+      if (Count < 2)
+        return 1;
+    }
     if (Count > UP.FullUnrollMaxCount)
       return 1;
     uint64_t Threshold =
