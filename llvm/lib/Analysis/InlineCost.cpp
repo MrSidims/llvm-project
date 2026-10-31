@@ -19,6 +19,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/DomConditionCache.h"
@@ -28,6 +29,8 @@
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -35,6 +38,7 @@
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/InlineAsm.h"
@@ -114,6 +118,267 @@ namespace InlineConstants {
 int getInstrCost() { return InstrCost; }
 
 } // namespace InlineConstants
+
+class CalleeCopyCache::State {
+public:
+  /// The copies unrolling makes of the body of a loop. A full unroll that ends
+  /// at an exit other than the latch makes TripCount copies of the blocks
+  /// before that exit and one copy fewer of the rest.
+  struct UnrollShape {
+    unsigned Count = 1;
+    unsigned TripCount = 0;
+    SmallPtrSet<const BasicBlock *, 8> BeforeExit;
+  };
+
+  Function &Caller;
+  const TargetTransformInfo &TTI;
+  AssumptionCache &AC;
+  const TargetLibraryInfo *CallerTLI;
+  std::optional<bool> Acyclic;
+  bool LoopsBuilt = false;
+  DominatorTree DT;
+  LoopInfo LI;
+  std::optional<TargetLibraryInfoImpl> TLII;
+  std::optional<TargetLibraryInfo> TLI;
+  std::optional<ScalarEvolution> SE;
+  std::optional<SmallPtrSet<const Value *, 32>> EphValues;
+  std::optional<std::tuple<const Function *, uint64_t, bool>> ShapeKey;
+  DenseMap<const Loop *, UnrollShape> UnrollShapes;
+  DenseMap<const Loop *, std::pair<uint64_t, bool>> LoopSizes;
+  SmallPtrSet<const Loop *, 4> UncontrolledConvergence;
+  BasicBlock *SiteBlock = nullptr;
+  Instruction *SiteTerminator = nullptr;
+
+  State(Function &Caller, const TargetTransformInfo &TTI, AssumptionCache &AC,
+        const TargetLibraryInfo *CallerTLI)
+      : Caller(Caller), TTI(TTI), AC(AC), CallerTLI(CallerTLI) {}
+
+  static bool hasBackEdge(const Function &F) {
+    SmallVector<std::pair<const BasicBlock *, const BasicBlock *>, 8> BackEdges;
+    FindFunctionBackedges(F, BackEdges);
+    return !BackEdges.empty();
+  }
+
+  bool hasLoops() {
+    if (!Acyclic)
+      Acyclic = !hasBackEdge(Caller);
+    if (*Acyclic)
+      return false;
+    if (!LoopsBuilt) {
+      DT.recalculate(Caller);
+      LI.analyze(DT);
+      LoopsBuilt = true;
+    }
+    return !LI.empty();
+  }
+
+  ScalarEvolution &getSE() {
+    if (!SE) {
+      if (!TLI) {
+        if (CallerTLI) {
+          TLI.emplace(*CallerTLI);
+        } else {
+          TLII.emplace(Caller.getParent()->getTargetTriple());
+          TLI.emplace(*TLII, &Caller);
+        }
+      }
+      SE.emplace(Caller, *TLI, AC, DT, LI);
+    }
+    return *SE;
+  }
+
+  const SmallPtrSetImpl<const Value *> &getEphValues() {
+    if (!EphValues) {
+      EphValues.emplace();
+      CodeMetrics::collectEphemeralValues(&Caller, &AC, *EphValues);
+    }
+    return *EphValues;
+  }
+
+  void setShapeKey(const Function &Callee, uint64_t CalleeSize,
+                   bool LoopUnrolling) {
+    auto Key = std::make_tuple(&Callee, CalleeSize, LoopUnrolling);
+    if (ShapeKey == Key)
+      return;
+    clearShapes();
+    ShapeKey = Key;
+  }
+
+  void clearShapes() {
+    UnrollShapes.clear();
+    LoopSizes.clear();
+    UncontrolledConvergence.clear();
+    ShapeKey.reset();
+  }
+
+  void clearValues() {
+    SE.reset();
+    EphValues.reset();
+    clearShapes();
+    SiteBlock = nullptr;
+    SiteTerminator = nullptr;
+  }
+
+  void clear() {
+    clearValues();
+    LI.releaseMemory();
+    DT.reset();
+    LoopsBuilt = false;
+  }
+
+  /// Updates DT and LI for the blocks inlining put between \p Before, which
+  /// held the call, and \p After, which holds the code after it. Changes
+  /// nothing and fails unless those blocks form an acyclic region entered from
+  /// Before alone and left to After alone.
+  bool updateLoops(BasicBlock &Before, BasicBlock &After) {
+    if (&Before == &After || !DT.getNode(&Before))
+      return true;
+    SmallPtrSet<const BasicBlock *, 16> Region;
+    for (BasicBlock *BB = Before.getNextNode(); BB != &After;
+         BB = BB->getNextNode()) {
+      if (!BB)
+        return false;
+      Region.insert(BB);
+    }
+
+    // Walk the region depth first in successor order, as a fresh analysis
+    // does, and note which blocks reach After.
+    struct Frame {
+      BasicBlock *BB;
+      unsigned Next = 0;
+      bool ReachesAfter = false;
+    };
+    SmallVector<Frame, 8> Stack = {{&Before}};
+    SmallPtrSet<const BasicBlock *, 16> Visited;
+    SmallDenseMap<const BasicBlock *, bool, 16> ReachesAfter;
+    SmallVector<BasicBlock *, 16> PostOrder;
+    bool AfterReached = false;
+    while (!Stack.empty()) {
+      Frame &Top = Stack.back();
+      Instruction *Term = Top.BB->getTerminator();
+      if (Top.Next == Term->getNumSuccessors()) {
+        Frame Done = Stack.pop_back_val();
+        if (Stack.empty()) {
+          AfterReached = Done.ReachesAfter;
+          break;
+        }
+        ReachesAfter[Done.BB] = Done.ReachesAfter;
+        PostOrder.push_back(Done.BB);
+        Stack.back().ReachesAfter |= Done.ReachesAfter;
+        continue;
+      }
+      BasicBlock *Succ = Term->getSuccessor(Top.Next++);
+      if (Succ == &After) {
+        Top.ReachesAfter = true;
+        continue;
+      }
+      if (!Region.contains(Succ))
+        return false;
+      if (auto It = ReachesAfter.find(Succ); It != ReachesAfter.end()) {
+        Top.ReachesAfter |= It->second;
+        continue;
+      }
+      if (!Visited.insert(Succ).second)
+        return false;
+      Stack.push_back({Succ});
+    }
+    auto EnteredFromRegion = [&](BasicBlock *BB) {
+      return all_of(predecessors(BB), [&](const BasicBlock *Pred) {
+        return Pred == &Before || Region.contains(Pred);
+      });
+    };
+    if (!AfterReached || PostOrder.size() != Region.size() ||
+        !EnteredFromRegion(&After) || !all_of(PostOrder, EnteredFromRegion))
+      return false;
+
+    // After now dominates whatever Before dominated.
+    DomTreeNode *BeforeNode = DT.getNode(&Before);
+    SmallVector<DomTreeNode *, 4> Moved(BeforeNode->begin(), BeforeNode->end());
+    auto AddToDT = [&](BasicBlock *BB) {
+      BasicBlock *IDom = nullptr;
+      for (BasicBlock *Pred : predecessors(BB))
+        IDom = IDom ? DT.findNearestCommonDominator(IDom, Pred) : Pred;
+      return DT.addNewBlock(BB, IDom);
+    };
+    for (BasicBlock *BB : reverse(PostOrder))
+      AddToDT(BB);
+    DomTreeNode *AfterNode = AddToDT(&After);
+    for (DomTreeNode *Node : Moved)
+      DT.changeImmediateDominator(Node, AfterNode);
+
+    // The blocks that reach After join every loop that holds Before, and a
+    // fresh analysis lists them right after Before.
+    Loop *L = LI.getLoopFor(&Before);
+    if (!L)
+      return true;
+    SmallVector<BasicBlock *, 16> InLoop;
+    for (BasicBlock *BB : reverse(PostOrder))
+      if (ReachesAfter.lookup(BB))
+        InLoop.push_back(BB);
+    InLoop.push_back(&After);
+    for (BasicBlock *BB : InLoop)
+      LI.changeLoopFor(BB, L);
+    for (Loop *Outer = L; Outer; Outer = Outer->getParentLoop()) {
+      SmallVector<BasicBlock *, 32> Blocks(Outer->getBlocks());
+      LI.removeBlocksIf(*Outer, [](BasicBlock *) { return true; });
+      Outer->reserveBlocks(Blocks.size() + InLoop.size());
+      for (BasicBlock *BB : Blocks) {
+        Outer->addBlockEntry(BB);
+        if (BB == &Before)
+          for (BasicBlock *New : InLoop)
+            Outer->addBlockEntry(New);
+      }
+    }
+    return true;
+  }
+};
+
+CalleeCopyCache::CalleeCopyCache(Function &Caller,
+                                 const TargetTransformInfo &TTI,
+                                 AssumptionCache &AC,
+                                 const TargetLibraryInfo *TLI)
+    : S(std::make_unique<State>(Caller, TTI, AC, TLI)) {}
+
+CalleeCopyCache::CalleeCopyCache(CalleeCopyCache &&) = default;
+
+CalleeCopyCache::~CalleeCopyCache() = default;
+
+void CalleeCopyCache::clear() { S->clearValues(); }
+
+void CalleeCopyCache::prepareInlining(CallBase &CB) {
+  auto *Call = dyn_cast<CallInst>(&CB);
+  bool Plain = Call && !Call->isMustTailCall();
+  S->SiteBlock = Plain ? CB.getParent() : nullptr;
+  S->SiteTerminator = Plain ? CB.getParent()->getTerminator() : nullptr;
+}
+
+void CalleeCopyCache::updateAfterInlining(const Function &Callee) {
+  BasicBlock *Before = S->SiteBlock;
+  Instruction *Term = S->SiteTerminator;
+  S->clearValues();
+  if (S->LoopsBuilt && Before && S->updateLoops(*Before, *Term->getParent()))
+    return;
+  if (S->Acyclic.value_or(false) && State::hasBackEdge(Callee))
+    S->Acyclic = false;
+  S->clear();
+}
+
+bool CalleeCopyCache::invalidate(Function &F, const PreservedAnalyses &PA,
+                                 FunctionAnalysisManager::Invalidator &Inv) {
+  auto PAC = PA.getChecker<CalleeCopyAnalysis>();
+  return !(PAC.preserved() || PAC.preservedSet<AllAnalysesOn<Function>>()) ||
+         Inv.invalidate<AssumptionAnalysis>(F, PA) ||
+         Inv.invalidate<TargetIRAnalysis>(F, PA);
+}
+
+AnalysisKey CalleeCopyAnalysis::Key;
+
+CalleeCopyCache CalleeCopyAnalysis::run(Function &F,
+                                        FunctionAnalysisManager &FAM) {
+  return CalleeCopyCache(F, FAM.getResult<TargetIRAnalysis>(F),
+                         FAM.getResult<AssumptionAnalysis>(F),
+                         &FAM.getResult<TargetLibraryAnalysis>(F));
+}
 
 } // namespace llvm
 
@@ -511,9 +776,257 @@ int64_t getExpectedNumberOfCompare(int NumCaseCluster) {
   return 3 * static_cast<int64_t>(NumCaseCluster) / 2 - 1;
 }
 
+/// Counts the copies of a callee its caller would hold if the callee were
+/// inlined at each direct call site in the caller that is not noinline, with
+/// every site counted once per copy unrolling would make of the loops around
+/// it.
+class CalleeCopyCounter {
+  static constexpr unsigned MaxCalleeUses = 64;
+  using UnrollShape = CalleeCopyCache::State::UnrollShape;
+
+  Function &Callee;
+  CallBase &Call;
+  uint64_t CalleeSize;
+  bool LoopUnrolling;
+  CalleeCopyCache::State &S;
+  Function &Caller;
+  const TargetTransformInfo &TTI;
+  LoopInfo &LI;
+  DenseMap<const Loop *, UnrollShape> &UnrollShapes;
+  DenseMap<const Loop *, std::pair<uint64_t, bool>> &LoopSizes;
+  SmallPtrSetImpl<const Loop *> &UncontrolledConvergence;
+
+  ScalarEvolution &getSE() { return S.getSE(); }
+
+  /// Whether a convergence token defined in loop \p L is used outside it,
+  /// which forbids unrolling \p L.
+  static bool convergenceExtendsOutside(const Loop *L) {
+    for (const BasicBlock *BB : L->blocks())
+      for (const Instruction &I : *BB)
+        if (isa<ConvergenceControlInst>(I) &&
+            any_of(I.users(), [L](const User *U) {
+              return !L->contains(cast<Instruction>(U));
+            }))
+          return true;
+    return false;
+  }
+
+  /// The size of loop \p L once its subloops are unrolled and the callee is
+  /// inlined at every call in it, and whether its blocks can be duplicated.
+  std::pair<uint64_t, bool> getLoopSize(Loop *L) {
+    if (auto It = LoopSizes.find(L); It != LoopSizes.end())
+      return It->second;
+    const SmallPtrSetImpl<const Value *> &EphValues = S.getEphValues();
+    CodeMetrics Metrics;
+    uint64_t NumCalls = 0;
+    for (BasicBlock *BB : L->blocks()) {
+      if (LI.getLoopFor(BB) != L)
+        continue;
+      Metrics.analyzeBasicBlock(BB, TTI, EphValues, /*PrepareForLTO=*/false, L);
+      for (Instruction &I : *BB)
+        if (auto *CB = dyn_cast<CallBase>(&I))
+          NumCalls += CB->getCalledFunction() == &Callee;
+    }
+    bool Duplicatable = !Metrics.notDuplicatable && Metrics.NumInsts.isValid();
+    if (Metrics.Convergence == ConvergenceKind::Uncontrolled)
+      UncontrolledConvergence.insert(L);
+    uint64_t Size = 0;
+    if (Duplicatable)
+      Size = SaturatingMultiplyAdd(NumCalls, CalleeSize,
+                                   uint64_t(Metrics.NumInsts.getValue()));
+    for (Loop *Sub : *L) {
+      auto [SubSize, SubDuplicatable] = getLoopSize(Sub);
+      Duplicatable &= SubDuplicatable;
+      Size = SaturatingMultiplyAdd(SubSize, uint64_t(getUnrollShape(Sub).Count),
+                                   Size);
+      if (UncontrolledConvergence.contains(Sub))
+        UncontrolledConvergence.insert(L);
+    }
+    LoopSizes[L] = {Size, Duplicatable};
+    return {Size, Duplicatable};
+  }
+
+  const UnrollShape &getUnrollShape(Loop *L) {
+    if (auto It = UnrollShapes.find(L); It != UnrollShapes.end())
+      return It->second;
+    UnrollShape Shape = computeUnrollShape(L);
+    return UnrollShapes.try_emplace(L, std::move(Shape)).first->second;
+  }
+
+  /// The copies unrolling makes of block \p BB of loop \p L.
+  unsigned getBlockCopies(Loop *L, const BasicBlock *BB) {
+    const UnrollShape &Shape = getUnrollShape(L);
+    if (!Shape.TripCount)
+      return Shape.Count;
+    return Shape.BeforeExit.contains(BB) ? Shape.TripCount
+                                         : Shape.TripCount - 1;
+  }
+
+  UnrollShape computeUnrollShape(Loop *L) {
+    UnrollShape Shape;
+    if (getBooleanLoopAttribute(L, "llvm.loop.unroll.disable"))
+      return Shape;
+    unsigned TripCount = 0;
+    BasicBlock *Exit = nullptr;
+    SmallVector<BasicBlock *, 8> ExitingBlocks;
+    L->getExitingBlocks(ExitingBlocks);
+    for (BasicBlock *ExitingBlock : ExitingBlocks)
+      if (unsigned TC = getSE().getSmallConstantTripCount(L, ExitingBlock))
+        if (!TripCount || TC < TripCount) {
+          TripCount = TC;
+          Exit = ExitingBlock;
+        }
+    // A loop that is not rotated yet exits from its header, which runs once
+    // more than its body.
+    unsigned FullCount = TripCount;
+    BasicBlock *Latch = L->getLoopLatch();
+    if (Exit == L->getHeader() && Latch && Latch != Exit)
+      --FullCount;
+    Shape.Count = computeUnrollCount(L, FullCount);
+    if (Shape.Count < 2 || Shape.Count != FullCount || Exit == Latch)
+      return Shape;
+    Shape.TripCount = TripCount;
+    SmallVector<const BasicBlock *, 8> Worklist = {Exit};
+    Shape.BeforeExit.insert(Exit);
+    while (!Worklist.empty()) {
+      const BasicBlock *BB = Worklist.pop_back_val();
+      if (BB == L->getHeader())
+        continue;
+      for (const BasicBlock *Pred : predecessors(BB))
+        if (L->contains(Pred) && Shape.BeforeExit.insert(Pred).second)
+          Worklist.push_back(Pred);
+    }
+    return Shape;
+  }
+
+  /// Whether a convergent call in loop \p L lets unrolling leave a remainder,
+  /// which needs every thread to run the same trip count.
+  bool convergenceAllowsRemainder(Loop *L) {
+    if (!UncontrolledConvergence.contains(L) && !getLoopConvergenceHeart(L))
+      return true;
+    if (!TTI.hasBranchDivergence(&Caller))
+      return false;
+    const SCEV *BTC = getSE().getBackedgeTakenCount(L);
+    return !isa<SCEVCouldNotCompute>(BTC) &&
+           !SCEVExprContains(BTC, [&](const SCEV *S) {
+             auto *U = dyn_cast<SCEVUnknown>(S);
+             if (!U || isa<Constant>(U->getValue()))
+               return false;
+             auto *A = dyn_cast<Argument>(U->getValue());
+             return !A ||
+                    TTI.getValueUniformity(A) == ValueUniformity::NeverUniform;
+           });
+  }
+
+  /// A constant that divides every trip count of loop \p L.
+  unsigned getTripMultiple(Loop *L, unsigned TripCount) {
+    if (TripCount)
+      return TripCount;
+    BasicBlock *ExitingBlock = L->getLoopLatch();
+    if (!ExitingBlock || !L->isLoopExiting(ExitingBlock))
+      ExitingBlock = L->getExitingBlock();
+    return ExitingBlock ? getSE().getSmallConstantTripMultiple(L, ExitingBlock)
+                        : 1;
+  }
+
+  /// The copies full unrolling or an unroll count would make of the body of
+  /// loop \p L that runs \p TripCount times.
+  unsigned computeUnrollCount(Loop *L, unsigned TripCount) {
+    unsigned Count = TripCount;
+    bool Forced = getBooleanLoopAttribute(L, "llvm.loop.unroll.full");
+    std::optional<int> PragmaCount =
+        getOptionalIntLoopAttribute(L, "llvm.loop.unroll.count");
+    if (PragmaCount) {
+      if (*PragmaCount < 2)
+        return 1;
+      Count = TripCount ? std::min<unsigned>(*PragmaCount, TripCount)
+                        : *PragmaCount;
+    }
+    if (Count < 2)
+      return 1;
+    auto [Size, Duplicatable] = getLoopSize(L);
+    if (!Duplicatable || convergenceExtendsOutside(L))
+      return 1;
+    if (Forced)
+      return Count;
+    bool Enabled = PragmaCount.has_value() ||
+                   getBooleanLoopAttribute(L, "llvm.loop.unroll.enable");
+    if (!Enabled && (!LoopUnrolling ||
+                     getBooleanLoopAttribute(L, "llvm.loop.disable_nonforced")))
+      return 1;
+
+    TargetTransformInfo::UnrollingPreferences UP = {};
+    UP.Threshold = 300;
+    UP.FullUnrollMaxCount = std::numeric_limits<unsigned>::max();
+    UP.BEInsns = 2;
+    UP.AllowRemainder = true;
+    TTI.getUnrollingPreferences(L, getSE(), UP, /*ORE=*/nullptr);
+    if (PragmaCount) {
+      if ((UP.AllowRemainder && convergenceAllowsRemainder(L)) ||
+          getTripMultiple(L, TripCount) % *PragmaCount == 0)
+        return Count;
+      Count = TripCount;
+      if (Count < 2)
+        return 1;
+    }
+    if (Count > UP.FullUnrollMaxCount)
+      return 1;
+    uint64_t Threshold =
+        Caller.hasOptSize() ? UP.OptSizeThreshold : UP.Threshold;
+    if (Enabled)
+      Threshold = std::max<uint64_t>(Threshold, 16 * 1024);
+    uint64_t BE = UP.BEInsns;
+    uint64_t LoopSize = std::max(Size, BE + 1);
+    return SaturatingMultiplyAdd(LoopSize - BE, uint64_t(Count), BE) < Threshold
+               ? Count
+               : 1;
+  }
+
+public:
+  CalleeCopyCounter(Function &Callee, CallBase &Call, uint64_t CalleeSize,
+                    bool LoopUnrolling, CalleeCopyCache::State &S)
+      : Callee(Callee), Call(Call), CalleeSize(CalleeSize),
+        LoopUnrolling(LoopUnrolling), S(S), Caller(S.Caller), TTI(S.TTI),
+        LI(S.LI), UnrollShapes(S.UnrollShapes), LoopSizes(S.LoopSizes),
+        UncontrolledConvergence(S.UncontrolledConvergence) {
+    assert(Call.getFunction() == &Caller && "Cache of another function");
+  }
+
+  /// Returns the number of copies, or \p Limit if it is at least \p Limit.
+  unsigned count(unsigned Limit) {
+    SmallVector<CallBase *, 8> Sites = {&Call};
+    if (!Callee.hasNUsesOrMore(MaxCalleeUses + 1))
+      for (Use &U : Callee.uses())
+        if (auto *CB = dyn_cast<CallBase>(U.getUser()))
+          if (CB != &Call && CB->isCallee(&U) && CB->getFunction() == &Caller &&
+              !CB->isNoInline())
+            Sites.push_back(CB);
+    if (Sites.size() >= Limit)
+      return Limit;
+
+    if (!S.hasLoops())
+      return Sites.size();
+    S.setShapeKey(Callee, CalleeSize, LoopUnrolling);
+    uint64_t Total = 0;
+    for (auto [Idx, Site] : enumerate(Sites)) {
+      uint64_t Copies = 1;
+      uint64_t Remaining = Sites.size() - Idx - 1;
+      for (Loop *L = LI.getLoopFor(Site->getParent()); L;
+           L = L->getParentLoop()) {
+        Copies *= getBlockCopies(L, Site->getParent());
+        if (Total + Copies + Remaining >= Limit)
+          return Limit;
+      }
+      Total += Copies;
+    }
+    return Total;
+  }
+};
+
 /// FIXME: if it is necessary to derive from InlineCostCallAnalyzer, note
 /// the FIXME in onLoweredCall, when instantiating an InlineCostCallAnalyzer
 class InlineCostCallAnalyzer final : public CallAnalyzer {
+  function_ref<CalleeCopyCache &(Function &)> GetCalleeCopyCache;
   const bool ComputeFullInlineCost;
   int LoadEliminationCost = 0;
   /// Bonus to be applied when percentage of vector instructions in callee is
@@ -1037,6 +1550,31 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     if (IgnoreThreshold)
       return InlineResult::success();
 
+    // The caller holds a copy of the callee for each of its call sites to it,
+    // times the copies unrolling makes of each. A callee without control flow
+    // merges into the blocks of the caller and is not charged for them.
+    if (Cost > 0 && Cost < Threshold && !SingleBB &&
+        TTI.inlineCostCountsCalleeCopies()) {
+      std::optional<CalleeCopyCache> LocalCache;
+      CalleeCopyCache &Cache =
+          GetCalleeCopyCache
+              ? GetCalleeCopyCache(*Caller)
+              : LocalCache.emplace(*Caller, TTI, GetAssumptionCache(*Caller),
+                                   GetTLI ? &GetTLI(*Caller) : nullptr);
+      CalleeCopyCounter Counter(
+          F, CandidateCall, Cost / std::max(1, int(InstrCost)),
+          Params.LoopUnrolling.value_or(true), Cache.getState());
+      unsigned Copies =
+          Counter.count(divideCeil(unsigned(Threshold), unsigned(Cost)));
+      LLVM_DEBUG(dbgs() << "      Callee copies: " << Copies << "\n");
+      int64_t Total = int64_t(Cost) * Copies;
+      Cost = std::min<int64_t>(Total, INT_MAX - 1);
+      // A cost saturated below the never inline sentinel cannot reach a
+      // threshold at the sentinel, so the copies that do are refused here.
+      if (Total >= Threshold && Cost < Threshold)
+        return InlineResult::failure("Cost over threshold.");
+    }
+
     DecidedByCostThreshold = true;
     return Cost < std::max(1, Threshold)
                ? InlineResult::success()
@@ -1117,9 +1655,11 @@ public:
       bool IgnoreThreshold = false,
       function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache =
           nullptr,
-      bool PrintInstructionComments = false)
+      bool PrintInstructionComments = false,
+      function_ref<CalleeCopyCache &(Function &)> GetCalleeCopyCache = nullptr)
       : CallAnalyzer(Callee, Call, TTI, GetAssumptionCache, GetBFI, GetTLI, PSI,
                      ORE, GetEphValuesCache),
+        GetCalleeCopyCache(GetCalleeCopyCache),
         ComputeFullInlineCost(Opts.inline_cost_full ||
                               Params.ComputeFullInlineCost || ORE ||
                               isCostBenefitAnalysisEnabled()),
@@ -3057,10 +3597,11 @@ InlineCost llvm::getInlineCost(
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-    function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache) {
+    function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache,
+    function_ref<CalleeCopyCache &(Function &)> GetCalleeCopyCache) {
   return getInlineCost(Call, Call.getCalledFunction(), Params, CalleeTTI,
                        GetAssumptionCache, GetTLI, GetBFI, PSI, ORE,
-                       GetEphValuesCache);
+                       GetEphValuesCache, GetCalleeCopyCache);
 }
 
 std::optional<int> llvm::getInliningCostEstimate(
@@ -3186,7 +3727,8 @@ InlineCost llvm::getInlineCost(
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-    function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache) {
+    function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache,
+    function_ref<CalleeCopyCache &(Function &)> GetCalleeCopyCache) {
 
   auto UserDecision =
       llvm::getAttributeBasedInliningDecision(Call, Callee, CalleeTTI, GetTLI);
@@ -3206,10 +3748,11 @@ InlineCost llvm::getInlineCost(
                           << "... (caller:" << Call.getCaller()->getName()
                           << ")\n");
 
-  InlineCostCallAnalyzer CA(*Callee, Call, Params, CalleeTTI,
-                            GetAssumptionCache, GetBFI, GetTLI, PSI, ORE,
-                            /*BoostIndirect=*/true, /*IgnoreThreshold=*/false,
-                            GetEphValuesCache);
+  InlineCostCallAnalyzer CA(
+      *Callee, Call, Params, CalleeTTI, GetAssumptionCache, GetBFI, GetTLI, PSI,
+      ORE,
+      /*BoostIndirect=*/true, /*IgnoreThreshold=*/false, GetEphValuesCache,
+      /*PrintInstructionComments=*/false, GetCalleeCopyCache);
   InlineResult ShouldInline = CA.analyze();
 
   LLVM_DEBUG(CA.dump());

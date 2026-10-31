@@ -78,6 +78,11 @@ static cl::opt<size_t> InlineMaxBB(
     cl::desc("Maximum number of BBs allowed in a function after inlining"
              " (compile time constraint)"));
 
+static cl::opt<bool> InlineCountCopies(
+    "amdgpu-inline-count-copies", cl::Hidden, cl::init(true),
+    cl::desc("Charge the inline cost of a call site for every copy of the "
+             "callee its caller would hold"));
+
 // This default unroll factor is based on microbenchmarks on gfx1030.
 static cl::opt<unsigned> MemcpyLoopUnroll(
     "amdgpu-memcpy-loop-unroll",
@@ -2087,6 +2092,10 @@ unsigned GCNTTIImpl::getCallerAllocaCost(const CallBase *CB,
       (Threshold * ArgAllocaSize->getFixedValue()) / AllocaSize);
 
   return AllocaThresholdBonus;
+}
+
+bool GCNTTIImpl::inlineCostCountsCalleeCopies() const {
+  return InlineCountCopies;
 }
 
 void GCNTTIImpl::getUnrollingPreferences(Loop *L, ScalarEvolution &SE,

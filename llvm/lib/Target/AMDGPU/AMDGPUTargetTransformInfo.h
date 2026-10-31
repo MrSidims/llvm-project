@@ -271,6 +271,7 @@ public:
   unsigned adjustInliningThreshold(const CallBase *CB) const override;
   unsigned getCallerAllocaCost(const CallBase *CB,
                                const AllocaInst *AI) const override;
+  bool inlineCostCountsCalleeCopies() const override;
 
   int getInlinerVectorBonusPercent() const override {
     return InlinerVectorBonusPercent;

@@ -20,6 +20,7 @@
 #include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <climits>
+#include <memory>
 #include <optional>
 
 namespace llvm {
@@ -33,6 +34,7 @@ class ProfileSummaryInfo;
 class TargetTransformInfo;
 class TargetLibraryInfo;
 class EphemeralValuesCache;
+class CalleeCopyCache;
 
 namespace InlineConstants {
 // Various thresholds used by inline cost analysis.
@@ -242,6 +244,9 @@ struct InlineParams {
 
   /// Indicate whether we allow inlining for recursive call.
   std::optional<bool> AllowRecursiveCall = false;
+
+  /// Indicate whether loops without an unroll pragma get unrolled.
+  std::optional<bool> LoopUnrolling;
 };
 
 LLVM_ABI std::optional<int> getStringFnAttrAsInt(CallBase &CB,
@@ -287,7 +292,8 @@ LLVM_ABI InlineCost getInlineCost(
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
     ProfileSummaryInfo *PSI = nullptr, OptimizationRemarkEmitter *ORE = nullptr,
     function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache =
-        nullptr);
+        nullptr,
+    function_ref<CalleeCopyCache &(Function &)> GetCalleeCopyCache = nullptr);
 
 /// Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -302,7 +308,8 @@ LLVM_ABI InlineCost getInlineCost(
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
     ProfileSummaryInfo *PSI = nullptr, OptimizationRemarkEmitter *ORE = nullptr,
     function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache =
-        nullptr);
+        nullptr,
+    function_ref<CalleeCopyCache &(Function &)> GetCalleeCopyCache = nullptr);
 
 /// Returns InlineResult::success() if the call site should be always inlined
 /// because of user directives, and the inlining is viable. Returns
@@ -346,6 +353,46 @@ LLVM_ABI std::optional<InlineCostFeatures> getInliningCostFeatures(
 /// See also \p CanInlineCallSite as an additional precondition necessary to
 /// perform a valid inline in a particular use context.
 LLVM_ABI InlineResult isInlineViable(Function &Callee);
+
+/// The loops of a caller and the copies unrolling makes of their bodies,
+/// shared by the call sites the inline cost analysis visits in the caller.
+class CalleeCopyCache {
+public:
+  class State;
+
+  LLVM_ABI CalleeCopyCache(Function &Caller, const TargetTransformInfo &TTI,
+                           AssumptionCache &AC, const TargetLibraryInfo *TLI);
+  LLVM_ABI CalleeCopyCache(CalleeCopyCache &&);
+  LLVM_ABI ~CalleeCopyCache();
+
+  /// Drops what is stale once instructions of the caller change and its
+  /// control flow does not.
+  LLVM_ABI void clear();
+
+  /// Notes where \p CB sits before it is inlined.
+  LLVM_ABI void prepareInlining(CallBase &CB);
+
+  /// Updates the loops and drops what is stale once \p Callee is inlined at
+  /// the call prepareInlining noted.
+  LLVM_ABI void updateAfterInlining(const Function &Callee);
+
+  LLVM_ABI bool invalidate(Function &F, const PreservedAnalyses &PA,
+                           FunctionAnalysisManager::Invalidator &Inv);
+
+  State &getState() { return *S; }
+
+private:
+  std::unique_ptr<State> S;
+};
+
+class CalleeCopyAnalysis : public AnalysisInfoMixin<CalleeCopyAnalysis> {
+  friend AnalysisInfoMixin<CalleeCopyAnalysis>;
+  LLVM_ABI static AnalysisKey Key;
+
+public:
+  using Result = CalleeCopyCache;
+  LLVM_ABI Result run(Function &F, FunctionAnalysisManager &FAM);
+};
 
 // This pass is used to annotate instructions during the inline process for
 // debugging and analysis. The main purpose of the pass is to see and test

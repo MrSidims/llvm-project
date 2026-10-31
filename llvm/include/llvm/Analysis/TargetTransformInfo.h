@@ -468,6 +468,11 @@ public:
   LLVM_ABI unsigned getCallerAllocaCost(const CallBase *CB,
                                         const AllocaInst *AI) const;
 
+  /// \returns True if the inline cost of a call site is charged for every copy
+  /// of the callee its caller would hold, one for each of its call sites to
+  /// the callee, times the copies unrolling would make of each.
+  LLVM_ABI bool inlineCostCountsCalleeCopies() const;
+
   /// \returns Vector bonus in percent.
   ///
   /// Vector bonuses: We want to more aggressively inline vector-dense kernels
