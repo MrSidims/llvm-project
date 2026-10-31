@@ -369,8 +369,12 @@ public:
   /// control flow does not.
   LLVM_ABI void clear();
 
-  /// Drops what is stale once \p Callee is inlined into the caller.
-  LLVM_ABI void clearAfterInlining(const Function &Callee);
+  /// Notes where \p CB sits before it is inlined.
+  LLVM_ABI void prepareInlining(CallBase &CB);
+
+  /// Updates the loops and drops what is stale once \p Callee is inlined at
+  /// the call prepareInlining noted.
+  LLVM_ABI void updateAfterInlining(const Function &Callee);
 
   LLVM_ABI bool invalidate(Function &F, const PreservedAnalyses &PA,
                            FunctionAnalysisManager::Invalidator &Inv);

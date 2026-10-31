@@ -402,6 +402,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                                 CalleeSCC->getOuterRefSCC().size() != 1 ||
                                 CalleeN->lookup(CalleeN) != nullptr;
 
+      auto *CopyCache = FAM.getCachedResult<CalleeCopyAnalysis>(F);
+      if (CopyCache)
+        CopyCache->prepareInlining(*CB);
       InlineResult IR = InlineFunction(
           *CB, IFI, /*MergeAttributes=*/true,
           &FAM.getResult<AAManager>(*CB->getCaller()), /*InsertLifetime=*/true,
@@ -414,8 +417,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       // TODO: Shouldn't we be invalidating all analyses on F here?
       // The caller was modified, so invalidate Ephemeral Values.
       FAM.getResult<EphemeralValuesAnalysis>(F).clear();
-      if (auto *CopyCache = FAM.getCachedResult<CalleeCopyAnalysis>(F))
-        CopyCache->clearAfterInlining(Callee);
+      if (CopyCache)
+        CopyCache->updateAfterInlining(Callee);
 
       DidInline = true;
       InlinedCallees.insert(&Callee);

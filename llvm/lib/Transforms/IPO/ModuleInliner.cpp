@@ -204,6 +204,9 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
         &FAM.getResult<BlockFrequencyAnalysis>(*(CB->getCaller())),
         &FAM.getResult<BlockFrequencyAnalysis>(Callee));
 
+    auto *CopyCache = FAM.getCachedResult<CalleeCopyAnalysis>(F);
+    if (CopyCache)
+      CopyCache->prepareInlining(*CB);
     InlineResult IR =
         InlineFunction(*CB, IFI, CtxProf, /*MergeAttributes=*/true,
                        &FAM.getResult<AAManager>(*CB->getCaller()),
@@ -213,8 +216,8 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
       Advice->recordUnsuccessfulInlining(IR);
       continue;
     }
-    if (auto *CopyCache = FAM.getCachedResult<CalleeCopyAnalysis>(F))
-      CopyCache->clearAfterInlining(Callee);
+    if (CopyCache)
+      CopyCache->updateAfterInlining(Callee);
 
     Changed = true;
     ++NumInlined;

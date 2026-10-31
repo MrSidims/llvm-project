@@ -146,6 +146,8 @@ public:
   DenseMap<const Loop *, UnrollShape> UnrollShapes;
   DenseMap<const Loop *, std::pair<uint64_t, bool>> LoopSizes;
   SmallPtrSet<const Loop *, 4> UncontrolledConvergence;
+  BasicBlock *SiteBlock = nullptr;
+  Instruction *SiteTerminator = nullptr;
 
   State(Function &Caller, const TargetTransformInfo &TTI, AssumptionCache &AC,
         const TargetLibraryInfo *CallerTLI)
@@ -209,13 +211,125 @@ public:
     ShapeKey.reset();
   }
 
-  void clear() {
+  void clearValues() {
     SE.reset();
     EphValues.reset();
     clearShapes();
+    SiteBlock = nullptr;
+    SiteTerminator = nullptr;
+  }
+
+  void clear() {
+    clearValues();
     LI.releaseMemory();
     DT.reset();
     LoopsBuilt = false;
+  }
+
+  /// Updates DT and LI for the blocks inlining put between \p Before, which
+  /// held the call, and \p After, which holds the code after it. Changes
+  /// nothing and fails unless those blocks form an acyclic region entered from
+  /// Before alone and left to After alone.
+  bool updateLoops(BasicBlock &Before, BasicBlock &After) {
+    if (&Before == &After || !DT.getNode(&Before))
+      return true;
+    SmallPtrSet<const BasicBlock *, 16> Region;
+    for (BasicBlock *BB = Before.getNextNode(); BB != &After;
+         BB = BB->getNextNode()) {
+      if (!BB)
+        return false;
+      Region.insert(BB);
+    }
+
+    // Walk the region depth first in successor order, as a fresh analysis
+    // does, and note which blocks reach After.
+    struct Frame {
+      BasicBlock *BB;
+      unsigned Next = 0;
+      bool ReachesAfter = false;
+    };
+    SmallVector<Frame, 8> Stack = {{&Before}};
+    SmallPtrSet<const BasicBlock *, 16> Visited;
+    SmallDenseMap<const BasicBlock *, bool, 16> ReachesAfter;
+    SmallVector<BasicBlock *, 16> PostOrder;
+    bool AfterReached = false;
+    while (!Stack.empty()) {
+      Frame &Top = Stack.back();
+      Instruction *Term = Top.BB->getTerminator();
+      if (Top.Next == Term->getNumSuccessors()) {
+        Frame Done = Stack.pop_back_val();
+        if (Stack.empty()) {
+          AfterReached = Done.ReachesAfter;
+          break;
+        }
+        ReachesAfter[Done.BB] = Done.ReachesAfter;
+        PostOrder.push_back(Done.BB);
+        Stack.back().ReachesAfter |= Done.ReachesAfter;
+        continue;
+      }
+      BasicBlock *Succ = Term->getSuccessor(Top.Next++);
+      if (Succ == &After) {
+        Top.ReachesAfter = true;
+        continue;
+      }
+      if (!Region.contains(Succ))
+        return false;
+      if (auto It = ReachesAfter.find(Succ); It != ReachesAfter.end()) {
+        Top.ReachesAfter |= It->second;
+        continue;
+      }
+      if (!Visited.insert(Succ).second)
+        return false;
+      Stack.push_back({Succ});
+    }
+    auto EnteredFromRegion = [&](BasicBlock *BB) {
+      return all_of(predecessors(BB), [&](const BasicBlock *Pred) {
+        return Pred == &Before || Region.contains(Pred);
+      });
+    };
+    if (!AfterReached || PostOrder.size() != Region.size() ||
+        !EnteredFromRegion(&After) || !all_of(PostOrder, EnteredFromRegion))
+      return false;
+
+    // After now dominates whatever Before dominated.
+    DomTreeNode *BeforeNode = DT.getNode(&Before);
+    SmallVector<DomTreeNode *, 4> Moved(BeforeNode->begin(), BeforeNode->end());
+    auto AddToDT = [&](BasicBlock *BB) {
+      BasicBlock *IDom = nullptr;
+      for (BasicBlock *Pred : predecessors(BB))
+        IDom = IDom ? DT.findNearestCommonDominator(IDom, Pred) : Pred;
+      return DT.addNewBlock(BB, IDom);
+    };
+    for (BasicBlock *BB : reverse(PostOrder))
+      AddToDT(BB);
+    DomTreeNode *AfterNode = AddToDT(&After);
+    for (DomTreeNode *Node : Moved)
+      DT.changeImmediateDominator(Node, AfterNode);
+
+    // The blocks that reach After join every loop that holds Before, and a
+    // fresh analysis lists them right after Before.
+    Loop *L = LI.getLoopFor(&Before);
+    if (!L)
+      return true;
+    SmallVector<BasicBlock *, 16> InLoop;
+    for (BasicBlock *BB : reverse(PostOrder))
+      if (ReachesAfter.lookup(BB))
+        InLoop.push_back(BB);
+    InLoop.push_back(&After);
+    for (BasicBlock *BB : InLoop)
+      LI.changeLoopFor(BB, L);
+    for (Loop *Outer = L; Outer; Outer = Outer->getParentLoop()) {
+      SmallVector<BasicBlock *, 32> Blocks(Outer->getBlocks());
+      LI.removeBlocksIf(*Outer, [](BasicBlock *) { return true; });
+      Outer->reserveBlocks(Blocks.size() + InLoop.size());
+      for (BasicBlock *BB : Blocks) {
+        Outer->addBlockEntry(BB);
+        if (BB == &Before)
+          for (BasicBlock *New : InLoop)
+            Outer->addBlockEntry(New);
+      }
+    }
+    return true;
   }
 };
 
@@ -229,9 +343,21 @@ CalleeCopyCache::CalleeCopyCache(CalleeCopyCache &&) = default;
 
 CalleeCopyCache::~CalleeCopyCache() = default;
 
-void CalleeCopyCache::clear() { S->clear(); }
+void CalleeCopyCache::clear() { S->clearValues(); }
 
-void CalleeCopyCache::clearAfterInlining(const Function &Callee) {
+void CalleeCopyCache::prepareInlining(CallBase &CB) {
+  auto *Call = dyn_cast<CallInst>(&CB);
+  bool Plain = Call && !Call->isMustTailCall();
+  S->SiteBlock = Plain ? CB.getParent() : nullptr;
+  S->SiteTerminator = Plain ? CB.getParent()->getTerminator() : nullptr;
+}
+
+void CalleeCopyCache::updateAfterInlining(const Function &Callee) {
+  BasicBlock *Before = S->SiteBlock;
+  Instruction *Term = S->SiteTerminator;
+  S->clearValues();
+  if (S->LoopsBuilt && Before && S->updateLoops(*Before, *Term->getParent()))
+    return;
   if (S->Acyclic.value_or(false) && State::hasBackEdge(Callee))
     S->Acyclic = false;
   S->clear();
