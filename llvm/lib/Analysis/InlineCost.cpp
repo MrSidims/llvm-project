@@ -533,7 +533,16 @@ class CalleeCopyCounter {
   std::optional<TargetLibraryInfo> TLI;
   std::optional<ScalarEvolution> SE;
   std::optional<SmallPtrSet<const Value *, 32>> EphValues;
-  DenseMap<const Loop *, unsigned> UnrollFactors;
+
+  /// The copies unrolling makes of the body of a loop. A full unroll that ends
+  /// at an exit other than the latch makes TripCount copies of the blocks
+  /// before that exit and one copy fewer of the rest.
+  struct UnrollShape {
+    unsigned Count = 1;
+    unsigned TripCount = 0;
+    SmallPtrSet<const BasicBlock *, 8> BeforeExit;
+  };
+  DenseMap<const Loop *, UnrollShape> UnrollShapes;
   DenseMap<const Loop *, std::pair<uint64_t, bool>> LoopSizes;
 
   ScalarEvolution &getSE() {
@@ -578,33 +587,69 @@ class CalleeCopyCounter {
     for (Loop *Sub : *L) {
       auto [SubSize, SubCanUnroll] = getLoopSize(Sub);
       CanUnroll &= SubCanUnroll;
-      Size =
-          SaturatingMultiplyAdd(SubSize, uint64_t(getUnrollFactor(Sub)), Size);
+      Size = SaturatingMultiplyAdd(SubSize, uint64_t(getUnrollShape(Sub).Count),
+                                   Size);
     }
     LoopSizes[L] = {Size, CanUnroll};
     return {Size, CanUnroll};
   }
 
-  /// The copies full unrolling or an unroll count would make of the body of
-  /// loop \p L.
-  unsigned getUnrollFactor(Loop *L) {
-    if (auto It = UnrollFactors.find(L); It != UnrollFactors.end())
+  const UnrollShape &getUnrollShape(Loop *L) {
+    if (auto It = UnrollShapes.find(L); It != UnrollShapes.end())
       return It->second;
-    unsigned Factor = computeUnrollFactor(L);
-    UnrollFactors[L] = Factor;
-    return Factor;
+    UnrollShape Shape = computeUnrollShape(L);
+    return UnrollShapes.try_emplace(L, std::move(Shape)).first->second;
   }
 
-  unsigned computeUnrollFactor(Loop *L) {
+  /// The copies unrolling makes of block \p BB of loop \p L.
+  unsigned getBlockCopies(Loop *L, const BasicBlock *BB) {
+    const UnrollShape &Shape = getUnrollShape(L);
+    if (!Shape.TripCount)
+      return Shape.Count;
+    return Shape.BeforeExit.contains(BB) ? Shape.TripCount
+                                         : Shape.TripCount - 1;
+  }
+
+  UnrollShape computeUnrollShape(Loop *L) {
+    UnrollShape Shape;
     if (getBooleanLoopAttribute(L, "llvm.loop.unroll.disable"))
-      return 1;
-    unsigned TripCount = getSE().getSmallConstantTripCount(L);
+      return Shape;
+    unsigned TripCount = 0;
+    BasicBlock *Exit = nullptr;
+    SmallVector<BasicBlock *, 8> ExitingBlocks;
+    L->getExitingBlocks(ExitingBlocks);
+    for (BasicBlock *ExitingBlock : ExitingBlocks)
+      if (unsigned TC = getSE().getSmallConstantTripCount(L, ExitingBlock))
+        if (!TripCount || TC < TripCount) {
+          TripCount = TC;
+          Exit = ExitingBlock;
+        }
     // A loop that is not rotated yet exits from its header, which runs once
     // more than its body.
+    unsigned FullCount = TripCount;
     BasicBlock *Latch = L->getLoopLatch();
-    if (TripCount && L->getExitingBlock() == L->getHeader() && Latch &&
-        Latch != L->getHeader())
-      --TripCount;
+    if (Exit == L->getHeader() && Latch && Latch != Exit)
+      --FullCount;
+    Shape.Count = computeUnrollCount(L, FullCount);
+    if (Shape.Count < 2 || Shape.Count != FullCount || Exit == Latch)
+      return Shape;
+    Shape.TripCount = TripCount;
+    SmallVector<const BasicBlock *, 8> Worklist = {Exit};
+    Shape.BeforeExit.insert(Exit);
+    while (!Worklist.empty()) {
+      const BasicBlock *BB = Worklist.pop_back_val();
+      if (BB == L->getHeader())
+        continue;
+      for (const BasicBlock *Pred : predecessors(BB))
+        if (L->contains(Pred) && Shape.BeforeExit.insert(Pred).second)
+          Worklist.push_back(Pred);
+    }
+    return Shape;
+  }
+
+  /// The copies full unrolling or an unroll count would make of the body of
+  /// loop \p L that runs \p TripCount times.
+  unsigned computeUnrollCount(Loop *L, unsigned TripCount) {
     unsigned Count = TripCount;
     bool Forced = getBooleanLoopAttribute(L, "llvm.loop.unroll.full");
     if (std::optional<int> PragmaCount =
@@ -673,7 +718,7 @@ public:
       uint64_t Remaining = Sites.size() - Idx - 1;
       for (Loop *L = LI.getLoopFor(Site->getParent()); L;
            L = L->getParentLoop()) {
-        Copies *= getUnrollFactor(L);
+        Copies *= getBlockCopies(L, Site->getParent());
         if (Total + Copies + Remaining >= Limit)
           return Limit;
       }

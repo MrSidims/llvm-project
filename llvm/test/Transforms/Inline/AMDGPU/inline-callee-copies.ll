@@ -96,6 +96,80 @@ exit:
   ret void
 }
 
+; CHECK-LABEL: Analyzing call of callee... (caller:loop_8_header_call)
+; ON: {{^ *}}Cost: 450{{$}}
+; OFF: {{^ *}}Cost: 50{{$}}
+define void @loop_8_header_call(ptr %p) {
+entry:
+  br label %header
+
+header:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %body ]
+  call void @callee(ptr %p, i32 %i)
+  %done = icmp eq i32 %i, 8
+  br i1 %done, label %exit, label %body
+
+body:
+  %i.next = add nuw nsw i32 %i, 1
+  br label %header
+
+exit:
+  ret void
+}
+
+; A block after the exit that ends the loop runs once fewer than the blocks
+; before it.
+; CHECK-LABEL: Analyzing call of callee... (caller:loop_9_middle_exit)
+; ON: {{^ *}}Cost: 400{{$}}
+; OFF: {{^ *}}Cost: 50{{$}}
+define void @loop_9_middle_exit(ptr %p, ptr %q) {
+entry:
+  br label %header
+
+header:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %latch ]
+  store i32 %i, ptr %q
+  br label %mid
+
+mid:
+  %done = icmp eq i32 %i, 8
+  br i1 %done, label %exit, label %latch
+
+latch:
+  call void @callee(ptr %p, i32 %i)
+  %i.next = add nuw nsw i32 %i, 1
+  br label %header
+
+exit:
+  ret void
+}
+
+; The exit with the smallest trip count bounds an unroll, whatever the other
+; exits do.
+; CHECK-LABEL: Analyzing call of callee... (caller:loop_8_early_exit)
+; ON: {{^ *}}Cost: 400{{$}}
+; OFF: {{^ *}}Cost: 50{{$}}
+define void @loop_8_early_exit(ptr %p, ptr %q) {
+entry:
+  br label %loop
+
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %latch ]
+  %gep = getelementptr inbounds i32, ptr %q, i32 %i
+  %v = load i32, ptr %gep
+  %neg = icmp slt i32 %v, 0
+  br i1 %neg, label %exit, label %latch
+
+latch:
+  call void @callee(ptr %p, i32 %i)
+  %i.next = add nuw nsw i32 %i, 1
+  %done = icmp eq i32 %i.next, 8
+  br i1 %done, label %exit, label %loop
+
+exit:
+  ret void
+}
+
 ; CHECK-LABEL: Analyzing call of callee... (caller:nested_4_2)
 ; ON: {{^ *}}Cost: 400{{$}}
 ; OFF: {{^ *}}Cost: 50{{$}}
