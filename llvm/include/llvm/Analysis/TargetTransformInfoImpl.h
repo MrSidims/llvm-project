@@ -107,6 +107,7 @@ public:
                                        const AllocaInst *AI) const {
     return 0;
   };
+  virtual bool inlineCostCountsCalleeCopies() const { return false; }
 
   virtual int getInlinerVectorBonusPercent() const { return 150; }
 

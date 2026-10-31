@@ -28,6 +28,7 @@
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -35,6 +36,7 @@
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/InlineAsm.h"
@@ -510,6 +512,176 @@ public:
 int64_t getExpectedNumberOfCompare(int NumCaseCluster) {
   return 3 * static_cast<int64_t>(NumCaseCluster) / 2 - 1;
 }
+
+/// Counts the copies of a callee its caller would hold if the callee were
+/// inlined at each direct call site in the caller that is not noinline, with
+/// every site counted once per copy unrolling would make of the loops around
+/// it.
+class CalleeCopyCounter {
+  static constexpr unsigned MaxCalleeUses = 64;
+
+  Function &Callee;
+  CallBase &Call;
+  Function &Caller;
+  uint64_t CalleeSize;
+  const TargetTransformInfo &TTI;
+  AssumptionCache &AC;
+  function_ref<const TargetLibraryInfo &(Function &)> GetTLI;
+  DominatorTree DT;
+  LoopInfo LI;
+  std::optional<TargetLibraryInfoImpl> TLII;
+  std::optional<TargetLibraryInfo> TLI;
+  std::optional<ScalarEvolution> SE;
+  std::optional<SmallPtrSet<const Value *, 32>> EphValues;
+  DenseMap<const Loop *, unsigned> UnrollFactors;
+  DenseMap<const Loop *, std::pair<uint64_t, bool>> LoopSizes;
+
+  ScalarEvolution &getSE() {
+    if (!SE) {
+      if (GetTLI) {
+        TLI.emplace(GetTLI(Caller));
+      } else {
+        TLII.emplace(Caller.getParent()->getTargetTriple());
+        TLI.emplace(*TLII, &Caller);
+      }
+      SE.emplace(Caller, *TLI, AC, DT, LI);
+    }
+    return *SE;
+  }
+
+  /// The size of loop \p L once its subloops are unrolled and the callee is
+  /// inlined at every call in it, and whether \p L can be unrolled.
+  std::pair<uint64_t, bool> getLoopSize(Loop *L) {
+    if (auto It = LoopSizes.find(L); It != LoopSizes.end())
+      return It->second;
+    if (!EphValues) {
+      EphValues.emplace();
+      CodeMetrics::collectEphemeralValues(&Caller, &AC, *EphValues);
+    }
+    CodeMetrics Metrics;
+    uint64_t NumCalls = 0;
+    for (BasicBlock *BB : L->blocks()) {
+      if (LI.getLoopFor(BB) != L)
+        continue;
+      Metrics.analyzeBasicBlock(BB, TTI, *EphValues, /*PrepareForLTO=*/false,
+                                L);
+      for (Instruction &I : *BB)
+        if (auto *CB = dyn_cast<CallBase>(&I))
+          NumCalls += CB->getCalledFunction() == &Callee;
+    }
+    bool CanUnroll = !Metrics.notDuplicatable && Metrics.NumInsts.isValid() &&
+                     Metrics.Convergence != ConvergenceKind::ExtendedLoop;
+    uint64_t Size = 0;
+    if (CanUnroll)
+      Size = SaturatingMultiplyAdd(NumCalls, CalleeSize,
+                                   uint64_t(Metrics.NumInsts.getValue()));
+    for (Loop *Sub : *L) {
+      auto [SubSize, SubCanUnroll] = getLoopSize(Sub);
+      CanUnroll &= SubCanUnroll;
+      Size =
+          SaturatingMultiplyAdd(SubSize, uint64_t(getUnrollFactor(Sub)), Size);
+    }
+    LoopSizes[L] = {Size, CanUnroll};
+    return {Size, CanUnroll};
+  }
+
+  /// The copies full unrolling or an unroll count would make of the body of
+  /// loop \p L.
+  unsigned getUnrollFactor(Loop *L) {
+    if (auto It = UnrollFactors.find(L); It != UnrollFactors.end())
+      return It->second;
+    unsigned Factor = computeUnrollFactor(L);
+    UnrollFactors[L] = Factor;
+    return Factor;
+  }
+
+  unsigned computeUnrollFactor(Loop *L) {
+    if (getBooleanLoopAttribute(L, "llvm.loop.unroll.disable"))
+      return 1;
+    unsigned TripCount = getSE().getSmallConstantTripCount(L);
+    // A loop that is not rotated yet exits from its header, which runs once
+    // more than its body.
+    BasicBlock *Latch = L->getLoopLatch();
+    if (TripCount && L->getExitingBlock() == L->getHeader() && Latch &&
+        Latch != L->getHeader())
+      --TripCount;
+    unsigned Count = TripCount;
+    bool Forced = getBooleanLoopAttribute(L, "llvm.loop.unroll.full");
+    if (std::optional<int> PragmaCount =
+            getOptionalIntLoopAttribute(L, "llvm.loop.unroll.count")) {
+      if (*PragmaCount < 2)
+        return 1;
+      Count = TripCount ? std::min<unsigned>(*PragmaCount, TripCount)
+                        : *PragmaCount;
+      Forced = true;
+    }
+    if (Count < 2)
+      return 1;
+    auto [Size, CanUnroll] = getLoopSize(L);
+    if (!CanUnroll)
+      return 1;
+    if (Forced)
+      return Count;
+    bool Enabled = getBooleanLoopAttribute(L, "llvm.loop.unroll.enable");
+    if (!Enabled && getBooleanLoopAttribute(L, "llvm.loop.disable_nonforced"))
+      return 1;
+
+    TargetTransformInfo::UnrollingPreferences UP = {};
+    UP.Threshold = 300;
+    UP.FullUnrollMaxCount = std::numeric_limits<unsigned>::max();
+    UP.BEInsns = 2;
+    TTI.getUnrollingPreferences(L, getSE(), UP, /*ORE=*/nullptr);
+    if (Count > UP.FullUnrollMaxCount)
+      return 1;
+    uint64_t Threshold =
+        Caller.hasOptSize() ? UP.OptSizeThreshold : UP.Threshold;
+    if (Enabled)
+      Threshold = std::max<uint64_t>(Threshold, 16 * 1024);
+    uint64_t BE = UP.BEInsns;
+    uint64_t LoopSize = std::max(Size, BE + 1);
+    return SaturatingMultiplyAdd(LoopSize - BE, uint64_t(Count), BE) < Threshold
+               ? Count
+               : 1;
+  }
+
+public:
+  CalleeCopyCounter(Function &Callee, CallBase &Call, uint64_t CalleeSize,
+                    const TargetTransformInfo &TTI, AssumptionCache &AC,
+                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI)
+      : Callee(Callee), Call(Call), Caller(*Call.getFunction()),
+        CalleeSize(CalleeSize), TTI(TTI), AC(AC), GetTLI(GetTLI) {}
+
+  /// Returns the number of copies, or \p Limit if it is at least \p Limit.
+  unsigned count(unsigned Limit) {
+    SmallVector<CallBase *, 8> Sites = {&Call};
+    if (!Callee.hasNUsesOrMore(MaxCalleeUses + 1))
+      for (Use &U : Callee.uses())
+        if (auto *CB = dyn_cast<CallBase>(U.getUser()))
+          if (CB != &Call && CB->isCallee(&U) && CB->getFunction() == &Caller &&
+              !CB->isNoInline())
+            Sites.push_back(CB);
+    if (Sites.size() >= Limit)
+      return Limit;
+
+    DT.recalculate(Caller);
+    LI.analyze(DT);
+    if (LI.empty())
+      return Sites.size();
+    uint64_t Total = 0;
+    for (auto [Idx, Site] : enumerate(Sites)) {
+      uint64_t Copies = 1;
+      uint64_t Remaining = Sites.size() - Idx - 1;
+      for (Loop *L = LI.getLoopFor(Site->getParent()); L;
+           L = L->getParentLoop()) {
+        Copies *= getUnrollFactor(L);
+        if (Total + Copies + Remaining >= Limit)
+          return Limit;
+      }
+      Total += Copies;
+    }
+    return Total;
+  }
+};
 
 /// FIXME: if it is necessary to derive from InlineCostCallAnalyzer, note
 /// the FIXME in onLoweredCall, when instantiating an InlineCostCallAnalyzer
@@ -1036,6 +1208,20 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
     if (IgnoreThreshold)
       return InlineResult::success();
+
+    // The caller holds a copy of the callee for each of its call sites to it,
+    // times the copies unrolling makes of each. A callee without control flow
+    // merges into the blocks of the caller and is not charged for them.
+    if (Cost > 0 && Cost < Threshold && !SingleBB &&
+        TTI.inlineCostCountsCalleeCopies()) {
+      CalleeCopyCounter Counter(F, CandidateCall,
+                                Cost / std::max(1, int(InstrCost)), TTI,
+                                GetAssumptionCache(*Caller), GetTLI);
+      unsigned Copies =
+          Counter.count(divideCeil(unsigned(Threshold), unsigned(Cost)));
+      LLVM_DEBUG(dbgs() << "      Callee copies: " << Copies << "\n");
+      Cost = std::min<int64_t>(int64_t(Cost) * Copies, INT_MAX);
+    }
 
     DecidedByCostThreshold = true;
     return Cost < std::max(1, Threshold)

@@ -234,6 +234,10 @@ unsigned TargetTransformInfo::getCallerAllocaCost(const CallBase *CB,
   return TTIImpl->getCallerAllocaCost(CB, AI);
 }
 
+bool TargetTransformInfo::inlineCostCountsCalleeCopies() const {
+  return TTIImpl->inlineCostCountsCalleeCopies();
+}
+
 int TargetTransformInfo::getInlinerVectorBonusPercent() const {
   return TTIImpl->getInlinerVectorBonusPercent();
 }
