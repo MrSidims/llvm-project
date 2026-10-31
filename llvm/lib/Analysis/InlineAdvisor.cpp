@@ -133,6 +133,9 @@ std::optional<llvm::InlineCost> static getDefaultInlineAdvice(
       [&](Function &F) -> EphemeralValuesAnalysis::Result & {
     return FAM.getResult<EphemeralValuesAnalysis>(F);
   };
+  auto GetCalleeCopyCache = [&](Function &F) -> CalleeCopyCache & {
+    return FAM.getResult<CalleeCopyAnalysis>(F);
+  };
 
   Function &Callee = *CB.getCalledFunction();
   auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
@@ -142,7 +145,7 @@ std::optional<llvm::InlineCost> static getDefaultInlineAdvice(
             DEBUG_TYPE);
     return getInlineCost(CB, Params, CalleeTTI, GetAssumptionCache, GetTLI,
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr,
-                         GetEphValuesCache);
+                         GetEphValuesCache, GetCalleeCopyCache);
   };
   return llvm::shouldInline(CB, CalleeTTI, GetInlineCost, ORE,
                             Params.EnableDeferral

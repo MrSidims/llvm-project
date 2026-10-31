@@ -213,6 +213,8 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
       Advice->recordUnsuccessfulInlining(IR);
       continue;
     }
+    if (auto *CopyCache = FAM.getCachedResult<CalleeCopyAnalysis>(F))
+      CopyCache->clearAfterInlining(Callee);
 
     Changed = true;
     ++NumInlined;

@@ -19,6 +19,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/DomConditionCache.h"
@@ -117,6 +118,141 @@ namespace InlineConstants {
 int getInstrCost() { return InstrCost; }
 
 } // namespace InlineConstants
+
+class CalleeCopyCache::State {
+public:
+  /// The copies unrolling makes of the body of a loop. A full unroll that ends
+  /// at an exit other than the latch makes TripCount copies of the blocks
+  /// before that exit and one copy fewer of the rest.
+  struct UnrollShape {
+    unsigned Count = 1;
+    unsigned TripCount = 0;
+    SmallPtrSet<const BasicBlock *, 8> BeforeExit;
+  };
+
+  Function &Caller;
+  const TargetTransformInfo &TTI;
+  AssumptionCache &AC;
+  const TargetLibraryInfo *CallerTLI;
+  std::optional<bool> Acyclic;
+  bool LoopsBuilt = false;
+  DominatorTree DT;
+  LoopInfo LI;
+  std::optional<TargetLibraryInfoImpl> TLII;
+  std::optional<TargetLibraryInfo> TLI;
+  std::optional<ScalarEvolution> SE;
+  std::optional<SmallPtrSet<const Value *, 32>> EphValues;
+  std::optional<std::tuple<const Function *, uint64_t, bool>> ShapeKey;
+  DenseMap<const Loop *, UnrollShape> UnrollShapes;
+  DenseMap<const Loop *, std::pair<uint64_t, bool>> LoopSizes;
+  SmallPtrSet<const Loop *, 4> UncontrolledConvergence;
+
+  State(Function &Caller, const TargetTransformInfo &TTI, AssumptionCache &AC,
+        const TargetLibraryInfo *CallerTLI)
+      : Caller(Caller), TTI(TTI), AC(AC), CallerTLI(CallerTLI) {}
+
+  static bool hasBackEdge(const Function &F) {
+    SmallVector<std::pair<const BasicBlock *, const BasicBlock *>, 8> BackEdges;
+    FindFunctionBackedges(F, BackEdges);
+    return !BackEdges.empty();
+  }
+
+  bool hasLoops() {
+    if (!Acyclic)
+      Acyclic = !hasBackEdge(Caller);
+    if (*Acyclic)
+      return false;
+    if (!LoopsBuilt) {
+      DT.recalculate(Caller);
+      LI.analyze(DT);
+      LoopsBuilt = true;
+    }
+    return !LI.empty();
+  }
+
+  ScalarEvolution &getSE() {
+    if (!SE) {
+      if (!TLI) {
+        if (CallerTLI) {
+          TLI.emplace(*CallerTLI);
+        } else {
+          TLII.emplace(Caller.getParent()->getTargetTriple());
+          TLI.emplace(*TLII, &Caller);
+        }
+      }
+      SE.emplace(Caller, *TLI, AC, DT, LI);
+    }
+    return *SE;
+  }
+
+  const SmallPtrSetImpl<const Value *> &getEphValues() {
+    if (!EphValues) {
+      EphValues.emplace();
+      CodeMetrics::collectEphemeralValues(&Caller, &AC, *EphValues);
+    }
+    return *EphValues;
+  }
+
+  void setShapeKey(const Function &Callee, uint64_t CalleeSize,
+                   bool LoopUnrolling) {
+    auto Key = std::make_tuple(&Callee, CalleeSize, LoopUnrolling);
+    if (ShapeKey == Key)
+      return;
+    clearShapes();
+    ShapeKey = Key;
+  }
+
+  void clearShapes() {
+    UnrollShapes.clear();
+    LoopSizes.clear();
+    UncontrolledConvergence.clear();
+    ShapeKey.reset();
+  }
+
+  void clear() {
+    SE.reset();
+    EphValues.reset();
+    clearShapes();
+    LI.releaseMemory();
+    DT.reset();
+    LoopsBuilt = false;
+  }
+};
+
+CalleeCopyCache::CalleeCopyCache(Function &Caller,
+                                 const TargetTransformInfo &TTI,
+                                 AssumptionCache &AC,
+                                 const TargetLibraryInfo *TLI)
+    : S(std::make_unique<State>(Caller, TTI, AC, TLI)) {}
+
+CalleeCopyCache::CalleeCopyCache(CalleeCopyCache &&) = default;
+
+CalleeCopyCache::~CalleeCopyCache() = default;
+
+void CalleeCopyCache::clear() { S->clear(); }
+
+void CalleeCopyCache::clearAfterInlining(const Function &Callee) {
+  if (S->Acyclic.value_or(false) && State::hasBackEdge(Callee))
+    S->Acyclic = false;
+  S->clear();
+}
+
+bool CalleeCopyCache::invalidate(Function &F, const PreservedAnalyses &PA,
+                                 FunctionAnalysisManager::Invalidator &Inv) {
+  auto PAC = PA.getChecker<CalleeCopyAnalysis>();
+  return !(PAC.preserved() || PAC.preservedSet<AllAnalysesOn<Function>>()) ||
+         Inv.invalidate<AssumptionAnalysis>(F, PA) ||
+         Inv.invalidate<TargetIRAnalysis>(F, PA);
+}
+
+AnalysisKey CalleeCopyAnalysis::Key;
+
+CalleeCopyCache CalleeCopyAnalysis::run(Function &F,
+                                        FunctionAnalysisManager &FAM) {
+  return CalleeCopyCache(F, FAM.getResult<TargetIRAnalysis>(F),
+                         FAM.getResult<AssumptionAnalysis>(F),
+                         &FAM.getResult<TargetLibraryAnalysis>(F));
+}
 
 } // namespace llvm
 
@@ -520,63 +656,34 @@ int64_t getExpectedNumberOfCompare(int NumCaseCluster) {
 /// it.
 class CalleeCopyCounter {
   static constexpr unsigned MaxCalleeUses = 64;
+  using UnrollShape = CalleeCopyCache::State::UnrollShape;
 
   Function &Callee;
   CallBase &Call;
-  Function &Caller;
   uint64_t CalleeSize;
   bool LoopUnrolling;
+  CalleeCopyCache::State &S;
+  Function &Caller;
   const TargetTransformInfo &TTI;
-  AssumptionCache &AC;
-  function_ref<const TargetLibraryInfo &(Function &)> GetTLI;
-  DominatorTree DT;
-  LoopInfo LI;
-  std::optional<TargetLibraryInfoImpl> TLII;
-  std::optional<TargetLibraryInfo> TLI;
-  std::optional<ScalarEvolution> SE;
-  std::optional<SmallPtrSet<const Value *, 32>> EphValues;
+  LoopInfo &LI;
+  DenseMap<const Loop *, UnrollShape> &UnrollShapes;
+  DenseMap<const Loop *, std::pair<uint64_t, bool>> &LoopSizes;
+  SmallPtrSetImpl<const Loop *> &UncontrolledConvergence;
 
-  /// The copies unrolling makes of the body of a loop. A full unroll that ends
-  /// at an exit other than the latch makes TripCount copies of the blocks
-  /// before that exit and one copy fewer of the rest.
-  struct UnrollShape {
-    unsigned Count = 1;
-    unsigned TripCount = 0;
-    SmallPtrSet<const BasicBlock *, 8> BeforeExit;
-  };
-  DenseMap<const Loop *, UnrollShape> UnrollShapes;
-  DenseMap<const Loop *, std::pair<uint64_t, bool>> LoopSizes;
-  SmallPtrSet<const Loop *, 4> UncontrolledConvergence;
-
-  ScalarEvolution &getSE() {
-    if (!SE) {
-      if (GetTLI) {
-        TLI.emplace(GetTLI(Caller));
-      } else {
-        TLII.emplace(Caller.getParent()->getTargetTriple());
-        TLI.emplace(*TLII, &Caller);
-      }
-      SE.emplace(Caller, *TLI, AC, DT, LI);
-    }
-    return *SE;
-  }
+  ScalarEvolution &getSE() { return S.getSE(); }
 
   /// The size of loop \p L once its subloops are unrolled and the callee is
   /// inlined at every call in it, and whether \p L can be unrolled.
   std::pair<uint64_t, bool> getLoopSize(Loop *L) {
     if (auto It = LoopSizes.find(L); It != LoopSizes.end())
       return It->second;
-    if (!EphValues) {
-      EphValues.emplace();
-      CodeMetrics::collectEphemeralValues(&Caller, &AC, *EphValues);
-    }
+    const SmallPtrSetImpl<const Value *> &EphValues = S.getEphValues();
     CodeMetrics Metrics;
     uint64_t NumCalls = 0;
     for (BasicBlock *BB : L->blocks()) {
       if (LI.getLoopFor(BB) != L)
         continue;
-      Metrics.analyzeBasicBlock(BB, TTI, *EphValues, /*PrepareForLTO=*/false,
-                                L);
+      Metrics.analyzeBasicBlock(BB, TTI, EphValues, /*PrepareForLTO=*/false, L);
       for (Instruction &I : *BB)
         if (auto *CB = dyn_cast<CallBase>(&I))
           NumCalls += CB->getCalledFunction() == &Callee;
@@ -739,12 +846,13 @@ class CalleeCopyCounter {
 
 public:
   CalleeCopyCounter(Function &Callee, CallBase &Call, uint64_t CalleeSize,
-                    bool LoopUnrolling, const TargetTransformInfo &TTI,
-                    AssumptionCache &AC,
-                    function_ref<const TargetLibraryInfo &(Function &)> GetTLI)
-      : Callee(Callee), Call(Call), Caller(*Call.getFunction()),
-        CalleeSize(CalleeSize), LoopUnrolling(LoopUnrolling), TTI(TTI), AC(AC),
-        GetTLI(GetTLI) {}
+                    bool LoopUnrolling, CalleeCopyCache::State &S)
+      : Callee(Callee), Call(Call), CalleeSize(CalleeSize),
+        LoopUnrolling(LoopUnrolling), S(S), Caller(S.Caller), TTI(S.TTI),
+        LI(S.LI), UnrollShapes(S.UnrollShapes), LoopSizes(S.LoopSizes),
+        UncontrolledConvergence(S.UncontrolledConvergence) {
+    assert(Call.getFunction() == &Caller && "Cache of another function");
+  }
 
   /// Returns the number of copies, or \p Limit if it is at least \p Limit.
   unsigned count(unsigned Limit) {
@@ -758,10 +866,9 @@ public:
     if (Sites.size() >= Limit)
       return Limit;
 
-    DT.recalculate(Caller);
-    LI.analyze(DT);
-    if (LI.empty())
+    if (!S.hasLoops())
       return Sites.size();
+    S.setShapeKey(Callee, CalleeSize, LoopUnrolling);
     uint64_t Total = 0;
     for (auto [Idx, Site] : enumerate(Sites)) {
       uint64_t Copies = 1;
@@ -781,6 +888,7 @@ public:
 /// FIXME: if it is necessary to derive from InlineCostCallAnalyzer, note
 /// the FIXME in onLoweredCall, when instantiating an InlineCostCallAnalyzer
 class InlineCostCallAnalyzer final : public CallAnalyzer {
+  function_ref<CalleeCopyCache &(Function &)> GetCalleeCopyCache;
   const bool ComputeFullInlineCost;
   int LoadEliminationCost = 0;
   /// Bonus to be applied when percentage of vector instructions in callee is
@@ -1309,10 +1417,15 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     // merges into the blocks of the caller and is not charged for them.
     if (Cost > 0 && Cost < Threshold && !SingleBB &&
         TTI.inlineCostCountsCalleeCopies()) {
-      CalleeCopyCounter Counter(F, CandidateCall,
-                                Cost / std::max(1, int(InstrCost)),
-                                Params.LoopUnrolling.value_or(true), TTI,
-                                GetAssumptionCache(*Caller), GetTLI);
+      std::optional<CalleeCopyCache> LocalCache;
+      CalleeCopyCache &Cache =
+          GetCalleeCopyCache
+              ? GetCalleeCopyCache(*Caller)
+              : LocalCache.emplace(*Caller, TTI, GetAssumptionCache(*Caller),
+                                   GetTLI ? &GetTLI(*Caller) : nullptr);
+      CalleeCopyCounter Counter(
+          F, CandidateCall, Cost / std::max(1, int(InstrCost)),
+          Params.LoopUnrolling.value_or(true), Cache.getState());
       unsigned Copies =
           Counter.count(divideCeil(unsigned(Threshold), unsigned(Cost)));
       LLVM_DEBUG(dbgs() << "      Callee copies: " << Copies << "\n");
@@ -1399,9 +1512,11 @@ public:
       bool IgnoreThreshold = false,
       function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache =
           nullptr,
-      bool PrintInstructionComments = false)
+      bool PrintInstructionComments = false,
+      function_ref<CalleeCopyCache &(Function &)> GetCalleeCopyCache = nullptr)
       : CallAnalyzer(Callee, Call, TTI, GetAssumptionCache, GetBFI, GetTLI, PSI,
                      ORE, GetEphValuesCache),
+        GetCalleeCopyCache(GetCalleeCopyCache),
         ComputeFullInlineCost(Opts.inline_cost_full ||
                               Params.ComputeFullInlineCost || ORE ||
                               isCostBenefitAnalysisEnabled()),
@@ -3339,10 +3454,11 @@ InlineCost llvm::getInlineCost(
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-    function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache) {
+    function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache,
+    function_ref<CalleeCopyCache &(Function &)> GetCalleeCopyCache) {
   return getInlineCost(Call, Call.getCalledFunction(), Params, CalleeTTI,
                        GetAssumptionCache, GetTLI, GetBFI, PSI, ORE,
-                       GetEphValuesCache);
+                       GetEphValuesCache, GetCalleeCopyCache);
 }
 
 std::optional<int> llvm::getInliningCostEstimate(
@@ -3468,7 +3584,8 @@ InlineCost llvm::getInlineCost(
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-    function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache) {
+    function_ref<EphemeralValuesCache &(Function &)> GetEphValuesCache,
+    function_ref<CalleeCopyCache &(Function &)> GetCalleeCopyCache) {
 
   auto UserDecision =
       llvm::getAttributeBasedInliningDecision(Call, Callee, CalleeTTI, GetTLI);
@@ -3488,10 +3605,11 @@ InlineCost llvm::getInlineCost(
                           << "... (caller:" << Call.getCaller()->getName()
                           << ")\n");
 
-  InlineCostCallAnalyzer CA(*Callee, Call, Params, CalleeTTI,
-                            GetAssumptionCache, GetBFI, GetTLI, PSI, ORE,
-                            /*BoostIndirect=*/true, /*IgnoreThreshold=*/false,
-                            GetEphValuesCache);
+  InlineCostCallAnalyzer CA(
+      *Callee, Call, Params, CalleeTTI, GetAssumptionCache, GetBFI, GetTLI, PSI,
+      ORE,
+      /*BoostIndirect=*/true, /*IgnoreThreshold=*/false, GetEphValuesCache,
+      /*PrintInstructionComments=*/false, GetCalleeCopyCache);
   InlineResult ShouldInline = CA.analyze();
 
   LLVM_DEBUG(CA.dump());

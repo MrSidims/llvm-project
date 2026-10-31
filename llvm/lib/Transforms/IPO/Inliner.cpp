@@ -337,6 +337,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       // Store-to-load forwarding, loads can be sometimes simplified to
       // constants from stores introduced by previous inlining
       if (DidInline) {
+        bool Forwarded = false;
         for (Value *Arg : CB->args()) {
           auto *LI = dyn_cast<LoadInst>(Arg);
           if (!LI || !LI->isSimple())
@@ -359,7 +360,11 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           }
           LI->replaceAllUsesWith(C);
           LI->eraseFromParent();
+          Forwarded = true;
         }
+        if (Forwarded)
+          if (auto *CopyCache = FAM.getCachedResult<CalleeCopyAnalysis>(F))
+            CopyCache->clear();
       }
 
       std::unique_ptr<InlineAdvice> Advice =
@@ -409,6 +414,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       // TODO: Shouldn't we be invalidating all analyses on F here?
       // The caller was modified, so invalidate Ephemeral Values.
       FAM.getResult<EphemeralValuesAnalysis>(F).clear();
+      if (auto *CopyCache = FAM.getCachedResult<CalleeCopyAnalysis>(F))
+        CopyCache->clearAfterInlining(Callee);
 
       DidInline = true;
       InlinedCallees.insert(&Callee);

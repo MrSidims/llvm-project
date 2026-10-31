@@ -357,6 +357,7 @@ FUNCTION_ANALYSIS("bb-sections-profile-reader",
                   BasicBlockSectionsProfileReaderAnalysis(*TM))
 FUNCTION_ANALYSIS("block-freq", BlockFrequencyAnalysis())
 FUNCTION_ANALYSIS("branch-prob", BranchProbabilityAnalysis())
+FUNCTION_ANALYSIS("callee-copies", CalleeCopyAnalysis())
 FUNCTION_ANALYSIS("cycles", CycleAnalysis())
 FUNCTION_ANALYSIS("da", DependenceAnalysis())
 FUNCTION_ANALYSIS("debug-ata", DebugAssignmentTrackingAnalysis())

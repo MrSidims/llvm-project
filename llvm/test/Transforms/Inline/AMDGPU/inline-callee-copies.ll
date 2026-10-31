@@ -588,6 +588,37 @@ exit:
   ret void
 }
 
+; A caller without loops gets one from an inlined callee, and the call the
+; loop brings in is charged for the copies unrolling makes of it.
+; INLINE-ON-LABEL: define void @acyclic_caller(
+; INLINE-ON: call void @callee(
+
+; INLINE-OFF-LABEL: define void @acyclic_caller(
+; INLINE-OFF-NOT: call void @
+; INLINE-OFF: ret void
+define void @acyclic_caller(ptr %p, i32 %x) {
+  call void @callee(ptr %p, i32 %x) #3
+  call void @with_loop(ptr %p)
+  ret void
+}
+
+; INLINE-ON-LABEL: define void @with_loop(
+; INLINE-ON: call void @callee(
+define void @with_loop(ptr %p) #0 {
+entry:
+  br label %loop
+
+loop:
+  %i = phi i32 [ 0, %entry ], [ %i.next, %loop ]
+  call void @callee(ptr %p, i32 %i) #3
+  %i.next = add nuw nsw i32 %i, 1
+  %done = icmp eq i32 %i.next, 8
+  br i1 %done, label %exit, label %loop
+
+exit:
+  ret void
+}
+
 declare void @llvm.amdgcn.s.barrier()
 
 attributes #0 = { "function-inline-cost"="50" "function-inline-threshold"="100000" }
