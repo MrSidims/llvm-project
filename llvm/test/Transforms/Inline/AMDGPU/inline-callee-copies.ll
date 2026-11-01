@@ -651,6 +651,37 @@ define void @threshold_max(ptr %p, i32 %x) {
   ret void
 }
 
+; An analysis stopped early between the blocks of the callee still refuses the
+; copies that reach a threshold at the sentinel.
+; INLINE-ON-LABEL: define void @threshold_max_stop(
+; INLINE-ON-NEXT: call void @callee_stop(
+; INLINE-ON-NEXT: call void @callee_stop(
+; INLINE-ON-NEXT: ret void
+
+; INLINE-OFF-LABEL: define void @threshold_max_stop(
+; INLINE-OFF-NOT: call void @callee_stop(
+; INLINE-OFF: ret void
+define void @threshold_max_stop(ptr %p, i32 %x) {
+  call void @callee_stop(ptr %p, i32 %x) #5
+  call void @callee_stop(ptr %p, i32 %x) #5
+  ret void
+}
+
+define void @callee_stop(ptr %p, i32 %x) {
+entry:
+  %v = load i32, ptr %p
+  %c = icmp eq i32 %v, 0
+  call void @external() #6
+  br i1 %c, label %then, label %exit
+
+then:
+  store i32 %x, ptr %p
+  br label %exit
+
+exit:
+  ret void
+}
+
 ; O3-LABEL: define void @pipeline_nested_token(
 ; O3-UNROLL: call void @callee(
 ; O3-NO-UNROLL-NOT: call void @callee(
@@ -752,6 +783,7 @@ exit:
 
 declare void @llvm.amdgcn.s.barrier()
 declare token @llvm.experimental.convergence.anchor()
+declare void @external()
 
 attributes #0 = { "function-inline-cost"="50" "function-inline-threshold"="100000" }
 attributes #1 = { "function-inline-threshold"="1000" }
@@ -759,6 +791,7 @@ attributes #2 = { noinline }
 attributes #3 = { "function-inline-threshold"="300" }
 attributes #4 = { "function-inline-cost"="1100000000" "function-inline-threshold"="2000000000" }
 attributes #5 = { "function-inline-cost"="1100000000" "function-inline-threshold"="2147483647" }
+attributes #6 = { "call-inline-cost"="3000" }
 
 !0 = distinct !{!0, !1}
 !1 = !{!"llvm.loop.unroll.disable"}

@@ -1570,9 +1570,12 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       int64_t Total = int64_t(Cost) * Copies;
       Cost = std::min<int64_t>(Total, INT_MAX - 1);
       // A cost saturated below the never inline sentinel cannot reach a
-      // threshold at the sentinel, so the copies that do are refused here.
-      if (Total >= Threshold && Cost < Threshold)
+      // threshold at the sentinel, so the copies that do are refused here
+      // rather than by the comparison an early stop may have recorded.
+      if (Total >= Threshold && Cost < Threshold) {
+        DecidedByCostThreshold = false;
         return InlineResult::failure("Cost over threshold.");
+      }
     }
 
     DecidedByCostThreshold = true;
