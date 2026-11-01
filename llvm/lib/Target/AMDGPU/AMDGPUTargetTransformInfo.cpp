@@ -414,9 +414,11 @@ bool GCNTTIImpl::consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts,
 }
 
 bool GCNTTIImpl::isPackedLaneType(Type *Ty) const {
-  unsigned Bits = DL.getTypeSizeInBits(Ty);
-  unsigned RegBits = getRegisterBitWidth(TTI::RGK_Scalar).getFixedValue();
-  return 2 * Bits <= RegBits && isTypeLegal(FixedVectorType::get(Ty, 2));
+  if (Ty->isFloatTy())
+    return ST->hasAnyPackedFP32Ops();
+  if (Ty->isBFloatTy())
+    return ST->hasBF16PackedInsts();
+  return Ty->isHalfTy() && ST->hasVOP3PInsts();
 }
 
 bool GCNTTIImpl::isLegalToVectorizeMemChain(unsigned ChainSizeInBytes,
@@ -2199,99 +2201,144 @@ GCNTTIImpl::fpenvIEEEMode(const Instruction &I) const {
 /// The longest chain of single users followed from a lane.
 static constexpr unsigned MaxLaneChainSteps = 128;
 
-using FAddChainRootMap =
-    SmallDenseMap<const Instruction *, const Instruction *, 32>;
+/// An fadd of a chain of one-use fadds that each add a one-use contract fmul,
+/// by the last fadd of the chain and the number of fadds between the two.
+struct FAddChainPos {
+  const Instruction *Root;
+  unsigned Dist;
 
-/// \returns the last fadd of the chain of one-use fadds that starts at \p Add.
-static const Instruction *getFAddChainRoot(const Instruction *Add,
-                                           FAddChainRootMap &RootOf) {
-  SmallVector<const Instruction *, 16> Links;
-  const Instruction *Root = Add;
-  for (unsigned Step = 0;; ++Step) {
-    if (auto It = RootOf.find(Root); It != RootOf.end()) {
-      Root = It->second;
-      break;
-    }
-    Links.push_back(Root);
-    if (Step + 1 == MaxLaneChainSteps || !Root->hasOneUse())
-      break;
-    const auto *Next = cast<Instruction>(Root->user_back());
-    if (Next->getOpcode() != Instruction::FAdd)
-      break;
-    Root = Next;
+  bool operator==(const FAddChainPos &Other) const {
+    return Root == Other.Root && Dist == Other.Dist;
   }
-  for (const Instruction *Link : Links)
-    RootOf[Link] = Root;
-  return Root;
+};
+
+using FAddChainPosMap = SmallDenseMap<const Instruction *, FAddChainPos, 32>;
+
+/// \returns true if \p Add adds a one-use contract fmul to \p Acc.
+static bool accumulatesFMul(const Instruction *Add, const Instruction *Acc) {
+  using namespace PatternMatch;
+  const Value *Other = Add->getOperand(Add->getOperand(0) == Acc ? 1 : 0);
+  return match(Other, m_OneUse(m_AllowContract(m_FMul(m_Value(), m_Value()))));
 }
 
-/// Adds to \p Roots the roots of the contract fadd chains without reassoc that
-/// accumulate the one-use contract fmuls reached from \p V through at most
-/// \p Depth single-user operations.
-static void collectFMAChainRoots(const Value *V, unsigned Depth,
-                                 FAddChainRootMap &RootOf,
-                                 SmallVectorImpl<const Instruction *> &Roots) {
+/// \returns the position of \p Add in its chain of one-use fadds that each add
+/// a one-use contract fmul. The chain ends where an fadd adds anything else, as
+/// the sum of two chains does.
+static FAddChainPos getFAddChainPos(const Instruction *Add,
+                                    FAddChainPosMap &PosOf) {
+  SmallVector<const Instruction *, 16> Links;
+  const Instruction *Link = Add;
+  std::optional<FAddChainPos> Known;
+  for (unsigned Step = 0;; ++Step) {
+    if (auto It = PosOf.find(Link); It != PosOf.end()) {
+      Known = It->second;
+      break;
+    }
+    Links.push_back(Link);
+    if (Step + 1 == MaxLaneChainSteps || !Link->hasOneUse())
+      break;
+    const auto *Next = cast<Instruction>(Link->user_back());
+    if (Next->getOpcode() != Instruction::FAdd || !accumulatesFMul(Next, Link))
+      break;
+    Link = Next;
+  }
+  FAddChainPos Pos{Link, 0};
+  if (Known)
+    Pos = *Known;
+  else
+    PosOf[Links.pop_back_val()] = Pos;
+  for (const Instruction *L : reverse(Links)) {
+    ++Pos.Dist;
+    PosOf[L] = Pos;
+  }
+  return Pos;
+}
+
+/// Adds to \p Positions the positions in contract fadd chains without reassoc
+/// of the one-use contract fmuls of a type with packed fmas reached from \p V
+/// through at most \p Depth single-user operations.
+static void collectFMAChainPositions(const Value *V, unsigned Depth,
+                                     function_ref<bool(Type *)> HasPackedFMA,
+                                     FAddChainPosMap &PosOf,
+                                     SmallVectorImpl<FAddChainPos> &Positions) {
   using namespace PatternMatch;
   for (const User *U : V->users()) {
     const auto *UI = dyn_cast<Instruction>(U);
     if (!UI)
       continue;
-    if (match(UI, m_OneUse(m_AllowContract(m_FMul(m_Value(), m_Value()))))) {
+    if (match(UI, m_OneUse(m_AllowContract(m_FMul(m_Value(), m_Value())))) &&
+        HasPackedFMA(UI->getType())) {
       const auto *Add = cast<Instruction>(UI->user_back());
       if (Add->getOpcode() == Instruction::FAdd && Add->hasAllowContract() &&
           !Add->hasAllowReassoc()) {
-        const Instruction *Root = getFAddChainRoot(Add, RootOf);
-        if (!is_contained(Roots, Root))
-          Roots.push_back(Root);
+        FAddChainPos Pos = getFAddChainPos(Add, PosOf);
+        if (!is_contained(Positions, Pos))
+          Positions.push_back(Pos);
         continue;
       }
     }
     if (Depth == 0 || !UI->hasOneUser() ||
         !isa<CastInst, UnaryOperator, BinaryOperator>(UI))
       continue;
-    collectFMAChainRoots(UI, Depth - 1, RootOf, Roots);
+    collectFMAChainPositions(UI, Depth - 1, HasPackedFMA, PosOf, Positions);
   }
 }
 
-/// \returns true if lane \p Lane takes one of its \p LaneRoots that no lane in
-/// \p LaneOfRoot holds or that the lane holding it can trade for another one.
-static bool
-assignLaneRoot(unsigned Lane,
-               ArrayRef<SmallVector<const Instruction *, 2>> LaneRoots,
-               SmallDenseMap<const Instruction *, unsigned, 32> &LaneOfRoot,
-               SmallPtrSetImpl<const Instruction *> &Visited) {
-  for (const Instruction *Root : LaneRoots[Lane]) {
-    if (!Visited.insert(Root).second)
-      continue;
-    auto It = LaneOfRoot.find(Root);
-    if (It == LaneOfRoot.end() ||
-        assignLaneRoot(It->second, LaneRoots, LaneOfRoot, Visited)) {
-      LaneOfRoot[Root] = Lane;
-      return true;
-    }
-  }
-  return false;
-}
-
-/// \returns true if the loads \p Scalars feed fmuls that contract fadd chains
-/// without reassoc accumulate, and the lanes cannot each take a chain of their
-/// own. The scalar fmuls fuse into the chain, the fmuls of its vectorized
-/// ordered reduction do not. If \p PackedLanes, the lanes that feed several
-/// chains do not count, a packed fma takes them from either half of a register.
-static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars,
-                              bool PackedLanes) {
-  FAddChainRootMap RootOf;
-  SmallVector<SmallVector<const Instruction *, 2>> LaneRoots;
+/// \returns the loads \p Scalars in the order of their addresses if they share
+/// a base pointer, else in the given order.
+static SmallVector<const Value *, 16>
+loadsInAddressOrder(ArrayRef<const Value *> Scalars, const DataLayout &DL) {
+  SmallVector<std::pair<APInt, const Value *>, 16> Offsets;
+  const Value *Base = nullptr;
   for (const Value *V : Scalars) {
-    SmallVector<const Instruction *, 2> Roots;
-    collectFMAChainRoots(V, /*Depth=*/3, RootOf, Roots);
-    if (!Roots.empty() && (!PackedLanes || Roots.size() == 1))
-      LaneRoots.push_back(std::move(Roots));
+    const Value *Ptr = cast<LoadInst>(V)->getPointerOperand();
+    APInt Offset(DL.getIndexTypeSizeInBits(Ptr->getType()), 0);
+    Ptr = Ptr->stripAndAccumulateConstantOffsets(DL, Offset,
+                                                 /*AllowNonInbounds=*/true);
+    if (!Base)
+      Base = Ptr;
+    else if (Ptr != Base)
+      return SmallVector<const Value *, 16>(Scalars);
+    Offsets.emplace_back(Offset, V);
   }
-  SmallDenseMap<const Instruction *, unsigned, 32> LaneOfRoot;
-  for (unsigned Lane : seq<unsigned>(LaneRoots.size())) {
-    SmallPtrSet<const Instruction *, 8> Visited;
-    if (!assignLaneRoot(Lane, LaneRoots, LaneOfRoot, Visited))
+  stable_sort(Offsets, [](const auto &A, const auto &B) {
+    return A.first.slt(B.first);
+  });
+  SmallVector<const Value *, 16> Lanes;
+  for (const auto &[Offset, V] : Offsets)
+    Lanes.push_back(V);
+  return Lanes;
+}
+
+/// \returns true if the loads \p Scalars feed fmuls of a type with packed fmas
+/// that contract fadd chains without reassoc accumulate, and the two lanes of
+/// some packed register hold one position each that is not the same position
+/// of two chains, the same two chains wherever either appears. The scalar
+/// fmuls fuse into the chains, the fmuls of their vectorized ordered reduction
+/// only when the chains run in lockstep in pairs. A lane that feeds several
+/// chains or none imposes nothing, a packed fma takes it from either half of a
+/// register. A type without packed fmas fuses lane by lane either way.
+static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars,
+                              const DataLayout &DL,
+                              function_ref<bool(Type *)> HasPackedFMA) {
+  SmallVector<const Value *, 16> Lanes = loadsInAddressOrder(Scalars, DL);
+  FAddChainPosMap PosOf;
+  SmallDenseMap<const Instruction *, const Instruction *, 32> PartnerOf;
+  auto PairUp = [&](const Instruction *A, const Instruction *B) {
+    auto [It, New] = PartnerOf.try_emplace(A, B);
+    return New || It->second == B;
+  };
+  for (unsigned Lane = 0; Lane + 1 < Lanes.size(); Lane += 2) {
+    SmallVector<FAddChainPos, 2> Pos0, Pos1;
+    collectFMAChainPositions(Lanes[Lane], /*Depth=*/3, HasPackedFMA, PosOf,
+                             Pos0);
+    collectFMAChainPositions(Lanes[Lane + 1], /*Depth=*/3, HasPackedFMA, PosOf,
+                             Pos1);
+    if (Pos0.size() != 1 || Pos1.size() != 1)
+      continue;
+    if (Pos0[0].Root == Pos1[0].Root || Pos0[0].Dist != Pos1[0].Dist ||
+        !PairUp(Pos0[0].Root, Pos1[0].Root) ||
+        !PairUp(Pos1[0].Root, Pos0[0].Root))
       return true;
   }
   return false;
@@ -2326,8 +2373,8 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
         LoadVecTy->getNumElements() == Scalars.size() * NumLoadElts &&
         all_of(Scalars,
                [&](const Value *V) { return V->getType() == LoadTy; })) {
-      if (loadsFeedFMAChain(Scalars,
-                            isPackedLaneType(LoadTy->getScalarType()))) {
+      if (loadsFeedFMAChain(
+              Scalars, DL, [this](Type *Ty) { return isPackedLaneType(Ty); })) {
         InstructionCost Cost = getMemoryOpCost(
             Opcode, Src, Alignment, AddressSpace, CostKind, OpInfo, I);
         Align BestAlign = Alignment;
