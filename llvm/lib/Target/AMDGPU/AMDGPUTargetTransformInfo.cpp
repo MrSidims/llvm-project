@@ -2284,32 +2284,6 @@ static void collectFMAChainPositions(const Value *V, unsigned Depth,
   }
 }
 
-/// \returns the loads \p Scalars in the order of their addresses if they share
-/// a base pointer, else in the given order.
-static SmallVector<const Value *, 16>
-loadsInAddressOrder(ArrayRef<const Value *> Scalars, const DataLayout &DL) {
-  SmallVector<std::pair<APInt, const Value *>, 16> Offsets;
-  const Value *Base = nullptr;
-  for (const Value *V : Scalars) {
-    const Value *Ptr = cast<LoadInst>(V)->getPointerOperand();
-    APInt Offset(DL.getIndexTypeSizeInBits(Ptr->getType()), 0);
-    Ptr = Ptr->stripAndAccumulateConstantOffsets(DL, Offset,
-                                                 /*AllowNonInbounds=*/true);
-    if (!Base)
-      Base = Ptr;
-    else if (Ptr != Base)
-      return SmallVector<const Value *, 16>(Scalars);
-    Offsets.emplace_back(Offset, V);
-  }
-  stable_sort(Offsets, [](const auto &A, const auto &B) {
-    return A.first.slt(B.first);
-  });
-  SmallVector<const Value *, 16> Lanes;
-  for (const auto &[Offset, V] : Offsets)
-    Lanes.push_back(V);
-  return Lanes;
-}
-
 /// \returns true if the loads \p Scalars feed fmuls of a type with packed fmas
 /// that contract fadd chains without reassoc accumulate, and the two lanes of
 /// some packed register hold one position each that is not the same position
@@ -2319,21 +2293,19 @@ loadsInAddressOrder(ArrayRef<const Value *> Scalars, const DataLayout &DL) {
 /// chains or none imposes nothing, a packed fma takes it from either half of a
 /// register. A type without packed fmas fuses lane by lane either way.
 static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars,
-                              const DataLayout &DL,
                               function_ref<bool(Type *)> HasPackedFMA) {
-  SmallVector<const Value *, 16> Lanes = loadsInAddressOrder(Scalars, DL);
   FAddChainPosMap PosOf;
   SmallDenseMap<const Instruction *, const Instruction *, 32> PartnerOf;
   auto PairUp = [&](const Instruction *A, const Instruction *B) {
     auto [It, New] = PartnerOf.try_emplace(A, B);
     return New || It->second == B;
   };
-  for (unsigned Lane = 0; Lane + 1 < Lanes.size(); Lane += 2) {
+  for (unsigned Lane = 0; Lane + 1 < Scalars.size(); Lane += 2) {
     SmallVector<FAddChainPos, 2> Pos0, Pos1;
-    collectFMAChainPositions(Lanes[Lane], /*Depth=*/3, HasPackedFMA, PosOf,
+    collectFMAChainPositions(Scalars[Lane], /*Depth=*/3, HasPackedFMA, PosOf,
                              Pos0);
-    collectFMAChainPositions(Lanes[Lane + 1], /*Depth=*/3, HasPackedFMA, PosOf,
-                             Pos1);
+    collectFMAChainPositions(Scalars[Lane + 1], /*Depth=*/3, HasPackedFMA,
+                             PosOf, Pos1);
     if (Pos0.size() != 1 || Pos1.size() != 1)
       continue;
     if (Pos0[0].Root == Pos1[0].Root || Pos0[0].Dist != Pos1[0].Dist ||
@@ -2374,7 +2346,7 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
         all_of(Scalars,
                [&](const Value *V) { return V->getType() == LoadTy; })) {
       if (loadsFeedFMAChain(
-              Scalars, DL, [this](Type *Ty) { return isPackedLaneType(Ty); })) {
+              Scalars, [this](Type *Ty) { return isPackedLaneType(Ty); })) {
         InstructionCost Cost = getMemoryOpCost(
             Opcode, Src, Alignment, AddressSpace, CostKind, OpInfo, I);
         Align BestAlign = Alignment;

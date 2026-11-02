@@ -1787,8 +1787,8 @@ public:
   /// \return The cost of Load and Store instructions. The operand info
   /// \p OpdInfo should refer to the stored value for stores and the address
   /// for loads. \p Scalars, if not empty, are the scalar memory instructions
-  /// that the vector access of type \p Src replaces. The target may price the
-  /// access in the context of their users.
+  /// that the vector access of type \p Src replaces, lane by lane in that
+  /// order. The target may price the access in the context of their users.
   LLVM_ABI InstructionCost
   getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                   unsigned AddressSpace, TTI::TargetCostKind CostKind,
