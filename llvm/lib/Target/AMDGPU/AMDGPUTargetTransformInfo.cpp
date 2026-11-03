@@ -2201,8 +2201,9 @@ GCNTTIImpl::fpenvIEEEMode(const Instruction &I) const {
 /// The longest chain of single users followed from a lane.
 static constexpr unsigned MaxLaneChainSteps = 128;
 
-/// An fadd of a chain of one-use fadds that each add a one-use contract fmul,
-/// by the last fadd of the chain and the number of fadds between the two.
+/// An fadd of a chain of one-use fadds that each add a one-use fmul that fuses
+/// into it, by the last fadd of the chain and the number of fadds between the
+/// two.
 struct FAddChainPos {
   const Instruction *Root;
   unsigned Dist;
@@ -2214,18 +2215,24 @@ struct FAddChainPos {
 
 using FAddChainPosMap = SmallDenseMap<const Instruction *, FAddChainPos, 32>;
 
-/// \returns true if \p Add adds a one-use contract fmul to \p Acc.
-static bool accumulatesFMul(const Instruction *Add, const Instruction *Acc) {
-  using namespace PatternMatch;
-  const Value *Other = Add->getOperand(Add->getOperand(0) == Acc ? 1 : 0);
-  return match(Other, m_OneUse(m_AllowContract(m_FMul(m_Value(), m_Value()))));
+/// Whether an fmul fuses into its single fadd user.
+using FMulFusesFn =
+    function_ref<bool(const Instruction *FMul, const Instruction *FAdd)>;
+
+/// \returns true if \p Add adds a one-use fmul that fuses into it to \p Acc.
+static bool accumulatesFMul(const Instruction *Add, const Instruction *Acc,
+                            FMulFusesFn Fuses) {
+  const auto *Other =
+      dyn_cast<Instruction>(Add->getOperand(Add->getOperand(0) == Acc ? 1 : 0));
+  return Other && Other->getOpcode() == Instruction::FMul &&
+         Other->hasOneUse() && Fuses(Other, Add);
 }
 
 /// \returns the position of \p Add in its chain of one-use fadds that each add
-/// a one-use contract fmul. The chain ends where an fadd adds anything else, as
-/// the sum of two chains does.
+/// a one-use fmul that fuses into it. The chain ends where an fadd adds
+/// anything else, as the sum of two chains does.
 static FAddChainPos getFAddChainPos(const Instruction *Add,
-                                    FAddChainPosMap &PosOf) {
+                                    FAddChainPosMap &PosOf, FMulFusesFn Fuses) {
   SmallVector<const Instruction *, 16> Links;
   const Instruction *Link = Add;
   std::optional<FAddChainPos> Known;
@@ -2238,7 +2245,8 @@ static FAddChainPos getFAddChainPos(const Instruction *Add,
     if (Step + 1 == MaxLaneChainSteps || !Link->hasOneUse())
       break;
     const auto *Next = cast<Instruction>(Link->user_back());
-    if (Next->getOpcode() != Instruction::FAdd || !accumulatesFMul(Next, Link))
+    if (Next->getOpcode() != Instruction::FAdd ||
+        !accumulatesFMul(Next, Link, Fuses))
       break;
     Link = Next;
   }
@@ -2254,24 +2262,21 @@ static FAddChainPos getFAddChainPos(const Instruction *Add,
   return Pos;
 }
 
-/// Adds to \p Positions the positions in contract fadd chains without reassoc
-/// of the one-use contract fmuls of a type with packed fmas reached from \p V
-/// through at most \p Depth single-user operations.
+/// Adds to \p Positions the positions in fadd chains without reassoc of the
+/// one-use fmuls that \p Fuses into them reached from \p V through at most
+/// \p Depth single-user operations.
 static void collectFMAChainPositions(const Value *V, unsigned Depth,
-                                     function_ref<bool(Type *)> HasPackedFMA,
-                                     FAddChainPosMap &PosOf,
+                                     FMulFusesFn Fuses, FAddChainPosMap &PosOf,
                                      SmallVectorImpl<FAddChainPos> &Positions) {
-  using namespace PatternMatch;
   for (const User *U : V->users()) {
     const auto *UI = dyn_cast<Instruction>(U);
     if (!UI)
       continue;
-    if (match(UI, m_OneUse(m_AllowContract(m_FMul(m_Value(), m_Value())))) &&
-        HasPackedFMA(UI->getType())) {
+    if (UI->getOpcode() == Instruction::FMul && UI->hasOneUse()) {
       const auto *Add = cast<Instruction>(UI->user_back());
-      if (Add->getOpcode() == Instruction::FAdd && Add->hasAllowContract() &&
-          !Add->hasAllowReassoc()) {
-        FAddChainPos Pos = getFAddChainPos(Add, PosOf);
+      if (Add->getOpcode() == Instruction::FAdd && !Add->hasAllowReassoc() &&
+          Fuses(UI, Add)) {
+        FAddChainPos Pos = getFAddChainPos(Add, PosOf, Fuses);
         if (!is_contained(Positions, Pos))
           Positions.push_back(Pos);
         continue;
@@ -2280,20 +2285,20 @@ static void collectFMAChainPositions(const Value *V, unsigned Depth,
     if (Depth == 0 || !UI->hasOneUser() ||
         !isa<CastInst, UnaryOperator, BinaryOperator>(UI))
       continue;
-    collectFMAChainPositions(UI, Depth - 1, HasPackedFMA, PosOf, Positions);
+    collectFMAChainPositions(UI, Depth - 1, Fuses, PosOf, Positions);
   }
 }
 
 /// \returns true if the loads \p Scalars feed fmuls of a type with packed fmas
-/// that contract fadd chains without reassoc accumulate, and the two lanes of
-/// some packed register hold one position each that is not the same position
-/// of two chains, the same two chains wherever either appears. The scalar
-/// fmuls fuse into the chains, the fmuls of their vectorized ordered reduction
-/// only when the chains run in lockstep in pairs. A lane that feeds several
-/// chains or none imposes nothing, a packed fma takes it from either half of a
+/// that \p Fuses into fadd chains without reassoc, and the two lanes of some
+/// packed register hold one position each that is not the same position of
+/// two chains, the same two chains wherever either appears. The scalar fmuls
+/// fuse into the chains, the fmuls of their vectorized ordered reduction only
+/// when the chains run in lockstep in pairs. A lane that feeds several chains
+/// or none imposes nothing, a packed fma takes it from either half of a
 /// register. A type without packed fmas fuses lane by lane either way.
 static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars,
-                              function_ref<bool(Type *)> HasPackedFMA) {
+                              FMulFusesFn Fuses) {
   FAddChainPosMap PosOf;
   SmallDenseMap<const Instruction *, const Instruction *, 32> PartnerOf;
   auto PairUp = [&](const Instruction *A, const Instruction *B) {
@@ -2302,10 +2307,9 @@ static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars,
   };
   for (unsigned Lane = 0; Lane + 1 < Scalars.size(); Lane += 2) {
     SmallVector<FAddChainPos, 2> Pos0, Pos1;
-    collectFMAChainPositions(Scalars[Lane], /*Depth=*/3, HasPackedFMA, PosOf,
-                             Pos0);
-    collectFMAChainPositions(Scalars[Lane + 1], /*Depth=*/3, HasPackedFMA,
-                             PosOf, Pos1);
+    collectFMAChainPositions(Scalars[Lane], /*Depth=*/3, Fuses, PosOf, Pos0);
+    collectFMAChainPositions(Scalars[Lane + 1], /*Depth=*/3, Fuses, PosOf,
+                             Pos1);
     if (Pos0.size() != 1 || Pos1.size() != 1)
       continue;
     if (Pos0[0].Root == Pos1[0].Root || Pos0[0].Dist != Pos1[0].Dist ||
@@ -2345,8 +2349,13 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
         LoadVecTy->getNumElements() == Scalars.size() * NumLoadElts &&
         all_of(Scalars,
                [&](const Value *V) { return V->getType() == LoadTy; })) {
-      if (loadsFeedFMAChain(
-              Scalars, [this](Type *Ty) { return isPackedLaneType(Ty); })) {
+      auto Fuses = [this](const Instruction *FMul, const Instruction *FAdd) {
+        Type *Ty = FMul->getType();
+        return isPackedLaneType(Ty) && FMul->hasAllowContract() &&
+               FAdd->hasAllowContract() &&
+               canFuseFMulWithFAddSub(*TLI, Ty, FMul, FAdd);
+      };
+      if (loadsFeedFMAChain(Scalars, Fuses)) {
         InstructionCost Cost = getMemoryOpCost(
             Opcode, Src, Alignment, AddressSpace, CostKind, OpInfo, I);
         Align BestAlign = Alignment;
