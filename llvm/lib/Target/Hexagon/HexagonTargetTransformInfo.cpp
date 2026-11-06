@@ -169,10 +169,12 @@ HexagonTTIImpl::getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
   return 0;
 }
 
-InstructionCost HexagonTTIImpl::getMemoryOpCost(
-    unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
-    TTI::TargetCostKind CostKind, TTI::OperandValueInfo OpInfo,
-    const Instruction *I, ArrayRef<const Value *> Scalars) const {
+InstructionCost HexagonTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
+                                                Align Alignment,
+                                                unsigned AddressSpace,
+                                                TTI::TargetCostKind CostKind,
+                                                TTI::OperandValueInfo OpInfo,
+                                                const Instruction *I) const {
   assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
 
   // FIXME: Load latency isn't handled here

@@ -1311,11 +1311,18 @@ InstructionCost TargetTransformInfo::getReplicationShuffleCost(
 InstructionCost TargetTransformInfo::getMemoryOpCost(
     unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
     TTI::TargetCostKind CostKind, TTI::OperandValueInfo OpInfo,
-    const Instruction *I, ArrayRef<const Value *> Scalars) const {
+    const Instruction *I) const {
   assert((I == nullptr || I->getOpcode() == Opcode) &&
          "Opcode should reflect passed instruction.");
   InstructionCost Cost = TTIImpl->getMemoryOpCost(
-      Opcode, Src, Alignment, AddressSpace, CostKind, OpInfo, I, Scalars);
+      Opcode, Src, Alignment, AddressSpace, CostKind, OpInfo, I);
+  assert(Cost >= 0 && "TTI should not produce negative costs!");
+  return Cost;
+}
+
+InstructionCost TargetTransformInfo::getConsecutiveLoadsCost(
+    ArrayRef<const LoadInst *> Loads, TTI::TargetCostKind CostKind) const {
+  InstructionCost Cost = TTIImpl->getConsecutiveLoadsCost(Loads, CostKind);
   assert(Cost >= 0 && "TTI should not produce negative costs!");
   return Cost;
 }

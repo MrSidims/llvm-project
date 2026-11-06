@@ -926,9 +926,19 @@ public:
   virtual InstructionCost
   getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                   unsigned AddressSpace, TTI::TargetCostKind CostKind,
-                  TTI::OperandValueInfo OpInfo, const Instruction *I,
-                  ArrayRef<const Value *> Scalars = {}) const {
+                  TTI::OperandValueInfo OpInfo, const Instruction *I) const {
     return 1;
+  }
+
+  virtual InstructionCost
+  getConsecutiveLoadsCost(ArrayRef<const LoadInst *> Loads,
+                          TTI::TargetCostKind CostKind) const {
+    InstructionCost Cost = 0;
+    for (const LoadInst *LI : Loads)
+      Cost += getMemoryOpCost(Instruction::Load, LI->getType(), LI->getAlign(),
+                              LI->getPointerAddressSpace(), CostKind,
+                              TTI::getOperandInfo(LI->getPointerOperand()), LI);
+    return Cost;
   }
 
   virtual InstructionCost getInterleavedMemoryOpCost(

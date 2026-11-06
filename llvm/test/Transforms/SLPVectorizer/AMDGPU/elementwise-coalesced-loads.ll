@@ -6,122 +6,87 @@
 
 ; Eight consecutive i8 weights are dequantized against a broadcast zero
 ; point and multiplied into an ordered fadd chain. The scalar byte loads
-; already coalesce into one 64 bit load, so on the gfx9 targets the byte
-; loads and their conversions stay scalar, the products stay scalar as well
-; and fuse into the fadd chain, and only the zero point is subtracted from
-; four lanes as a vector. gfx1030 has no packed f32 fma and fuses the lanes
-; of a vector fmul one by one, so the loads keep their saving there and the
-; loads, conversions and products vectorize while the chain stays scalar.
+; already coalesce into one 64 bit load, so on every target the byte loads,
+; their conversions and the products stay scalar and the products fuse into
+; the fadd chain.
 define float @dequant8_ordered(ptr addrspace(1) %mat, ptr addrspace(1) %vec, half %zph, float %acc) {
-; GFX9-LABEL: define float @dequant8_ordered(
-; GFX9-SAME: ptr addrspace(1) [[MAT:%.*]], ptr addrspace(1) [[VEC:%.*]], half [[ZPH:%.*]], float [[ACC:%.*]]) {
-; GFX9-NEXT:  [[ENTRY:.*:]]
-; GFX9-NEXT:    [[ZP:%.*]] = fpext half [[ZPH]] to float
-; GFX9-NEXT:    br label %[[BODY:.*]]
-; GFX9:       [[BODY]]:
-; GFX9-NEXT:    [[V0:%.*]] = load half, ptr addrspace(1) [[VEC]], align 16
-; GFX9-NEXT:    [[VP1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 2
-; GFX9-NEXT:    [[V1:%.*]] = load half, ptr addrspace(1) [[VP1]], align 2
-; GFX9-NEXT:    [[VP2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 4
-; GFX9-NEXT:    [[V2:%.*]] = load half, ptr addrspace(1) [[VP2]], align 4
-; GFX9-NEXT:    [[VP3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 6
-; GFX9-NEXT:    [[V3:%.*]] = load half, ptr addrspace(1) [[VP3]], align 2
-; GFX9-NEXT:    [[VP4:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 8
-; GFX9-NEXT:    [[V4:%.*]] = load half, ptr addrspace(1) [[VP4]], align 8
-; GFX9-NEXT:    [[VP5:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 10
-; GFX9-NEXT:    [[V5:%.*]] = load half, ptr addrspace(1) [[VP5]], align 2
-; GFX9-NEXT:    [[VP6:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 12
-; GFX9-NEXT:    [[V6:%.*]] = load half, ptr addrspace(1) [[VP6]], align 4
-; GFX9-NEXT:    [[VP7:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 14
-; GFX9-NEXT:    [[V7:%.*]] = load half, ptr addrspace(1) [[VP7]], align 2
-; GFX9-NEXT:    [[Q0:%.*]] = load i8, ptr addrspace(1) [[MAT]], align 2
-; GFX9-NEXT:    [[MP1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 1
-; GFX9-NEXT:    [[Q1:%.*]] = load i8, ptr addrspace(1) [[MP1]], align 1
-; GFX9-NEXT:    [[MP2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 2
-; GFX9-NEXT:    [[Q2:%.*]] = load i8, ptr addrspace(1) [[MP2]], align 2
-; GFX9-NEXT:    [[MP3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 3
-; GFX9-NEXT:    [[Q3:%.*]] = load i8, ptr addrspace(1) [[MP3]], align 1
-; GFX9-NEXT:    [[MP4:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 4
-; GFX9-NEXT:    [[Q4:%.*]] = load i8, ptr addrspace(1) [[MP4]], align 2
-; GFX9-NEXT:    [[MP5:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 5
-; GFX9-NEXT:    [[Q5:%.*]] = load i8, ptr addrspace(1) [[MP5]], align 1
-; GFX9-NEXT:    [[MP6:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 6
-; GFX9-NEXT:    [[Q6:%.*]] = load i8, ptr addrspace(1) [[MP6]], align 2
-; GFX9-NEXT:    [[MP7:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 7
-; GFX9-NEXT:    [[Q7:%.*]] = load i8, ptr addrspace(1) [[MP7]], align 1
-; GFX9-NEXT:    [[X0:%.*]] = fpext half [[V0]] to float
-; GFX9-NEXT:    [[F0:%.*]] = sitofp i8 [[Q0]] to float
-; GFX9-NEXT:    [[D0:%.*]] = fsub contract float [[F0]], [[ZP]]
-; GFX9-NEXT:    [[M0:%.*]] = fmul contract float [[D0]], [[X0]]
-; GFX9-NEXT:    [[A0:%.*]] = fadd contract float [[ACC]], [[M0]]
-; GFX9-NEXT:    [[X1:%.*]] = fpext half [[V1]] to float
-; GFX9-NEXT:    [[F1:%.*]] = sitofp i8 [[Q1]] to float
-; GFX9-NEXT:    [[D1:%.*]] = fsub contract float [[F1]], [[ZP]]
-; GFX9-NEXT:    [[M1:%.*]] = fmul contract float [[D1]], [[X1]]
-; GFX9-NEXT:    [[A1:%.*]] = fadd contract float [[A0]], [[M1]]
-; GFX9-NEXT:    [[X2:%.*]] = fpext half [[V2]] to float
-; GFX9-NEXT:    [[F2:%.*]] = sitofp i8 [[Q2]] to float
-; GFX9-NEXT:    [[D2:%.*]] = fsub contract float [[F2]], [[ZP]]
-; GFX9-NEXT:    [[M2:%.*]] = fmul contract float [[D2]], [[X2]]
-; GFX9-NEXT:    [[A2:%.*]] = fadd contract float [[A1]], [[M2]]
-; GFX9-NEXT:    [[X3:%.*]] = fpext half [[V3]] to float
-; GFX9-NEXT:    [[F3:%.*]] = sitofp i8 [[Q3]] to float
-; GFX9-NEXT:    [[D3:%.*]] = fsub contract float [[F3]], [[ZP]]
-; GFX9-NEXT:    [[M3:%.*]] = fmul contract float [[D3]], [[X3]]
-; GFX9-NEXT:    [[A3:%.*]] = fadd contract float [[A2]], [[M3]]
-; GFX9-NEXT:    [[X4:%.*]] = fpext half [[V4]] to float
-; GFX9-NEXT:    [[F4:%.*]] = sitofp i8 [[Q4]] to float
-; GFX9-NEXT:    [[D4:%.*]] = fsub contract float [[F4]], [[ZP]]
-; GFX9-NEXT:    [[M4:%.*]] = fmul contract float [[D4]], [[X4]]
-; GFX9-NEXT:    [[A4:%.*]] = fadd contract float [[A3]], [[M4]]
-; GFX9-NEXT:    [[X5:%.*]] = fpext half [[V5]] to float
-; GFX9-NEXT:    [[F5:%.*]] = sitofp i8 [[Q5]] to float
-; GFX9-NEXT:    [[D5:%.*]] = fsub contract float [[F5]], [[ZP]]
-; GFX9-NEXT:    [[M5:%.*]] = fmul contract float [[D5]], [[X5]]
-; GFX9-NEXT:    [[A5:%.*]] = fadd contract float [[A4]], [[M5]]
-; GFX9-NEXT:    [[X6:%.*]] = fpext half [[V6]] to float
-; GFX9-NEXT:    [[F6:%.*]] = sitofp i8 [[Q6]] to float
-; GFX9-NEXT:    [[D6:%.*]] = fsub contract float [[F6]], [[ZP]]
-; GFX9-NEXT:    [[M6:%.*]] = fmul contract float [[D6]], [[X6]]
-; GFX9-NEXT:    [[A6:%.*]] = fadd contract float [[A5]], [[M6]]
-; GFX9-NEXT:    [[X7:%.*]] = fpext half [[V7]] to float
-; GFX9-NEXT:    [[F7:%.*]] = sitofp i8 [[Q7]] to float
-; GFX9-NEXT:    [[D7:%.*]] = fsub contract float [[F7]], [[ZP]]
-; GFX9-NEXT:    [[M7:%.*]] = fmul contract float [[D7]], [[X7]]
-; GFX9-NEXT:    [[A7:%.*]] = fadd contract float [[A6]], [[M7]]
-; GFX9-NEXT:    ret float [[A7]]
-;
-; GFX1030-LABEL: define float @dequant8_ordered(
-; GFX1030-SAME: ptr addrspace(1) [[MAT:%.*]], ptr addrspace(1) [[VEC:%.*]], half [[ZPH:%.*]], float [[ACC:%.*]]) {
-; GFX1030-NEXT:  [[ENTRY:.*:]]
-; GFX1030-NEXT:    [[ZP:%.*]] = fpext half [[ZPH]] to float
-; GFX1030-NEXT:    br label %[[BODY:.*]]
-; GFX1030:       [[BODY]]:
-; GFX1030-NEXT:    [[TMP0:%.*]] = load <8 x half>, ptr addrspace(1) [[VEC]], align 16
-; GFX1030-NEXT:    [[TMP1:%.*]] = load <8 x i8>, ptr addrspace(1) [[MAT]], align 2
-; GFX1030-NEXT:    [[TMP2:%.*]] = fpext <8 x half> [[TMP0]] to <8 x float>
-; GFX1030-NEXT:    [[TMP3:%.*]] = sitofp <8 x i8> [[TMP1]] to <8 x float>
-; GFX1030-NEXT:    [[TMP4:%.*]] = insertelement <8 x float> poison, float [[ZP]], i64 0
-; GFX1030-NEXT:    [[TMP5:%.*]] = shufflevector <8 x float> [[TMP4]], <8 x float> poison, <8 x i32> zeroinitializer
-; GFX1030-NEXT:    [[TMP6:%.*]] = fsub contract <8 x float> [[TMP3]], [[TMP5]]
-; GFX1030-NEXT:    [[TMP7:%.*]] = fmul contract <8 x float> [[TMP6]], [[TMP2]]
-; GFX1030-NEXT:    [[TMP8:%.*]] = extractelement <8 x float> [[TMP7]], i64 0
-; GFX1030-NEXT:    [[A0:%.*]] = fadd contract float [[ACC]], [[TMP8]]
-; GFX1030-NEXT:    [[TMP9:%.*]] = extractelement <8 x float> [[TMP7]], i64 1
-; GFX1030-NEXT:    [[A1:%.*]] = fadd contract float [[A0]], [[TMP9]]
-; GFX1030-NEXT:    [[TMP10:%.*]] = extractelement <8 x float> [[TMP7]], i64 2
-; GFX1030-NEXT:    [[A2:%.*]] = fadd contract float [[A1]], [[TMP10]]
-; GFX1030-NEXT:    [[TMP11:%.*]] = extractelement <8 x float> [[TMP7]], i64 3
-; GFX1030-NEXT:    [[A3:%.*]] = fadd contract float [[A2]], [[TMP11]]
-; GFX1030-NEXT:    [[TMP12:%.*]] = extractelement <8 x float> [[TMP7]], i64 4
-; GFX1030-NEXT:    [[A4:%.*]] = fadd contract float [[A3]], [[TMP12]]
-; GFX1030-NEXT:    [[TMP13:%.*]] = extractelement <8 x float> [[TMP7]], i64 5
-; GFX1030-NEXT:    [[A5:%.*]] = fadd contract float [[A4]], [[TMP13]]
-; GFX1030-NEXT:    [[TMP14:%.*]] = extractelement <8 x float> [[TMP7]], i64 6
-; GFX1030-NEXT:    [[A6:%.*]] = fadd contract float [[A5]], [[TMP14]]
-; GFX1030-NEXT:    [[TMP15:%.*]] = extractelement <8 x float> [[TMP7]], i64 7
-; GFX1030-NEXT:    [[A7:%.*]] = fadd contract float [[A6]], [[TMP15]]
-; GFX1030-NEXT:    ret float [[A7]]
+; CHECK-LABEL: define float @dequant8_ordered(
+; CHECK-SAME: ptr addrspace(1) [[MAT:%.*]], ptr addrspace(1) [[VEC:%.*]], half [[ZPH:%.*]], float [[ACC:%.*]]) {
+; CHECK-NEXT:  [[ENTRY:.*:]]
+; CHECK-NEXT:    [[ZP:%.*]] = fpext half [[ZPH]] to float
+; CHECK-NEXT:    br label %[[BODY:.*]]
+; CHECK:       [[BODY]]:
+; CHECK-NEXT:    [[V0:%.*]] = load half, ptr addrspace(1) [[VEC]], align 16
+; CHECK-NEXT:    [[VP1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 2
+; CHECK-NEXT:    [[V1:%.*]] = load half, ptr addrspace(1) [[VP1]], align 2
+; CHECK-NEXT:    [[VP2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 4
+; CHECK-NEXT:    [[V2:%.*]] = load half, ptr addrspace(1) [[VP2]], align 4
+; CHECK-NEXT:    [[VP3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 6
+; CHECK-NEXT:    [[V3:%.*]] = load half, ptr addrspace(1) [[VP3]], align 2
+; CHECK-NEXT:    [[VP4:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 8
+; CHECK-NEXT:    [[V4:%.*]] = load half, ptr addrspace(1) [[VP4]], align 8
+; CHECK-NEXT:    [[VP5:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 10
+; CHECK-NEXT:    [[V5:%.*]] = load half, ptr addrspace(1) [[VP5]], align 2
+; CHECK-NEXT:    [[VP6:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 12
+; CHECK-NEXT:    [[V6:%.*]] = load half, ptr addrspace(1) [[VP6]], align 4
+; CHECK-NEXT:    [[VP7:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[VEC]], i64 14
+; CHECK-NEXT:    [[V7:%.*]] = load half, ptr addrspace(1) [[VP7]], align 2
+; CHECK-NEXT:    [[Q0:%.*]] = load i8, ptr addrspace(1) [[MAT]], align 2
+; CHECK-NEXT:    [[MP1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 1
+; CHECK-NEXT:    [[Q1:%.*]] = load i8, ptr addrspace(1) [[MP1]], align 1
+; CHECK-NEXT:    [[MP2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 2
+; CHECK-NEXT:    [[Q2:%.*]] = load i8, ptr addrspace(1) [[MP2]], align 2
+; CHECK-NEXT:    [[MP3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 3
+; CHECK-NEXT:    [[Q3:%.*]] = load i8, ptr addrspace(1) [[MP3]], align 1
+; CHECK-NEXT:    [[MP4:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 4
+; CHECK-NEXT:    [[Q4:%.*]] = load i8, ptr addrspace(1) [[MP4]], align 2
+; CHECK-NEXT:    [[MP5:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 5
+; CHECK-NEXT:    [[Q5:%.*]] = load i8, ptr addrspace(1) [[MP5]], align 1
+; CHECK-NEXT:    [[MP6:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 6
+; CHECK-NEXT:    [[Q6:%.*]] = load i8, ptr addrspace(1) [[MP6]], align 2
+; CHECK-NEXT:    [[MP7:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[MAT]], i64 7
+; CHECK-NEXT:    [[Q7:%.*]] = load i8, ptr addrspace(1) [[MP7]], align 1
+; CHECK-NEXT:    [[X0:%.*]] = fpext half [[V0]] to float
+; CHECK-NEXT:    [[F0:%.*]] = sitofp i8 [[Q0]] to float
+; CHECK-NEXT:    [[D0:%.*]] = fsub contract float [[F0]], [[ZP]]
+; CHECK-NEXT:    [[M0:%.*]] = fmul contract float [[D0]], [[X0]]
+; CHECK-NEXT:    [[A0:%.*]] = fadd contract float [[ACC]], [[M0]]
+; CHECK-NEXT:    [[X1:%.*]] = fpext half [[V1]] to float
+; CHECK-NEXT:    [[F1:%.*]] = sitofp i8 [[Q1]] to float
+; CHECK-NEXT:    [[D1:%.*]] = fsub contract float [[F1]], [[ZP]]
+; CHECK-NEXT:    [[M1:%.*]] = fmul contract float [[D1]], [[X1]]
+; CHECK-NEXT:    [[A1:%.*]] = fadd contract float [[A0]], [[M1]]
+; CHECK-NEXT:    [[X2:%.*]] = fpext half [[V2]] to float
+; CHECK-NEXT:    [[F2:%.*]] = sitofp i8 [[Q2]] to float
+; CHECK-NEXT:    [[D2:%.*]] = fsub contract float [[F2]], [[ZP]]
+; CHECK-NEXT:    [[M2:%.*]] = fmul contract float [[D2]], [[X2]]
+; CHECK-NEXT:    [[A2:%.*]] = fadd contract float [[A1]], [[M2]]
+; CHECK-NEXT:    [[X3:%.*]] = fpext half [[V3]] to float
+; CHECK-NEXT:    [[F3:%.*]] = sitofp i8 [[Q3]] to float
+; CHECK-NEXT:    [[D3:%.*]] = fsub contract float [[F3]], [[ZP]]
+; CHECK-NEXT:    [[M3:%.*]] = fmul contract float [[D3]], [[X3]]
+; CHECK-NEXT:    [[A3:%.*]] = fadd contract float [[A2]], [[M3]]
+; CHECK-NEXT:    [[X4:%.*]] = fpext half [[V4]] to float
+; CHECK-NEXT:    [[F4:%.*]] = sitofp i8 [[Q4]] to float
+; CHECK-NEXT:    [[D4:%.*]] = fsub contract float [[F4]], [[ZP]]
+; CHECK-NEXT:    [[M4:%.*]] = fmul contract float [[D4]], [[X4]]
+; CHECK-NEXT:    [[A4:%.*]] = fadd contract float [[A3]], [[M4]]
+; CHECK-NEXT:    [[X5:%.*]] = fpext half [[V5]] to float
+; CHECK-NEXT:    [[F5:%.*]] = sitofp i8 [[Q5]] to float
+; CHECK-NEXT:    [[D5:%.*]] = fsub contract float [[F5]], [[ZP]]
+; CHECK-NEXT:    [[M5:%.*]] = fmul contract float [[D5]], [[X5]]
+; CHECK-NEXT:    [[A5:%.*]] = fadd contract float [[A4]], [[M5]]
+; CHECK-NEXT:    [[X6:%.*]] = fpext half [[V6]] to float
+; CHECK-NEXT:    [[F6:%.*]] = sitofp i8 [[Q6]] to float
+; CHECK-NEXT:    [[D6:%.*]] = fsub contract float [[F6]], [[ZP]]
+; CHECK-NEXT:    [[M6:%.*]] = fmul contract float [[D6]], [[X6]]
+; CHECK-NEXT:    [[A6:%.*]] = fadd contract float [[A5]], [[M6]]
+; CHECK-NEXT:    [[X7:%.*]] = fpext half [[V7]] to float
+; CHECK-NEXT:    [[F7:%.*]] = sitofp i8 [[Q7]] to float
+; CHECK-NEXT:    [[D7:%.*]] = fsub contract float [[F7]], [[ZP]]
+; CHECK-NEXT:    [[M7:%.*]] = fmul contract float [[D7]], [[X7]]
+; CHECK-NEXT:    [[A7:%.*]] = fadd contract float [[A6]], [[M7]]
+; CHECK-NEXT:    ret float [[A7]]
 ;
 entry:
   %zp = fpext half %zph to float
@@ -202,38 +167,30 @@ body:
 }
 
 ; A store chain over four converted bytes. The byte loads coalesce, so the
-; loads and the conversions stay scalar. gfx90a stores the converted values
-; with one vector store, gfx942 and gfx950 with two, and gfx1030 keeps the
-; scalar stores.
+; loads and the conversions stay scalar, and the stores stay scalar with
+; them.
 define void @store4_sitofp(ptr addrspace(1) %in, ptr addrspace(1) %out) {
-; GFX9-LABEL: define void @store4_sitofp(
-; GFX9-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
-; GFX9-NEXT:    [[TMP1:%.*]] = load <4 x i8>, ptr addrspace(1) [[IN]], align 4
-; GFX9-NEXT:    [[TMP2:%.*]] = sitofp <4 x i8> [[TMP1]] to <4 x float>
-; GFX9-NEXT:    store <4 x float> [[TMP2]], ptr addrspace(1) [[OUT]], align 16
-; GFX9-NEXT:    ret void
-;
-; GFX1030-LABEL: define void @store4_sitofp(
-; GFX1030-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
-; GFX1030-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 1
-; GFX1030-NEXT:    [[P2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 2
-; GFX1030-NEXT:    [[P3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 3
-; GFX1030-NEXT:    [[Q0:%.*]] = load i8, ptr addrspace(1) [[IN]], align 4
-; GFX1030-NEXT:    [[Q1:%.*]] = load i8, ptr addrspace(1) [[P1]], align 1
-; GFX1030-NEXT:    [[Q2:%.*]] = load i8, ptr addrspace(1) [[P2]], align 2
-; GFX1030-NEXT:    [[Q3:%.*]] = load i8, ptr addrspace(1) [[P3]], align 1
-; GFX1030-NEXT:    [[F0:%.*]] = sitofp i8 [[Q0]] to float
-; GFX1030-NEXT:    [[F1:%.*]] = sitofp i8 [[Q1]] to float
-; GFX1030-NEXT:    [[F2:%.*]] = sitofp i8 [[Q2]] to float
-; GFX1030-NEXT:    [[F3:%.*]] = sitofp i8 [[Q3]] to float
-; GFX1030-NEXT:    [[O1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
-; GFX1030-NEXT:    [[O2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
-; GFX1030-NEXT:    [[O3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
-; GFX1030-NEXT:    store float [[F0]], ptr addrspace(1) [[OUT]], align 16
-; GFX1030-NEXT:    store float [[F1]], ptr addrspace(1) [[O1]], align 4
-; GFX1030-NEXT:    store float [[F2]], ptr addrspace(1) [[O2]], align 8
-; GFX1030-NEXT:    store float [[F3]], ptr addrspace(1) [[O3]], align 4
-; GFX1030-NEXT:    ret void
+; CHECK-LABEL: define void @store4_sitofp(
+; CHECK-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
+; CHECK-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 1
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 2
+; CHECK-NEXT:    [[P3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 3
+; CHECK-NEXT:    [[Q0:%.*]] = load i8, ptr addrspace(1) [[IN]], align 4
+; CHECK-NEXT:    [[Q1:%.*]] = load i8, ptr addrspace(1) [[P1]], align 1
+; CHECK-NEXT:    [[Q2:%.*]] = load i8, ptr addrspace(1) [[P2]], align 2
+; CHECK-NEXT:    [[Q3:%.*]] = load i8, ptr addrspace(1) [[P3]], align 1
+; CHECK-NEXT:    [[F0:%.*]] = sitofp i8 [[Q0]] to float
+; CHECK-NEXT:    [[F1:%.*]] = sitofp i8 [[Q1]] to float
+; CHECK-NEXT:    [[F2:%.*]] = sitofp i8 [[Q2]] to float
+; CHECK-NEXT:    [[F3:%.*]] = sitofp i8 [[Q3]] to float
+; CHECK-NEXT:    [[O1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
+; CHECK-NEXT:    [[O2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
+; CHECK-NEXT:    [[O3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
+; CHECK-NEXT:    store float [[F0]], ptr addrspace(1) [[OUT]], align 16
+; CHECK-NEXT:    store float [[F1]], ptr addrspace(1) [[O1]], align 4
+; CHECK-NEXT:    store float [[F2]], ptr addrspace(1) [[O2]], align 8
+; CHECK-NEXT:    store float [[F3]], ptr addrspace(1) [[O3]], align 4
+; CHECK-NEXT:    ret void
 ;
   %p1 = getelementptr inbounds i8, ptr addrspace(1) %in, i64 1
   %p2 = getelementptr inbounds i8, ptr addrspace(1) %in, i64 2
@@ -259,34 +216,27 @@ define void @store4_sitofp(ptr addrspace(1) %in, ptr addrspace(1) %out) {
 ; The same store chain with every byte load aligned to one byte. Global loads
 ; coalesce at any alignment, so the loads and the conversions stay scalar.
 define void @store4_sitofp_global_a1(ptr addrspace(1) %in, ptr addrspace(1) %out) {
-; GFX9-LABEL: define void @store4_sitofp_global_a1(
-; GFX9-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
-; GFX9-NEXT:    [[TMP1:%.*]] = load <4 x i8>, ptr addrspace(1) [[IN]], align 1
-; GFX9-NEXT:    [[TMP2:%.*]] = sitofp <4 x i8> [[TMP1]] to <4 x float>
-; GFX9-NEXT:    store <4 x float> [[TMP2]], ptr addrspace(1) [[OUT]], align 16
-; GFX9-NEXT:    ret void
-;
-; GFX1030-LABEL: define void @store4_sitofp_global_a1(
-; GFX1030-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
-; GFX1030-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 1
-; GFX1030-NEXT:    [[P2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 2
-; GFX1030-NEXT:    [[P3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 3
-; GFX1030-NEXT:    [[Q0:%.*]] = load i8, ptr addrspace(1) [[IN]], align 1
-; GFX1030-NEXT:    [[Q1:%.*]] = load i8, ptr addrspace(1) [[P1]], align 1
-; GFX1030-NEXT:    [[Q2:%.*]] = load i8, ptr addrspace(1) [[P2]], align 1
-; GFX1030-NEXT:    [[Q3:%.*]] = load i8, ptr addrspace(1) [[P3]], align 1
-; GFX1030-NEXT:    [[F0:%.*]] = sitofp i8 [[Q0]] to float
-; GFX1030-NEXT:    [[F1:%.*]] = sitofp i8 [[Q1]] to float
-; GFX1030-NEXT:    [[F2:%.*]] = sitofp i8 [[Q2]] to float
-; GFX1030-NEXT:    [[F3:%.*]] = sitofp i8 [[Q3]] to float
-; GFX1030-NEXT:    [[O1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
-; GFX1030-NEXT:    [[O2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
-; GFX1030-NEXT:    [[O3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
-; GFX1030-NEXT:    store float [[F0]], ptr addrspace(1) [[OUT]], align 16
-; GFX1030-NEXT:    store float [[F1]], ptr addrspace(1) [[O1]], align 4
-; GFX1030-NEXT:    store float [[F2]], ptr addrspace(1) [[O2]], align 8
-; GFX1030-NEXT:    store float [[F3]], ptr addrspace(1) [[O3]], align 4
-; GFX1030-NEXT:    ret void
+; CHECK-LABEL: define void @store4_sitofp_global_a1(
+; CHECK-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
+; CHECK-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 1
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 2
+; CHECK-NEXT:    [[P3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 3
+; CHECK-NEXT:    [[Q0:%.*]] = load i8, ptr addrspace(1) [[IN]], align 1
+; CHECK-NEXT:    [[Q1:%.*]] = load i8, ptr addrspace(1) [[P1]], align 1
+; CHECK-NEXT:    [[Q2:%.*]] = load i8, ptr addrspace(1) [[P2]], align 1
+; CHECK-NEXT:    [[Q3:%.*]] = load i8, ptr addrspace(1) [[P3]], align 1
+; CHECK-NEXT:    [[F0:%.*]] = sitofp i8 [[Q0]] to float
+; CHECK-NEXT:    [[F1:%.*]] = sitofp i8 [[Q1]] to float
+; CHECK-NEXT:    [[F2:%.*]] = sitofp i8 [[Q2]] to float
+; CHECK-NEXT:    [[F3:%.*]] = sitofp i8 [[Q3]] to float
+; CHECK-NEXT:    [[O1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
+; CHECK-NEXT:    [[O2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
+; CHECK-NEXT:    [[O3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
+; CHECK-NEXT:    store float [[F0]], ptr addrspace(1) [[OUT]], align 16
+; CHECK-NEXT:    store float [[F1]], ptr addrspace(1) [[O1]], align 4
+; CHECK-NEXT:    store float [[F2]], ptr addrspace(1) [[O2]], align 8
+; CHECK-NEXT:    store float [[F3]], ptr addrspace(1) [[O3]], align 4
+; CHECK-NEXT:    ret void
 ;
   %p1 = getelementptr inbounds i8, ptr addrspace(1) %in, i64 1
   %p2 = getelementptr inbounds i8, ptr addrspace(1) %in, i64 2
@@ -313,34 +263,27 @@ define void @store4_sitofp_global_a1(ptr addrspace(1) %in, ptr addrspace(1) %out
 ; byte loads coalesce into one dword load, so the loads and the conversions
 ; stay scalar.
 define void @store4_sitofp_lds_a4(ptr addrspace(3) %in, ptr addrspace(1) %out) {
-; GFX9-LABEL: define void @store4_sitofp_lds_a4(
-; GFX9-SAME: ptr addrspace(3) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
-; GFX9-NEXT:    [[TMP1:%.*]] = load <4 x i8>, ptr addrspace(3) [[IN]], align 4
-; GFX9-NEXT:    [[TMP2:%.*]] = sitofp <4 x i8> [[TMP1]] to <4 x float>
-; GFX9-NEXT:    store <4 x float> [[TMP2]], ptr addrspace(1) [[OUT]], align 16
-; GFX9-NEXT:    ret void
-;
-; GFX1030-LABEL: define void @store4_sitofp_lds_a4(
-; GFX1030-SAME: ptr addrspace(3) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
-; GFX1030-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr addrspace(3) [[IN]], i32 1
-; GFX1030-NEXT:    [[P2:%.*]] = getelementptr inbounds i8, ptr addrspace(3) [[IN]], i32 2
-; GFX1030-NEXT:    [[P3:%.*]] = getelementptr inbounds i8, ptr addrspace(3) [[IN]], i32 3
-; GFX1030-NEXT:    [[Q0:%.*]] = load i8, ptr addrspace(3) [[IN]], align 4
-; GFX1030-NEXT:    [[Q1:%.*]] = load i8, ptr addrspace(3) [[P1]], align 1
-; GFX1030-NEXT:    [[Q2:%.*]] = load i8, ptr addrspace(3) [[P2]], align 2
-; GFX1030-NEXT:    [[Q3:%.*]] = load i8, ptr addrspace(3) [[P3]], align 1
-; GFX1030-NEXT:    [[F0:%.*]] = sitofp i8 [[Q0]] to float
-; GFX1030-NEXT:    [[F1:%.*]] = sitofp i8 [[Q1]] to float
-; GFX1030-NEXT:    [[F2:%.*]] = sitofp i8 [[Q2]] to float
-; GFX1030-NEXT:    [[F3:%.*]] = sitofp i8 [[Q3]] to float
-; GFX1030-NEXT:    [[O1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
-; GFX1030-NEXT:    [[O2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
-; GFX1030-NEXT:    [[O3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
-; GFX1030-NEXT:    store float [[F0]], ptr addrspace(1) [[OUT]], align 16
-; GFX1030-NEXT:    store float [[F1]], ptr addrspace(1) [[O1]], align 4
-; GFX1030-NEXT:    store float [[F2]], ptr addrspace(1) [[O2]], align 8
-; GFX1030-NEXT:    store float [[F3]], ptr addrspace(1) [[O3]], align 4
-; GFX1030-NEXT:    ret void
+; CHECK-LABEL: define void @store4_sitofp_lds_a4(
+; CHECK-SAME: ptr addrspace(3) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
+; CHECK-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr addrspace(3) [[IN]], i32 1
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr inbounds i8, ptr addrspace(3) [[IN]], i32 2
+; CHECK-NEXT:    [[P3:%.*]] = getelementptr inbounds i8, ptr addrspace(3) [[IN]], i32 3
+; CHECK-NEXT:    [[Q0:%.*]] = load i8, ptr addrspace(3) [[IN]], align 4
+; CHECK-NEXT:    [[Q1:%.*]] = load i8, ptr addrspace(3) [[P1]], align 1
+; CHECK-NEXT:    [[Q2:%.*]] = load i8, ptr addrspace(3) [[P2]], align 2
+; CHECK-NEXT:    [[Q3:%.*]] = load i8, ptr addrspace(3) [[P3]], align 1
+; CHECK-NEXT:    [[F0:%.*]] = sitofp i8 [[Q0]] to float
+; CHECK-NEXT:    [[F1:%.*]] = sitofp i8 [[Q1]] to float
+; CHECK-NEXT:    [[F2:%.*]] = sitofp i8 [[Q2]] to float
+; CHECK-NEXT:    [[F3:%.*]] = sitofp i8 [[Q3]] to float
+; CHECK-NEXT:    [[O1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 1
+; CHECK-NEXT:    [[O2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 2
+; CHECK-NEXT:    [[O3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[OUT]], i64 3
+; CHECK-NEXT:    store float [[F0]], ptr addrspace(1) [[OUT]], align 16
+; CHECK-NEXT:    store float [[F1]], ptr addrspace(1) [[O1]], align 4
+; CHECK-NEXT:    store float [[F2]], ptr addrspace(1) [[O2]], align 8
+; CHECK-NEXT:    store float [[F3]], ptr addrspace(1) [[O3]], align 4
+; CHECK-NEXT:    ret void
 ;
   %p1 = getelementptr inbounds i8, ptr addrspace(3) %in, i32 1
   %p2 = getelementptr inbounds i8, ptr addrspace(3) %in, i32 2
@@ -430,8 +373,21 @@ define void @zext4_bv_loop(ptr addrspace(1) %a, ptr addrspace(1) %out) {
 ; CHECK-NEXT:    [[I:%.*]] = phi i64 [ 0, %[[ENTRY]] ], [ [[I_NEXT:%.*]], %[[LOOP]] ]
 ; CHECK-NEXT:    [[OFF:%.*]] = shl i64 [[I]], 2
 ; CHECK-NEXT:    [[P0:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[A]], i64 [[OFF]]
-; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i8>, ptr addrspace(1) [[P0]], align 4
-; CHECK-NEXT:    [[V3:%.*]] = zext <4 x i8> [[TMP0]] to <4 x i32>
+; CHECK-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P0]], i64 1
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P0]], i64 2
+; CHECK-NEXT:    [[P3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[P0]], i64 3
+; CHECK-NEXT:    [[L0:%.*]] = load i8, ptr addrspace(1) [[P0]], align 4
+; CHECK-NEXT:    [[L1:%.*]] = load i8, ptr addrspace(1) [[P1]], align 1
+; CHECK-NEXT:    [[L2:%.*]] = load i8, ptr addrspace(1) [[P2]], align 2
+; CHECK-NEXT:    [[L3:%.*]] = load i8, ptr addrspace(1) [[P3]], align 1
+; CHECK-NEXT:    [[X0:%.*]] = zext i8 [[L0]] to i32
+; CHECK-NEXT:    [[X1:%.*]] = zext i8 [[L1]] to i32
+; CHECK-NEXT:    [[X2:%.*]] = zext i8 [[L2]] to i32
+; CHECK-NEXT:    [[X3:%.*]] = zext i8 [[L3]] to i32
+; CHECK-NEXT:    [[V0:%.*]] = insertelement <4 x i32> poison, i32 [[X0]], i32 0
+; CHECK-NEXT:    [[V1:%.*]] = insertelement <4 x i32> [[V0]], i32 [[X1]], i32 1
+; CHECK-NEXT:    [[V2:%.*]] = insertelement <4 x i32> [[V1]], i32 [[X2]], i32 2
+; CHECK-NEXT:    [[V3:%.*]] = insertelement <4 x i32> [[V2]], i32 [[X3]], i32 3
 ; CHECK-NEXT:    [[PO:%.*]] = getelementptr inbounds <4 x i32>, ptr addrspace(1) [[OUT]], i64 [[I]]
 ; CHECK-NEXT:    store <4 x i32> [[V3]], ptr addrspace(1) [[PO]], align 16
 ; CHECK-NEXT:    [[I_NEXT]] = add nuw nsw i64 [[I]], 1
@@ -470,20 +426,50 @@ exit:
   ret void
 }
 
-; Eight bytes are converted to half and stored. Two half lanes fit one
-; register, so the byte loads keep their saving and the loads, the conversions
-; and the stores stay vectorized.
+; Eight bytes are converted to half and stored. The byte loads coalesce, so
+; the loads, the conversions and the stores stay scalar although two half
+; lanes fit one register.
 define void @store8_sitofp_half(ptr addrspace(1) %in, ptr addrspace(1) %out) {
 ; CHECK-LABEL: define void @store8_sitofp_half(
 ; CHECK-SAME: ptr addrspace(1) [[IN:%.*]], ptr addrspace(1) [[OUT:%.*]]) {
+; CHECK-NEXT:    [[P1:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 1
+; CHECK-NEXT:    [[P2:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 2
+; CHECK-NEXT:    [[P3:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 3
 ; CHECK-NEXT:    [[P4:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 4
+; CHECK-NEXT:    [[P5:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 5
+; CHECK-NEXT:    [[P6:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 6
+; CHECK-NEXT:    [[P7:%.*]] = getelementptr inbounds i8, ptr addrspace(1) [[IN]], i64 7
+; CHECK-NEXT:    [[Q0:%.*]] = load i8, ptr addrspace(1) [[IN]], align 8
+; CHECK-NEXT:    [[Q1:%.*]] = load i8, ptr addrspace(1) [[P1]], align 1
+; CHECK-NEXT:    [[Q2:%.*]] = load i8, ptr addrspace(1) [[P2]], align 2
+; CHECK-NEXT:    [[Q3:%.*]] = load i8, ptr addrspace(1) [[P3]], align 1
+; CHECK-NEXT:    [[Q4:%.*]] = load i8, ptr addrspace(1) [[P4]], align 4
+; CHECK-NEXT:    [[Q5:%.*]] = load i8, ptr addrspace(1) [[P5]], align 1
+; CHECK-NEXT:    [[Q6:%.*]] = load i8, ptr addrspace(1) [[P6]], align 2
+; CHECK-NEXT:    [[Q7:%.*]] = load i8, ptr addrspace(1) [[P7]], align 1
+; CHECK-NEXT:    [[F0:%.*]] = sitofp i8 [[Q0]] to half
+; CHECK-NEXT:    [[F1:%.*]] = sitofp i8 [[Q1]] to half
+; CHECK-NEXT:    [[F2:%.*]] = sitofp i8 [[Q2]] to half
+; CHECK-NEXT:    [[F3:%.*]] = sitofp i8 [[Q3]] to half
+; CHECK-NEXT:    [[F4:%.*]] = sitofp i8 [[Q4]] to half
+; CHECK-NEXT:    [[F5:%.*]] = sitofp i8 [[Q5]] to half
+; CHECK-NEXT:    [[F6:%.*]] = sitofp i8 [[Q6]] to half
+; CHECK-NEXT:    [[F7:%.*]] = sitofp i8 [[Q7]] to half
+; CHECK-NEXT:    [[O1:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[OUT]], i64 1
+; CHECK-NEXT:    [[O2:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[OUT]], i64 2
+; CHECK-NEXT:    [[O3:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[OUT]], i64 3
 ; CHECK-NEXT:    [[O4:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[OUT]], i64 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i8>, ptr addrspace(1) [[IN]], align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = sitofp <4 x i8> [[TMP1]] to <4 x half>
-; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i8>, ptr addrspace(1) [[P4]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = sitofp <4 x i8> [[TMP3]] to <4 x half>
-; CHECK-NEXT:    store <4 x half> [[TMP2]], ptr addrspace(1) [[OUT]], align 16
-; CHECK-NEXT:    store <4 x half> [[TMP4]], ptr addrspace(1) [[O4]], align 8
+; CHECK-NEXT:    [[O5:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[OUT]], i64 5
+; CHECK-NEXT:    [[O6:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[OUT]], i64 6
+; CHECK-NEXT:    [[O7:%.*]] = getelementptr inbounds half, ptr addrspace(1) [[OUT]], i64 7
+; CHECK-NEXT:    store half [[F0]], ptr addrspace(1) [[OUT]], align 16
+; CHECK-NEXT:    store half [[F1]], ptr addrspace(1) [[O1]], align 2
+; CHECK-NEXT:    store half [[F2]], ptr addrspace(1) [[O2]], align 4
+; CHECK-NEXT:    store half [[F3]], ptr addrspace(1) [[O3]], align 2
+; CHECK-NEXT:    store half [[F4]], ptr addrspace(1) [[O4]], align 8
+; CHECK-NEXT:    store half [[F5]], ptr addrspace(1) [[O5]], align 2
+; CHECK-NEXT:    store half [[F6]], ptr addrspace(1) [[O6]], align 4
+; CHECK-NEXT:    store half [[F7]], ptr addrspace(1) [[O7]], align 2
 ; CHECK-NEXT:    ret void
 ;
   %p1 = getelementptr inbounds i8, ptr addrspace(1) %in, i64 1

@@ -5,7 +5,10 @@
 ; Four approximate divisions of sums, added up by a reassociable reduction.
 ; The vector fdiv is the root of the tree and keeps the approximation flag of
 ; its scalar divisions, which the target lowers to a reciprocal and a multiply
-; per lane, so the divisions and the sums feeding them vectorize.
+; per lane, so the vector divisions cost no more than the scalar ones. gfx90a
+; vectorizes the divisions and the sums feeding them with its packed fp32
+; adds. gfx1030 has no packed fp32 math and its scalar loads coalesce, so
+; nothing is saved and the function stays scalar.
 define float @div4_afn_sum(ptr addrspace(1) noalias readonly align 4 %a, ptr addrspace(1) noalias readonly align 4 %b, float %k, float %acc) {
 ; GFX90A-LABEL: define float @div4_afn_sum(
 ; GFX90A-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], float [[K:%.*]], float [[ACC:%.*]]) {
@@ -26,15 +29,33 @@ define float @div4_afn_sum(ptr addrspace(1) noalias readonly align 4 %a, ptr add
 ; GFX1030-SAME: ptr addrspace(1) noalias readonly align 4 [[A:%.*]], ptr addrspace(1) noalias readonly align 4 [[B:%.*]], float [[K:%.*]], float [[ACC:%.*]]) {
 ; GFX1030-NEXT:  [[ENTRY:.*:]]
 ; GFX1030-NEXT:    [[PA0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 0
+; GFX1030-NEXT:    [[LA0:%.*]] = load float, ptr addrspace(1) [[PA0]], align 4
 ; GFX1030-NEXT:    [[PB0:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 0
-; GFX1030-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr addrspace(1) [[PA0]], align 4
-; GFX1030-NEXT:    [[TMP1:%.*]] = load <4 x float>, ptr addrspace(1) [[PB0]], align 4
-; GFX1030-NEXT:    [[TMP2:%.*]] = insertelement <4 x float> poison, float [[K]], i64 0
-; GFX1030-NEXT:    [[TMP3:%.*]] = shufflevector <4 x float> [[TMP2]], <4 x float> poison, <4 x i32> zeroinitializer
-; GFX1030-NEXT:    [[TMP4:%.*]] = fadd <4 x float> [[TMP0]], [[TMP3]]
-; GFX1030-NEXT:    [[TMP5:%.*]] = fdiv afn <4 x float> [[TMP4]], [[TMP1]]
-; GFX1030-NEXT:    [[TMP6:%.*]] = call fast float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> [[TMP5]])
-; GFX1030-NEXT:    [[OP_RDX:%.*]] = fadd fast float [[TMP6]], [[ACC]]
+; GFX1030-NEXT:    [[LB0:%.*]] = load float, ptr addrspace(1) [[PB0]], align 4
+; GFX1030-NEXT:    [[T0:%.*]] = fadd float [[LA0]], [[K]]
+; GFX1030-NEXT:    [[D0:%.*]] = fdiv afn float [[T0]], [[LB0]]
+; GFX1030-NEXT:    [[PA1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 1
+; GFX1030-NEXT:    [[LA1:%.*]] = load float, ptr addrspace(1) [[PA1]], align 4
+; GFX1030-NEXT:    [[PB1:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 1
+; GFX1030-NEXT:    [[LB1:%.*]] = load float, ptr addrspace(1) [[PB1]], align 4
+; GFX1030-NEXT:    [[T1:%.*]] = fadd float [[LA1]], [[K]]
+; GFX1030-NEXT:    [[D1:%.*]] = fdiv afn float [[T1]], [[LB1]]
+; GFX1030-NEXT:    [[PA2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 2
+; GFX1030-NEXT:    [[LA2:%.*]] = load float, ptr addrspace(1) [[PA2]], align 4
+; GFX1030-NEXT:    [[PB2:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 2
+; GFX1030-NEXT:    [[LB2:%.*]] = load float, ptr addrspace(1) [[PB2]], align 4
+; GFX1030-NEXT:    [[T2:%.*]] = fadd float [[LA2]], [[K]]
+; GFX1030-NEXT:    [[D2:%.*]] = fdiv afn float [[T2]], [[LB2]]
+; GFX1030-NEXT:    [[PA3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[A]], i64 3
+; GFX1030-NEXT:    [[LA3:%.*]] = load float, ptr addrspace(1) [[PA3]], align 4
+; GFX1030-NEXT:    [[PB3:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[B]], i64 3
+; GFX1030-NEXT:    [[LB3:%.*]] = load float, ptr addrspace(1) [[PB3]], align 4
+; GFX1030-NEXT:    [[T3:%.*]] = fadd float [[LA3]], [[K]]
+; GFX1030-NEXT:    [[D3:%.*]] = fdiv afn float [[T3]], [[LB3]]
+; GFX1030-NEXT:    [[S0:%.*]] = fadd fast float [[ACC]], [[D0]]
+; GFX1030-NEXT:    [[S1:%.*]] = fadd fast float [[S0]], [[D1]]
+; GFX1030-NEXT:    [[S2:%.*]] = fadd fast float [[S1]], [[D2]]
+; GFX1030-NEXT:    [[OP_RDX:%.*]] = fadd fast float [[S2]], [[D3]]
 ; GFX1030-NEXT:    ret float [[OP_RDX]]
 ;
 entry:

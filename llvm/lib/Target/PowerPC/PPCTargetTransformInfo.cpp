@@ -774,11 +774,12 @@ InstructionCost PPCTTIImpl::getVectorInstrCost(
   return Cost;
 }
 
-InstructionCost
-PPCTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
-                            unsigned AddressSpace, TTI::TargetCostKind CostKind,
-                            TTI::OperandValueInfo OpInfo, const Instruction *I,
-                            ArrayRef<const Value *> Scalars) const {
+InstructionCost PPCTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
+                                            Align Alignment,
+                                            unsigned AddressSpace,
+                                            TTI::TargetCostKind CostKind,
+                                            TTI::OperandValueInfo OpInfo,
+                                            const Instruction *I) const {
   InstructionCost CostFactor = vectorCostAdjustmentFactor(Opcode, Src, nullptr);
   if (!CostFactor.isValid())
     return InstructionCost::getMax();

@@ -692,13 +692,31 @@ define protected amdgpu_kernel void @phi_4_with_stores(ptr addrspace(3) %inptr0,
 ; GFX7-SAME: ptr addrspace(3) [[INPTR0:%.*]], ptr addrspace(3) [[INPTR1:%.*]], ptr [[OUT:%.*]], ptr [[OUT1:%.*]], i32 [[FLAG:%.*]]) {
 ; GFX7-NEXT:  [[ENTRY:.*]]:
 ; GFX7-NEXT:    [[GEP0:%.*]] = getelementptr i8, ptr addrspace(3) [[INPTR0]], i32 0
-; GFX7-NEXT:    [[TMP0:%.*]] = load <4 x i8>, ptr addrspace(3) [[GEP0]], align 8
+; GFX7-NEXT:    [[ELE0:%.*]] = load i8, ptr addrspace(3) [[GEP0]], align 8
+; GFX7-NEXT:    [[GEP1:%.*]] = getelementptr i8, ptr addrspace(3) [[INPTR0]], i32 1
+; GFX7-NEXT:    [[ELE1:%.*]] = load i8, ptr addrspace(3) [[GEP1]], align 1
+; GFX7-NEXT:    [[GEP2:%.*]] = getelementptr i8, ptr addrspace(3) [[INPTR0]], i32 2
+; GFX7-NEXT:    [[ELE2:%.*]] = load i8, ptr addrspace(3) [[GEP2]], align 2
+; GFX7-NEXT:    [[GEP3:%.*]] = getelementptr i8, ptr addrspace(3) [[INPTR0]], i32 3
+; GFX7-NEXT:    [[ELE3:%.*]] = load i8, ptr addrspace(3) [[GEP3]], align 1
 ; GFX7-NEXT:    br label %[[DO_BODY:.*]]
 ; GFX7:       [[DO_BODY]]:
-; GFX7-NEXT:    [[TMP1:%.*]] = phi <4 x i8> [ [[TMP0]], %[[ENTRY]] ], [ [[TMP2:%.*]], %[[DO_BODY]] ]
-; GFX7-NEXT:    [[TMP2]] = load <4 x i8>, ptr addrspace(3) [[GEP0]], align 8
-; GFX7-NEXT:    store <4 x i8> [[TMP1]], ptr addrspace(3) [[GEP0]], align 2
-; GFX7-NEXT:    [[TMP3:%.*]] = shufflevector <4 x i8> [[TMP1]], <4 x i8> poison, <16 x i32> <i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
+; GFX7-NEXT:    [[PHI0:%.*]] = phi i8 [ [[ELE3]], %[[ENTRY]] ], [ [[OTHERELE3:%.*]], %[[DO_BODY]] ]
+; GFX7-NEXT:    [[PHI1:%.*]] = phi i8 [ [[ELE2]], %[[ENTRY]] ], [ [[OTHERELE2:%.*]], %[[DO_BODY]] ]
+; GFX7-NEXT:    [[PHI2:%.*]] = phi i8 [ [[ELE1]], %[[ENTRY]] ], [ [[OTHERELE1:%.*]], %[[DO_BODY]] ]
+; GFX7-NEXT:    [[PHI3:%.*]] = phi i8 [ [[ELE0]], %[[ENTRY]] ], [ [[OTHERELE0:%.*]], %[[DO_BODY]] ]
+; GFX7-NEXT:    [[OTHERELE0]] = load i8, ptr addrspace(3) [[GEP0]], align 8
+; GFX7-NEXT:    [[OTHERELE1]] = load i8, ptr addrspace(3) [[GEP1]], align 1
+; GFX7-NEXT:    [[OTHERELE2]] = load i8, ptr addrspace(3) [[GEP2]], align 2
+; GFX7-NEXT:    [[OTHERELE3]] = load i8, ptr addrspace(3) [[GEP3]], align 1
+; GFX7-NEXT:    store i8 [[PHI3]], ptr addrspace(3) [[GEP0]], align 2
+; GFX7-NEXT:    store i8 [[PHI2]], ptr addrspace(3) [[GEP1]], align 2
+; GFX7-NEXT:    store i8 [[PHI1]], ptr addrspace(3) [[GEP2]], align 2
+; GFX7-NEXT:    store i8 [[PHI0]], ptr addrspace(3) [[GEP3]], align 2
+; GFX7-NEXT:    [[VEC10:%.*]] = insertelement <16 x i8> poison, i8 [[PHI3]], i64 8
+; GFX7-NEXT:    [[VEC11:%.*]] = insertelement <16 x i8> [[VEC10]], i8 [[PHI2]], i64 9
+; GFX7-NEXT:    [[VEC12:%.*]] = insertelement <16 x i8> [[VEC11]], i8 [[PHI1]], i64 10
+; GFX7-NEXT:    [[TMP3:%.*]] = insertelement <16 x i8> [[VEC12]], i8 [[PHI0]], i64 11
 ; GFX7-NEXT:    store <16 x i8> [[TMP3]], ptr addrspace(3) [[INPTR1]], align 2
 ; GFX7-NEXT:    [[CMP:%.*]] = icmp eq i32 [[FLAG]], 0
 ; GFX7-NEXT:    br i1 [[CMP]], label %[[EXIT:.*]], label %[[DO_BODY]]

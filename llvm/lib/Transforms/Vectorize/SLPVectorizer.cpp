@@ -18065,7 +18065,25 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
     return CommonCost + GetGEPCostDiff(VL, VL0);
   }
   case Instruction::Load: {
-    auto GetScalarCost = [&](unsigned Idx) {
+    std::optional<InstructionCost> ScalarLoadsCost;
+    if (E->State == TreeEntry::Vectorize && !E->getInterleaveFactor() &&
+        Sz == VL.size()) {
+      SmallVector<const LoadInst *> Loads(make_isa_range<LoadInst>(VL));
+      if (Loads.size() == VL.size()) {
+        InstructionCost Cost = TTI->getConsecutiveLoadsCost(Loads, CostKind);
+        for (int I = UsedScalars.find_first(); I != -1;) {
+          int End = UsedScalars.find_next_unset(I);
+          Cost -= TTI->getConsecutiveLoadsCost(
+              ArrayRef(Loads).slice(I, (End == -1 ? Sz : End) - I), CostKind);
+          I = End == -1 ? -1 : UsedScalars.find_next(End);
+        }
+        ScalarLoadsCost = std::max(Cost, InstructionCost(0));
+      }
+    }
+    const int FirstNewLane = UsedScalars.find_first_unset();
+    auto GetScalarCost = [&](unsigned Idx) -> InstructionCost {
+      if (ScalarLoadsCost)
+        return static_cast<int>(Idx) == FirstNewLane ? *ScalarLoadsCost : 0;
       auto *VI = cast<LoadInst>(UniqueValues[Idx]);
       return TTI->getMemoryOpCost(
           Instruction::Load, OrigScalarTy, VI->getAlign(),
@@ -18089,8 +18107,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
               commonAlignment(FirstLI->getAlign(),
                               getVectorLoadShift(E->Scalars)),
               FirstLI->getPointerAddressSpace(), CostKind,
-              TTI::getOperandInfo(FirstLI->getPointerOperand()), /*I=*/nullptr,
-              VL);
+              TTI::getOperandInfo(FirstLI->getPointerOperand()));
         }
         break;
       case TreeEntry::StridedVectorize: {

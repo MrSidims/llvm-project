@@ -122,10 +122,12 @@ bool LoongArchTTIImpl::shouldExpandReduction(const IntrinsicInst *II) const {
   }
 }
 
-InstructionCost LoongArchTTIImpl::getMemoryOpCost(
-    unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
-    TTI::TargetCostKind CostKind, TTI::OperandValueInfo OpInfo,
-    const Instruction *I, ArrayRef<const Value *> Scalars) const {
+InstructionCost LoongArchTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
+                                                  Align Alignment,
+                                                  unsigned AddressSpace,
+                                                  TTI::TargetCostKind CostKind,
+                                                  TTI::OperandValueInfo OpInfo,
+                                                  const Instruction *I) const {
   // Vectors narrower than 128 bits are widened, and on LA64 loading or storing
   // one takes a single instruction: FLD.{S/D} or VLDREPL.{B/H} for loads, and
   // VSTELM.{B/H/W/D} for stores. The generic model costs them as scalarized.

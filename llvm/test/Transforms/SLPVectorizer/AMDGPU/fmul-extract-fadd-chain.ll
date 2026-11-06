@@ -5,9 +5,7 @@
 ; The products feed a scalar contract fadd chain one lane at a time. The
 ; scalar loads coalesce into the same wide loads a vector load would use, so
 ; packing the loads and converts saves nothing and the chain stays scalar
-; with its fmas. gfx1030 has no packed f32 fma and fuses the lanes of a
-; vector fmul one by one, so the loads keep their saving there and the
-; loads, converts and products vectorize while the chain stays scalar.
+; with its fmas on both targets.
 
 define float @dot4_i16_ordered(ptr addrspace(1) %a, ptr addrspace(1) %b, float %acc) {
 ; GFX1250-LABEL: define float @dot4_i16_ordered(
@@ -44,17 +42,31 @@ define float @dot4_i16_ordered(ptr addrspace(1) %a, ptr addrspace(1) %b, float %
 ; GFX1030-LABEL: define float @dot4_i16_ordered(
 ; GFX1030-SAME: ptr addrspace(1) [[A:%.*]], ptr addrspace(1) [[B:%.*]], float [[ACC:%.*]]) {
 ; GFX1030-NEXT:  [[ENTRY:.*:]]
-; GFX1030-NEXT:    [[TMP0:%.*]] = load <4 x i16>, ptr addrspace(1) [[A]], align 2
-; GFX1030-NEXT:    [[TMP1:%.*]] = sitofp <4 x i16> [[TMP0]] to <4 x float>
-; GFX1030-NEXT:    [[TMP2:%.*]] = load <4 x float>, ptr addrspace(1) [[B]], align 4
-; GFX1030-NEXT:    [[TMP3:%.*]] = fmul contract <4 x float> [[TMP1]], [[TMP2]]
-; GFX1030-NEXT:    [[TMP4:%.*]] = extractelement <4 x float> [[TMP3]], i64 0
+; GFX1030-NEXT:    [[A1:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[A]], i64 2
+; GFX1030-NEXT:    [[A2:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[A]], i64 4
+; GFX1030-NEXT:    [[A3:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[A]], i64 6
+; GFX1030-NEXT:    [[B1:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[B]], i64 4
+; GFX1030-NEXT:    [[B2:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[B]], i64 8
+; GFX1030-NEXT:    [[B3:%.*]] = getelementptr inbounds nuw i8, ptr addrspace(1) [[B]], i64 12
+; GFX1030-NEXT:    [[I0:%.*]] = load i16, ptr addrspace(1) [[A]], align 2
+; GFX1030-NEXT:    [[I1:%.*]] = load i16, ptr addrspace(1) [[A1]], align 2
+; GFX1030-NEXT:    [[I2:%.*]] = load i16, ptr addrspace(1) [[A2]], align 2
+; GFX1030-NEXT:    [[I3:%.*]] = load i16, ptr addrspace(1) [[A3]], align 2
+; GFX1030-NEXT:    [[F0:%.*]] = sitofp i16 [[I0]] to float
+; GFX1030-NEXT:    [[F1:%.*]] = sitofp i16 [[I1]] to float
+; GFX1030-NEXT:    [[F2:%.*]] = sitofp i16 [[I2]] to float
+; GFX1030-NEXT:    [[F3:%.*]] = sitofp i16 [[I3]] to float
+; GFX1030-NEXT:    [[W0:%.*]] = load float, ptr addrspace(1) [[B]], align 4
+; GFX1030-NEXT:    [[W1:%.*]] = load float, ptr addrspace(1) [[B1]], align 4
+; GFX1030-NEXT:    [[W2:%.*]] = load float, ptr addrspace(1) [[B2]], align 4
+; GFX1030-NEXT:    [[W3:%.*]] = load float, ptr addrspace(1) [[B3]], align 4
+; GFX1030-NEXT:    [[TMP4:%.*]] = fmul contract float [[F0]], [[W0]]
+; GFX1030-NEXT:    [[TMP5:%.*]] = fmul contract float [[F1]], [[W1]]
+; GFX1030-NEXT:    [[TMP6:%.*]] = fmul contract float [[F2]], [[W2]]
+; GFX1030-NEXT:    [[TMP7:%.*]] = fmul contract float [[F3]], [[W3]]
 ; GFX1030-NEXT:    [[S0:%.*]] = fadd contract float [[ACC]], [[TMP4]]
-; GFX1030-NEXT:    [[TMP5:%.*]] = extractelement <4 x float> [[TMP3]], i64 1
 ; GFX1030-NEXT:    [[S1:%.*]] = fadd contract float [[S0]], [[TMP5]]
-; GFX1030-NEXT:    [[TMP6:%.*]] = extractelement <4 x float> [[TMP3]], i64 2
 ; GFX1030-NEXT:    [[S2:%.*]] = fadd contract float [[S1]], [[TMP6]]
-; GFX1030-NEXT:    [[TMP7:%.*]] = extractelement <4 x float> [[TMP3]], i64 3
 ; GFX1030-NEXT:    [[S3:%.*]] = fadd contract float [[S2]], [[TMP7]]
 ; GFX1030-NEXT:    ret float [[S3]]
 ;

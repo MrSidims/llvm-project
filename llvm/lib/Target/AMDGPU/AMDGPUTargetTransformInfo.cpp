@@ -391,36 +391,6 @@ unsigned GCNTTIImpl::getLoadStoreVecRegBitWidth(unsigned AddrSpace) const {
   return 128;
 }
 
-bool GCNTTIImpl::consecutiveLoadsCoalesce(Type *ElemTy, unsigned NumElts,
-                                          Align Alignment,
-                                          unsigned AddrSpace) const {
-  unsigned MaxBits = getLoadStoreVecRegBitWidth(AddrSpace);
-  unsigned ElemBits = DL.getTypeSizeInBits(ElemTy);
-  if (MaxBits < 64 || ElemBits % 8 != 0)
-    return false;
-  unsigned Bits = std::min(ElemBits * NumElts, MaxBits);
-  if (!isLegalToVectorizeLoadChain(Bits / 8, Alignment, AddrSpace))
-    return false;
-  if (Alignment.value() % (Bits / 8) == 0)
-    return true;
-  LLVMContext &Ctx = ElemTy->getContext();
-  unsigned VecSpeed = 0, ElemSpeed = 0;
-  if (!allowsMisalignedMemoryAccesses(Ctx, Bits, AddrSpace, Alignment,
-                                      &VecSpeed))
-    return false;
-  allowsMisalignedMemoryAccesses(Ctx, ElemBits, AddrSpace, Alignment,
-                                 &ElemSpeed);
-  return VecSpeed >= ElemSpeed;
-}
-
-bool GCNTTIImpl::isPackedLaneType(Type *Ty) const {
-  if (Ty->isFloatTy())
-    return ST->hasAnyPackedFP32Ops();
-  if (Ty->isBFloatTy())
-    return ST->hasBF16PackedInsts();
-  return Ty->isHalfTy() && ST->hasVOP3PInsts();
-}
-
 bool GCNTTIImpl::isLegalToVectorizeMemChain(unsigned ChainSizeInBytes,
                                             Align Alignment,
                                             unsigned AddrSpace) const {
@@ -2198,128 +2168,6 @@ GCNTTIImpl::fpenvIEEEMode(const Instruction &I) const {
                                                : KnownIEEEMode::On;
 }
 
-/// The longest chain of single users followed from a lane.
-static constexpr unsigned MaxLaneChainSteps = 128;
-
-/// An fadd of a chain of one-use fadds that each add a one-use fmul that fuses
-/// into it, by the last fadd of the chain and the number of fadds between the
-/// two.
-struct FAddChainPos {
-  const Instruction *Root;
-  unsigned Dist;
-
-  bool operator==(const FAddChainPos &Other) const {
-    return Root == Other.Root && Dist == Other.Dist;
-  }
-};
-
-using FAddChainPosMap = SmallDenseMap<const Instruction *, FAddChainPos, 32>;
-
-/// Whether an fmul fuses into its single fadd user.
-using FMulFusesFn =
-    function_ref<bool(const Instruction *FMul, const Instruction *FAdd)>;
-
-/// \returns true if \p Add adds a one-use fmul that fuses into it to \p Acc.
-static bool accumulatesFMul(const Instruction *Add, const Instruction *Acc,
-                            FMulFusesFn Fuses) {
-  const auto *Other =
-      dyn_cast<Instruction>(Add->getOperand(Add->getOperand(0) == Acc ? 1 : 0));
-  return Other && Other->getOpcode() == Instruction::FMul &&
-         Other->hasOneUse() && Fuses(Other, Add);
-}
-
-/// \returns the position of \p Add in its chain of one-use fadds that each add
-/// a one-use fmul that fuses into it. The chain ends where an fadd adds
-/// anything else, as the sum of two chains does.
-static FAddChainPos getFAddChainPos(const Instruction *Add,
-                                    FAddChainPosMap &PosOf, FMulFusesFn Fuses) {
-  SmallVector<const Instruction *, 16> Links;
-  const Instruction *Link = Add;
-  std::optional<FAddChainPos> Known;
-  for (unsigned Step = 0;; ++Step) {
-    if (auto It = PosOf.find(Link); It != PosOf.end()) {
-      Known = It->second;
-      break;
-    }
-    Links.push_back(Link);
-    if (Step + 1 == MaxLaneChainSteps || !Link->hasOneUse())
-      break;
-    const auto *Next = cast<Instruction>(Link->user_back());
-    if (Next->getOpcode() != Instruction::FAdd ||
-        !accumulatesFMul(Next, Link, Fuses))
-      break;
-    Link = Next;
-  }
-  FAddChainPos Pos{Link, 0};
-  if (Known)
-    Pos = *Known;
-  else
-    PosOf[Links.pop_back_val()] = Pos;
-  for (const Instruction *L : reverse(Links)) {
-    ++Pos.Dist;
-    PosOf[L] = Pos;
-  }
-  return Pos;
-}
-
-/// Adds to \p Positions the positions in fadd chains without reassoc of the
-/// one-use fmuls that \p Fuses into them reached from \p V through at most
-/// \p Depth single-user operations.
-static void collectFMAChainPositions(const Value *V, unsigned Depth,
-                                     FMulFusesFn Fuses, FAddChainPosMap &PosOf,
-                                     SmallVectorImpl<FAddChainPos> &Positions) {
-  for (const User *U : V->users()) {
-    const auto *UI = dyn_cast<Instruction>(U);
-    if (!UI)
-      continue;
-    if (UI->getOpcode() == Instruction::FMul && UI->hasOneUse()) {
-      const auto *Add = cast<Instruction>(UI->user_back());
-      if (Add->getOpcode() == Instruction::FAdd && !Add->hasAllowReassoc() &&
-          Fuses(UI, Add)) {
-        FAddChainPos Pos = getFAddChainPos(Add, PosOf, Fuses);
-        if (!is_contained(Positions, Pos))
-          Positions.push_back(Pos);
-        continue;
-      }
-    }
-    if (Depth == 0 || !UI->hasOneUser() ||
-        !isa<CastInst, UnaryOperator, BinaryOperator>(UI))
-      continue;
-    collectFMAChainPositions(UI, Depth - 1, Fuses, PosOf, Positions);
-  }
-}
-
-/// \returns true if the loads \p Scalars feed fmuls of a type with packed fmas
-/// that \p Fuses into fadd chains without reassoc, and the two lanes of some
-/// packed register hold one position each that is not the same position of
-/// two chains, the same two chains wherever either appears. The scalar fmuls
-/// fuse into the chains, the fmuls of their vectorized ordered reduction only
-/// when the chains run in lockstep in pairs. A lane that feeds several chains
-/// or none imposes nothing, a packed fma takes it from either half of a
-/// register. A type without packed fmas fuses lane by lane either way.
-static bool loadsFeedFMAChain(ArrayRef<const Value *> Scalars,
-                              FMulFusesFn Fuses) {
-  FAddChainPosMap PosOf;
-  SmallDenseMap<const Instruction *, const Instruction *, 32> PartnerOf;
-  auto PairUp = [&](const Instruction *A, const Instruction *B) {
-    auto [It, New] = PartnerOf.try_emplace(A, B);
-    return New || It->second == B;
-  };
-  for (unsigned Lane = 0; Lane + 1 < Scalars.size(); Lane += 2) {
-    SmallVector<FAddChainPos, 2> Pos0, Pos1;
-    collectFMAChainPositions(Scalars[Lane], /*Depth=*/3, Fuses, PosOf, Pos0);
-    collectFMAChainPositions(Scalars[Lane + 1], /*Depth=*/3, Fuses, PosOf,
-                             Pos1);
-    if (Pos0.size() != 1 || Pos1.size() != 1)
-      continue;
-    if (Pos0[0].Root == Pos1[0].Root || Pos0[0].Dist != Pos1[0].Dist ||
-        !PairUp(Pos0[0].Root, Pos1[0].Root) ||
-        !PairUp(Pos1[0].Root, Pos0[0].Root))
-      return true;
-  }
-  return false;
-}
-
 static unsigned getNumMemoryInsts(unsigned Bytes, unsigned MaxBytes,
                                   bool HasDwordx3) {
   unsigned NumInsts = Bytes / MaxBytes;
@@ -2331,51 +2179,12 @@ static unsigned getNumMemoryInsts(unsigned Bytes, unsigned MaxBytes,
   return NumInsts + llvm::popcount(Rem);
 }
 
-InstructionCost
-GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
-                            unsigned AddressSpace, TTI::TargetCostKind CostKind,
-                            TTI::OperandValueInfo OpInfo, const Instruction *I,
-                            ArrayRef<const Value *> Scalars) const {
-  // The vector load saves nothing over scalar loads the backend coalesces as
-  // well. A reduction that loses the fmas of the scalars pays that saving back.
-  auto *LoadVecTy = dyn_cast<FixedVectorType>(Src);
-  if (Opcode == Instruction::Load && LoadVecTy && Scalars.size() > 1 &&
-      all_of(Scalars, IsaPred<LoadInst>)) {
-    Type *LoadTy = Scalars.front()->getType();
-    unsigned NumLoadElts = 1;
-    if (auto *ScalarVecTy = dyn_cast<FixedVectorType>(LoadTy))
-      NumLoadElts = ScalarVecTy->getNumElements();
-    if (LoadVecTy->getElementType() == LoadTy->getScalarType() &&
-        LoadVecTy->getNumElements() == Scalars.size() * NumLoadElts &&
-        all_of(Scalars,
-               [&](const Value *V) { return V->getType() == LoadTy; })) {
-      auto Fuses = [this](const Instruction *FMul, const Instruction *FAdd) {
-        Type *Ty = FMul->getType();
-        return isPackedLaneType(Ty) && FMul->hasAllowContract() &&
-               FAdd->hasAllowContract() &&
-               canFuseFMulWithFAddSub(*TLI, Ty, FMul, FAdd);
-      };
-      if (loadsFeedFMAChain(Scalars, Fuses)) {
-        InstructionCost Cost = getMemoryOpCost(
-            Opcode, Src, Alignment, AddressSpace, CostKind, OpInfo, I);
-        Align BestAlign = Alignment;
-        for (const Value *V : Scalars)
-          BestAlign = std::max(BestAlign, cast<LoadInst>(V)->getAlign());
-        if (!consecutiveLoadsCoalesce(LoadTy, Scalars.size(), BestAlign,
-                                      AddressSpace))
-          return Cost;
-        InstructionCost ScalarCost =
-            Scalars.size() *
-            getMemoryOpCost(Opcode, LoadTy, BestAlign, AddressSpace, CostKind);
-        InstructionCost VecCost =
-            getMemoryOpCost(Opcode, Src, BestAlign, AddressSpace, CostKind);
-        if (VecCost < ScalarCost)
-          Cost += ScalarCost - VecCost;
-        return Cost;
-      }
-    }
-  }
-
+InstructionCost GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
+                                            Align Alignment,
+                                            unsigned AddressSpace,
+                                            TTI::TargetCostKind CostKind,
+                                            TTI::OperandValueInfo OpInfo,
+                                            const Instruction *I) const {
   Type *EltTy = Src->getScalarType();
   if ((Opcode != Instruction::Load && Opcode != Instruction::Store) ||
       CostKind == TTI::TCK_Latency || isa<ScalableVectorType>(Src) ||
@@ -2451,6 +2260,62 @@ GCNTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
   if (!MergesDwords && Bytes % MaxBytes > 12)
     HasDwordx3 = false;
   return getNumMemoryInsts(Bytes, MaxBytes, HasDwordx3);
+}
+
+InstructionCost
+GCNTTIImpl::getConsecutiveLoadsCost(ArrayRef<const LoadInst *> Loads,
+                                    TTI::TargetCostKind CostKind) const {
+  InstructionCost Cost = BaseT::getConsecutiveLoadsCost(Loads, CostKind);
+  if (Loads.size() < 2)
+    return Cost;
+  const LoadInst *First = Loads.front();
+  Type *Ty = First->getType();
+  Type *EltTy = Ty->getScalarType();
+  if (isa<ScalableVectorType>(Ty) ||
+      !FixedVectorType::isValidElementType(EltTy))
+    return Cost;
+  unsigned LaneElts = 1;
+  if (auto *VecTy = dyn_cast<FixedVectorType>(Ty))
+    LaneElts = VecTy->getNumElements();
+  unsigned AS = First->getPointerAddressSpace();
+  auto GetWideCost = [&](unsigned NumLanes, Align Alignment) {
+    return getMemoryOpCost(Instruction::Load,
+                           FixedVectorType::get(EltTy, NumLanes * LaneElts),
+                           Alignment, AS, CostKind);
+  };
+  uint64_t LaneBytes = DL.getTypeStoreSize(Ty).getFixedValue();
+  // SILoadStoreOptimizer pairs the dword loads the load store vectorizer
+  // leaves apart, narrower loads merge only in the load store vectorizer.
+  if (LaneBytes % 4 == 0 && First->getAlign() >= 4)
+    return std::min(Cost, GetWideCost(Loads.size(), First->getAlign()));
+  LLVMContext &Ctx = Ty->getContext();
+  unsigned EltBits = DL.getTypeSizeInBits(EltTy).getFixedValue();
+  auto IsMerged = [&](unsigned Bytes, Align Alignment) {
+    if (!isLegalToVectorizeLoadChain(Bytes, Alignment, AS))
+      return false;
+    if (Alignment.value() % Bytes == 0)
+      return true;
+    unsigned VecSpeed = 0, EltSpeed = 0;
+    if (!allowsMisalignedMemoryAccesses(Ctx, Bytes * 8, AS, Alignment,
+                                        &VecSpeed))
+      return false;
+    allowsMisalignedMemoryAccesses(Ctx, EltBits, AS, Alignment, &EltSpeed);
+    return VecSpeed >= EltSpeed;
+  };
+  unsigned MaxLanes =
+      std::max<uint64_t>(1, getLoadStoreVecRegBitWidth(AS) / 8 / LaneBytes);
+  InstructionCost Merged = 0;
+  for (unsigned I = 0, E = Loads.size(); I < E;) {
+    Align Alignment = Loads[I]->getAlign();
+    unsigned N = std::min(E - I, MaxLanes);
+    while (N > 1 && !IsMerged(N * LaneBytes, Alignment))
+      --N;
+    Merged += N == 1
+                  ? BaseT::getConsecutiveLoadsCost(Loads.slice(I, 1), CostKind)
+                  : GetWideCost(N, Alignment);
+    I += N;
+  }
+  return std::min(Cost, Merged);
 }
 
 unsigned GCNTTIImpl::getNumberOfParts(Type *Tp) const {
