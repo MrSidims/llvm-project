@@ -215,12 +215,12 @@ define amdgpu_kernel void @fmul_f16() #0 {
 ;
 ; GFX8-LABEL: 'fmul_f16'
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %f16 = fmul half poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2f16 = fmul <2 x half> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3f16 = fmul <3 x half> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v4f16 = fmul <4 x half> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v5f16 = fmul <5 x half> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v16f16 = fmul <16 x half> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v17f16 = fmul <17 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2f16 = fmul <2 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3f16 = fmul <3 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4f16 = fmul <4 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5f16 = fmul <5 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f16 = fmul <16 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17f16 = fmul <17 x half> poison, poison
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1250-LABEL: 'fmul_f16'

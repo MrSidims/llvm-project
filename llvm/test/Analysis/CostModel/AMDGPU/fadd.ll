@@ -2,7 +2,7 @@
 ; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu9.0a-unknown-amdhsa  -mattr=+half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=FASTF16,GFX90A-FASTF64 %s
 ; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu9.00-unknown-amdhsa  -mattr=+half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=NOPACKEDF32,FASTF16,FASTF64 %s
 ; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu6.01-unknown-amdhsa -mattr=-half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=NOPACKEDF32,SLOWF64 %s
-; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu8.03-unknown-amdhsa -mattr=+half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=NOPACKEDF32,FASTF16,FASTF64 %s
+; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu8.03-unknown-amdhsa -mattr=+half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=NOPACKEDF32,GFX8 %s
 ; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu12.50-unknown-amdhsa < %s 2>&1 | FileCheck -check-prefixes=GFX1250 %s
 ; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu12.51-unknown-amdhsa < %s 2>&1 | FileCheck -check-prefixes=GFX1251 %s
 ; RUN: opt -passes="print<cost-model>" -cost-kind=code-size -disable-output -mtriple=amdgpu9.0a-unknown-amdhsa  -mattr=+half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=FASTF16-SIZE,GFX90A-FASTF64-SIZE %s
@@ -128,6 +128,14 @@ define amdgpu_kernel void @fadd_f64() #0 {
 ; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v5f64 = fadd <5 x double> poison, poison
 ; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
+; GFX8-LABEL: 'fadd_f64'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %f64 = fadd double poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2f64 = fadd <2 x double> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v3f64 = fadd <3 x double> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4f64 = fadd <4 x double> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v5f64 = fadd <5 x double> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
 ; GFX1250-LABEL: 'fadd_f64'
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %f64 = fadd double poison, poison
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2f64 = fadd <2 x double> poison, poison
@@ -204,6 +212,16 @@ define amdgpu_kernel void @fadd_f16() #0 {
 ; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f16 = fadd <16 x half> poison, poison
 ; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v17f16 = fadd <17 x half> poison, poison
 ; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX8-LABEL: 'fadd_f16'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %f16 = fadd half poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2f16 = fadd <2 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3f16 = fadd <3 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4f16 = fadd <4 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5f16 = fadd <5 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16f16 = fadd <16 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17f16 = fadd <17 x half> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1250-LABEL: 'fadd_f16'
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %f16 = fadd half poison, poison
@@ -295,6 +313,16 @@ define amdgpu_kernel void @fadd_bf16() #0 {
 ; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
 ; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
 ; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX8-LABEL: 'fadd_bf16'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = fadd bfloat poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1250-LABEL: 'fadd_bf16'
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = fadd bfloat poison, poison

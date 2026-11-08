@@ -598,16 +598,23 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     if (SLT == MVT::i64)
       return get64BitInstrCost(CostKind) * LT.first * NElts;
 
-    if (ST->has16BitInsts() && SLT == MVT::i16)
+    if (ST->hasVOP3PInsts() && SLT == MVT::i16)
       NElts = (NElts + 1) / 2;
 
     // i32
     return getFullRateInstrCost() * LT.first * NElts;
   case ISD::ADD:
   case ISD::SUB:
-    if (SLT == MVT::i64 && ST->hasAnyPackedU64Ops())
+    if (SLT == MVT::i64) {
+      if (ST->hasAnyPackedU64Ops())
+        NElts = (NElts + 1) / 2;
+      return 2 * getFullRateInstrCost() * LT.first * NElts;
+    }
+
+    if (ST->hasVOP3PInsts() && SLT == MVT::i16)
       NElts = (NElts + 1) / 2;
-    [[fallthrough]];
+
+    return LT.first * NElts * getFullRateInstrCost();
   case ISD::AND:
   case ISD::OR:
   case ISD::XOR:
@@ -627,7 +634,7 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       return (4 * QuarterRateCost + (2 * 2) * FullRateCost) * LT.first * NElts;
     }
 
-    if (ST->has16BitInsts() && SLT == MVT::i16)
+    if (ST->hasVOP3PInsts() && SLT == MVT::i16)
       NElts = (NElts + 1) / 2;
 
     // i32
@@ -661,7 +668,7 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       return LT.first * NElts * get64BitInstrCost(CostKind);
     }
 
-    if (ST->has16BitInsts() && SLT == MVT::f16)
+    if (ST->hasVOP3PInsts() && SLT == MVT::f16)
       NElts = (NElts + 1) / 2;
 
     if (SLT == MVT::f32 || SLT == MVT::f16 || SLT == MVT::bf16)
