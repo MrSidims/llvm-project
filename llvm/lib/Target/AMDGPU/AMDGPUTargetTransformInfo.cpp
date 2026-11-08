@@ -793,6 +793,13 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     }
 
     if (SLT == MVT::f16 && ST->has16BitInsts()) {
+      // v_rcp_f16 and fmul
+      if (ISD == ISD::FDIV && CtxI &&
+          (CtxI->hasApproxFunc() || CtxI->hasAllowReciprocal())) {
+        int Cost = getTransInstrCost(CostKind) + getFullRateInstrCost();
+        return LT.first * Cost * NElts;
+      }
+
       // 2 x v_cvt_f32_f16
       // f32 rcp
       // f32 fmul
@@ -810,10 +817,47 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       return LT.first * Cost * NElts;
     }
 
+    if (SLT == MVT::f32 && ISD == ISD::FDIV) {
+      const auto *FPOp = dyn_cast_or_null<FPMathOperator>(CtxI);
+      float Accuracy = FPOp && FPOp->getType()->getScalarType()->isFloatTy()
+                           ? FPOp->getFPAccuracy()
+                           : 0.0f;
+      if (Accuracy >= 1.0f) {
+        int RcpCost = getTransInstrCost(CostKind);
+        if (HasFP32Denormals)
+          RcpCost += (ST->hasFractBug() ? 6 : 4) * getFullRateInstrCost();
+        if (!Args.empty() &&
+            (match(Args[0], PatternMatch::m_FPOne()) ||
+             match(Args[0], PatternMatch::m_SpecificFP(-1.0))))
+          return LT.first * RcpCost * NElts;
+        if (FPOp->hasAllowReciprocal())
+          return LT.first * (RcpCost + getFullRateInstrCost()) * NElts;
+
+        // frexp scaled rcp and ldexp for !fpmath of at least 1 ulp
+        bool FractBug =
+            ST->hasFractBug() && (HasFP32Denormals || Accuracy < 2.5f);
+        if (!FractBug || HasFP32Denormals || ST->hasFastFMAF32() ||
+            (FPOp->hasNoNaNs() && FPOp->hasNoInfs())) {
+          int Cost = (FractBug ? 11 : 7) * getFullRateInstrCost() +
+                     getTransInstrCost(CostKind);
+          return LT.first * Cost * NElts;
+        }
+      }
+
+      if (FPOp && FPOp->hasAllowReciprocal() && FPOp->hasNoInfs()) {
+        int Cost = getTransInstrCost(CostKind) + getFullRateInstrCost();
+        return LT.first * Cost * NElts;
+      }
+    }
+
     if (SLT == MVT::f32 || SLT == MVT::f16) {
-      // 4 more v_cvt_* insts without f16 insts support
-      int Cost = (SLT == MVT::f16 ? 14 : 10) * getFullRateInstrCost() +
-                 1 * getTransInstrCost(CostKind);
+      // 7 fma, the f16 variant needs 4 more v_cvt_* insts without f16 insts
+      // support
+      const int FMACost = ST->hasFastFMAF32()
+                              ? getFullRateInstrCost()
+                              : getQuarterRateInstrCost(CostKind);
+      int Cost = (SLT == MVT::f16 ? 7 : 3) * getFullRateInstrCost() +
+                 7 * FMACost + getTransInstrCost(CostKind);
 
       if (!HasFP32Denormals) {
         // FP mode switches.
