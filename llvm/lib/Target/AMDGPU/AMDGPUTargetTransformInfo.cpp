@@ -1083,6 +1083,18 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
       return LT.first * NElts * Cost;
     }
 
+    if (SLT == MVT::f16)
+      return LT.first * NElts * getTransInstrCost(CostKind);
+
+    if (SLT == MVT::f64) {
+      // v_rsq_f64 refined with fma iterations and denormal scaling.
+      bool IsApprox = ICA.getFlags().approxFunc();
+      InstructionCost Cost = (IsApprox ? 7 : 11) * get64BitInstrCost(CostKind) +
+                             (IsApprox ? 4 : 8) * getFullRateInstrCost() +
+                             getTransInstrCost(CostKind);
+      return LT.first * NElts * Cost;
+    }
+
     break;
   }
   case Intrinsic::ctlz:
