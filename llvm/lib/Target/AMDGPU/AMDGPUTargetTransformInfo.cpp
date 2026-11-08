@@ -630,14 +630,37 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
 
     return LT.first * NElts * getFullRateInstrCost();
   case ISD::MUL: {
+    if (Op2Info.isConstant() && Op2Info.isPowerOf2())
+      return getArithmeticInstrCost(Instruction::Shl, Ty, CostKind);
+
     const int QuarterRateCost = getQuarterRateInstrCost(CostKind);
     if (SLT == MVT::i64) {
-      const int FullRateCost = getFullRateInstrCost();
-      return (4 * QuarterRateCost + (2 * 2) * FullRateCost) * LT.first * NElts;
+      if (ST->useVMulU64Inst())
+        return QuarterRateCost * LT.first * NElts;
+      auto LowHalfZero = [](const APInt &C) { return C.countr_zero() >= 32; };
+      auto FitsMad = [](const APInt &C) { return C.isSignedIntN(33); };
+      const Value *RHS = Args.size() == 2 ? Args[1] : nullptr;
+      if (RHS && match(RHS, PatternMatch::m_CheckedInt(LowHalfZero)))
+        return QuarterRateCost * LT.first * NElts;
+      // v_mad_u64_u32 plus the high half cross products.
+      const bool IsNarrowConst =
+          RHS ? match(RHS, PatternMatch::m_CheckedInt(FitsMad))
+              : Op2Info.isConstant();
+      int Cost = IsNarrowConst
+                     ? 2 * QuarterRateCost + getFullRateInstrCost()
+                     : 3 * QuarterRateCost + (ST->hasGFX9Insts() ? 1 : 2) *
+                                                 getFullRateInstrCost();
+      if (!ST->hasMad64_32())
+        Cost += QuarterRateCost;
+      return Cost * LT.first * NElts;
     }
 
-    if (ST->hasVOP3PInsts() && SLT == MVT::i16)
-      NElts = (NElts + 1) / 2;
+    // Narrow multiplies select to full rate 16 or 24-bit instructions.
+    if (Ty->getScalarSizeInBits() <= 16) {
+      if (ST->hasVOP3PInsts() && SLT == MVT::i16)
+        NElts = (NElts + 1) / 2;
+      return getFullRateInstrCost() * NElts * LT.first;
+    }
 
     // i32
     return QuarterRateCost * NElts * LT.first;

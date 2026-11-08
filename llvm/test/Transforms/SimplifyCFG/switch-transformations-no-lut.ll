@@ -242,17 +242,13 @@ define i4 @bitmap_with_default(i32 %x) {
 ;
 ; TTINOLUT-LABEL: define i4 @bitmap_with_default(
 ; TTINOLUT-SAME: i32 [[X:%.*]]) {
-; TTINOLUT-NEXT:  [[ENTRY:.*]]:
+; TTINOLUT-NEXT:  [[ENTRY:.*:]]
 ; TTINOLUT-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[X]], 4
-; TTINOLUT-NEXT:    br i1 [[TMP0]], label %[[SWITCH_LOOKUP:.*]], label %[[END:.*]]
-; TTINOLUT:       [[SWITCH_LOOKUP]]:
 ; TTINOLUT-NEXT:    [[SWITCH_CAST:%.*]] = trunc i32 [[X]] to i16
 ; TTINOLUT-NEXT:    [[SWITCH_SHIFTAMT:%.*]] = mul nuw nsw i16 [[SWITCH_CAST]], 4
 ; TTINOLUT-NEXT:    [[SWITCH_DOWNSHIFT:%.*]] = lshr i16 -31712, [[SWITCH_SHIFTAMT]]
 ; TTINOLUT-NEXT:    [[SWITCH_MASKED:%.*]] = trunc i16 [[SWITCH_DOWNSHIFT]] to i4
-; TTINOLUT-NEXT:    br label %[[END]]
-; TTINOLUT:       [[END]]:
-; TTINOLUT-NEXT:    [[IDX:%.*]] = phi i4 [ [[SWITCH_MASKED]], %[[SWITCH_LOOKUP]] ], [ -1, %[[ENTRY]] ]
+; TTINOLUT-NEXT:    [[IDX:%.*]] = select i1 [[TMP0]], i4 [[SWITCH_MASKED]], i4 -1
 ; TTINOLUT-NEXT:    ret i4 [[IDX]]
 ;
 entry:
@@ -420,7 +416,7 @@ define i1 @single_value_with_mask(i32 %x) {
 ;
 ; TTINOLUT-LABEL: define i1 @single_value_with_mask(
 ; TTINOLUT-SAME: i32 [[X:%.*]]) {
-; TTINOLUT-NEXT:  [[ENTRY:.*]]:
+; TTINOLUT-NEXT:  [[ENTRY:.*:]]
 ; TTINOLUT-NEXT:    [[SWITCH_TABLEIDX:%.*]] = sub i32 [[X]], 16
 ; TTINOLUT-NEXT:    [[TMP0:%.*]] = icmp ult i32 [[SWITCH_TABLEIDX]], 33
 ; TTINOLUT-NEXT:    [[SWITCH_MASKINDEX:%.*]] = zext i32 [[SWITCH_TABLEIDX]] to i64
