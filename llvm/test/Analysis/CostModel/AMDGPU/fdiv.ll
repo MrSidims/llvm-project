@@ -637,6 +637,210 @@ define amdgpu_kernel void @rcp_ftzdaz() #1 {
   ret void
 }
 
+define void @fdiv_f16_fast(half %a, half %b, <2 x half> %va, <2 x half> %vb) #0 {
+; NOFP16-LABEL: 'fdiv_f16_fast'
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %afn = fdiv afn half %a, %b
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %arcp = fdiv arcp half %a, %b
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %v2afn = fdiv afn <2 x half> %va, %vb
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2arcp = fdiv arcp <2 x half> %va, %vb
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; FP16-LABEL: 'fdiv_f16_fast'
+; FP16-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %afn = fdiv afn half %a, %b
+; FP16-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %arcp = fdiv arcp half %a, %b
+; FP16-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2afn = fdiv afn <2 x half> %va, %vb
+; FP16-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2arcp = fdiv arcp <2 x half> %va, %vb
+; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; NOFP16-SIZE-LABEL: 'fdiv_f16_fast'
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %afn = fdiv afn half %a, %b
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %arcp = fdiv arcp half %a, %b
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2afn = fdiv afn <2 x half> %va, %vb
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2arcp = fdiv arcp <2 x half> %va, %vb
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; FP16-SIZE-LABEL: 'fdiv_f16_fast'
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %afn = fdiv afn half %a, %b
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %arcp = fdiv arcp half %a, %b
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v2afn = fdiv afn <2 x half> %va, %vb
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v2arcp = fdiv arcp <2 x half> %va, %vb
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %afn = fdiv afn half %a, %b
+  %arcp = fdiv arcp half %a, %b
+  %v2afn = fdiv afn <2 x half> %va, %vb
+  %v2arcp = fdiv arcp <2 x half> %va, %vb
+  ret void
+}
+
+define void @fdiv_f32_fpmath_ieee(float %a, float %b, <2 x float> %va, <2 x float> %vb) #0 {
+; ALL-LABEL: 'fdiv_f32_fpmath_ieee'
+; ALL-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %ulp05 = fdiv float %a, %b, !fpmath !3
+; ALL-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %ulp1 = fdiv float %a, %b, !fpmath !4
+; ALL-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %ulp25 = fdiv float %a, %b, !fpmath !5
+; ALL-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2ulp25 = fdiv <2 x float> %va, %vb, !fpmath !5
+; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; ALL-SIZE-LABEL: 'fdiv_f32_fpmath_ieee'
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %ulp05 = fdiv float %a, %b, !fpmath !3
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %ulp1 = fdiv float %a, %b, !fpmath !4
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %ulp25 = fdiv float %a, %b, !fpmath !5
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2ulp25 = fdiv <2 x float> %va, %vb, !fpmath !5
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %ulp05 = fdiv float %a, %b, !fpmath !0
+  %ulp1 = fdiv float %a, %b, !fpmath !1
+  %ulp25 = fdiv float %a, %b, !fpmath !2
+  %v2ulp25 = fdiv <2 x float> %va, %vb, !fpmath !2
+  ret void
+}
+
+define void @fdiv_f32_fpmath_ftzdaz(float %a, float %b, <2 x float> %va, <2 x float> %vb) #1 {
+; ALL-LABEL: 'fdiv_f32_fpmath_ftzdaz'
+; ALL-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %ulp05 = fdiv float %a, %b, !fpmath !3
+; ALL-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %ulp1 = fdiv float %a, %b, !fpmath !4
+; ALL-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %ulp25 = fdiv float %a, %b, !fpmath !5
+; ALL-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v2ulp25 = fdiv <2 x float> %va, %vb, !fpmath !5
+; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; ALL-SIZE-LABEL: 'fdiv_f32_fpmath_ftzdaz'
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %ulp05 = fdiv float %a, %b, !fpmath !3
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %ulp1 = fdiv float %a, %b, !fpmath !4
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %ulp25 = fdiv float %a, %b, !fpmath !5
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2ulp25 = fdiv <2 x float> %va, %vb, !fpmath !5
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %ulp05 = fdiv float %a, %b, !fpmath !0
+  %ulp1 = fdiv float %a, %b, !fpmath !1
+  %ulp25 = fdiv float %a, %b, !fpmath !2
+  %v2ulp25 = fdiv <2 x float> %va, %vb, !fpmath !2
+  ret void
+}
+
+define void @fdiv_f32_rcp_ieee(float %a, float %b, <2 x float> %va, <2 x float> %vb) #0 {
+; ALL-LABEL: 'fdiv_f32_rcp_ieee'
+; ALL-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %arcp = fdiv arcp float %a, %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %arcp_ninf = fdiv ninf arcp float %a, %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %arcp_ulp1 = fdiv arcp float %a, %b, !fpmath !4
+; ALL-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %one_ulp1 = fdiv float 1.000000e+00, %b, !fpmath !4
+; ALL-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %negone_ulp1 = fdiv float -1.000000e+00, %b, !fpmath !4
+; ALL-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %negone_arcp_ninf = fdiv ninf arcp float -1.000000e+00, %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2arcp_ninf = fdiv ninf arcp <2 x float> %va, %vb
+; ALL-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2arcp_ulp1 = fdiv arcp <2 x float> %va, %vb, !fpmath !4
+; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; ALL-SIZE-LABEL: 'fdiv_f32_rcp_ieee'
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %arcp = fdiv arcp float %a, %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %arcp_ninf = fdiv ninf arcp float %a, %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %arcp_ulp1 = fdiv arcp float %a, %b, !fpmath !4
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %one_ulp1 = fdiv float 1.000000e+00, %b, !fpmath !4
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %negone_ulp1 = fdiv float -1.000000e+00, %b, !fpmath !4
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %negone_arcp_ninf = fdiv ninf arcp float -1.000000e+00, %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2arcp_ninf = fdiv ninf arcp <2 x float> %va, %vb
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2arcp_ulp1 = fdiv arcp <2 x float> %va, %vb, !fpmath !4
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %arcp = fdiv arcp float %a, %b
+  %arcp_ninf = fdiv arcp ninf float %a, %b
+  %arcp_ulp1 = fdiv arcp float %a, %b, !fpmath !1
+  %one_ulp1 = fdiv float 1.0, %b, !fpmath !1
+  %negone_ulp1 = fdiv float -1.0, %b, !fpmath !1
+  %negone_arcp_ninf = fdiv arcp ninf float -1.0, %b
+  %v2arcp_ninf = fdiv arcp ninf <2 x float> %va, %vb
+  %v2arcp_ulp1 = fdiv arcp <2 x float> %va, %vb, !fpmath !1
+  ret void
+}
+
+define void @fdiv_f32_rcp_ftzdaz(float %a, float %b, <2 x float> %va, <2 x float> %vb) #1 {
+; ALL-LABEL: 'fdiv_f32_rcp_ftzdaz'
+; ALL-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %arcp = fdiv arcp float %a, %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %arcp_ninf = fdiv ninf arcp float %a, %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %arcp_ulp1 = fdiv arcp float %a, %b, !fpmath !4
+; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %one_ulp1 = fdiv float 1.000000e+00, %b, !fpmath !4
+; ALL-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %negone_ulp1 = fdiv float -1.000000e+00, %b, !fpmath !4
+; ALL-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %negone_arcp_ninf = fdiv ninf arcp float -1.000000e+00, %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v2arcp_ninf = fdiv ninf arcp <2 x float> %va, %vb
+; ALL-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %v2arcp_ulp1 = fdiv arcp <2 x float> %va, %vb, !fpmath !4
+; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; ALL-SIZE-LABEL: 'fdiv_f32_rcp_ftzdaz'
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %arcp = fdiv arcp float %a, %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %arcp_ninf = fdiv ninf arcp float %a, %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %arcp_ulp1 = fdiv arcp float %a, %b, !fpmath !4
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %one_ulp1 = fdiv float 1.000000e+00, %b, !fpmath !4
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %negone_ulp1 = fdiv float -1.000000e+00, %b, !fpmath !4
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %negone_arcp_ninf = fdiv ninf arcp float -1.000000e+00, %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2arcp_ninf = fdiv ninf arcp <2 x float> %va, %vb
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2arcp_ulp1 = fdiv arcp <2 x float> %va, %vb, !fpmath !4
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %arcp = fdiv arcp float %a, %b
+  %arcp_ninf = fdiv arcp ninf float %a, %b
+  %arcp_ulp1 = fdiv arcp float %a, %b, !fpmath !1
+  %one_ulp1 = fdiv float 1.0, %b, !fpmath !1
+  %negone_ulp1 = fdiv float -1.0, %b, !fpmath !1
+  %negone_arcp_ninf = fdiv arcp ninf float -1.0, %b
+  %v2arcp_ninf = fdiv arcp ninf <2 x float> %va, %vb
+  %v2arcp_ulp1 = fdiv arcp <2 x float> %va, %vb, !fpmath !1
+  ret void
+}
+
+define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %vb, bfloat %c, bfloat %d, <2 x bfloat> %vc, <2 x bfloat> %vd) #0 {
+; NOFP16-LABEL: 'fdiv_f16_bf16_fpmath'
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %f16_ulp1 = fdiv half %a, %b, !fpmath !4
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; NOFP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; FP16-LABEL: 'fdiv_f16_bf16_fpmath'
+; FP16-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %f16_ulp1 = fdiv half %a, %b, !fpmath !4
+; FP16-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
+; FP16-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
+; FP16-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
+; FP16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; FP16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; FP16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; FP16-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; NOFP16-SIZE-LABEL: 'fdiv_f16_bf16_fpmath'
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %f16_ulp1 = fdiv half %a, %b, !fpmath !4
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; NOFP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; FP16-SIZE-LABEL: 'fdiv_f16_bf16_fpmath'
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %f16_ulp1 = fdiv half %a, %b, !fpmath !4
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %f16_ulp1 = fdiv half %a, %b, !fpmath !1
+  %f16_ulp25 = fdiv half %a, %b, !fpmath !2
+  %f16_arcp_ninf = fdiv arcp ninf half %a, %b
+  %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !2
+  %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !1
+  %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !2
+  %bf16_arcp_ninf = fdiv arcp ninf bfloat %c, %d
+  %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !2
+  ret void
+}
+
 define i32 @frem(i32 %arg) {
 ; CIFASTF64-LABEL: 'frem'
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %F32 = frem float undef, undef
@@ -741,3 +945,7 @@ define i32 @frem(i32 %arg) {
 
 attributes #0 = { nounwind denormal_fpenv(float: ieee|ieee) }
 attributes #1 = { nounwind denormal_fpenv(float: preservesign) }
+
+!0 = !{float 0.5}
+!1 = !{float 1.0}
+!2 = !{float 2.5}
