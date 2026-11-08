@@ -1194,17 +1194,14 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
   unsigned NElts = LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
 
+  const bool IsFMA = IID == Intrinsic::fma || IID == Intrinsic::fmuladd;
   if ((ST->hasVOP3PInsts() &&
        (SLT == MVT::f16 || SLT == MVT::i16 ||
         (SLT == MVT::bf16 && ST->hasBF16PackedInsts()))) ||
-      (ST->hasAnyPackedFP64Ops() && SLT == MVT::f64)) {
+      (ST->hasAnyPackedFP64Ops() && SLT == MVT::f64 &&
+       IID != Intrinsic::copysign) ||
+      (IsFMA && ST->hasAnyPackedFP32Ops() && SLT == MVT::f32))
     NElts = (NElts + 1) / 2;
-  } else if (SLT == MVT::f32) {
-    bool HasPk2FP32Op = ST->hasAnyPackedFP32Ops() &&
-                        IID != Intrinsic::minimumnum &&
-                        IID != Intrinsic::maximumnum;
-    NElts = HasPk2FP32Op ? (NElts + 1) / 2 : NElts;
-  }
 
   // TODO: Get more refined intrinsic costs?
   unsigned InstRate = getQuarterRateInstrCost(CostKind);
@@ -1219,6 +1216,10 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
 
     if ((SLT == MVT::f32 && ST->hasFastFMAF32()) || SLT == MVT::f16)
       InstRate = getFullRateInstrCost();
+    else if (SLT == MVT::f32 && IID == Intrinsic::fmuladd)
+      // v_mad_f32 or a separate fmul and fadd
+      InstRate = (HasFP32Denormals || !ST->hasMadMacF32Insts() ? 2 : 1) *
+                 getFullRateInstrCost();
     else {
       InstRate = ST->hasFastFMAF32() ? getHalfRateInstrCost(CostKind)
                                      : getQuarterRateInstrCost(CostKind);
