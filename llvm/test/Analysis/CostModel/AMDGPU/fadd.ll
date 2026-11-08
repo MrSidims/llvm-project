@@ -2,6 +2,7 @@
 ; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu9.0a-unknown-amdhsa  -mattr=+half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=FASTF16,GFX90A-FASTF64 %s
 ; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu9.00-unknown-amdhsa  -mattr=+half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=NOPACKEDF32,FASTF16,FASTF64 %s
 ; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu6.01-unknown-amdhsa -mattr=-half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=NOPACKEDF32,SLOWF64 %s
+; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu8.03-unknown-amdhsa -mattr=+half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=NOPACKEDF32,FASTF16,FASTF64 %s
 ; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu12.50-unknown-amdhsa < %s 2>&1 | FileCheck -check-prefixes=GFX1250 %s
 ; RUN: opt -passes="print<cost-model>" -disable-output -mtriple=amdgpu12.51-unknown-amdhsa < %s 2>&1 | FileCheck -check-prefixes=GFX1251 %s
 ; RUN: opt -passes="print<cost-model>" -cost-kind=code-size -disable-output -mtriple=amdgpu9.0a-unknown-amdhsa  -mattr=+half-rate-64-ops < %s 2>&1 | FileCheck -check-prefixes=FASTF16-SIZE,GFX90A-FASTF64-SIZE %s
