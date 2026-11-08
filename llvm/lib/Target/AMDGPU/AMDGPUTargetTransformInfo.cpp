@@ -889,8 +889,6 @@ static bool intrinsicHasPackedVectorBenefit(Intrinsic::ID ID) {
   case Intrinsic::minimumnum:
   case Intrinsic::maximumnum:
   case Intrinsic::canonicalize:
-  // There's a small benefit to using vector ops in the legalized code.
-  case Intrinsic::round:
   case Intrinsic::smin:
   case Intrinsic::smax:
   case Intrinsic::umin:
@@ -1096,6 +1094,35 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     }
 
     break;
+  }
+  case Intrinsic::floor:
+  case Intrinsic::ceil:
+  case Intrinsic::trunc:
+  case Intrinsic::rint:
+  case Intrinsic::nearbyint:
+  case Intrinsic::roundeven:
+  case Intrinsic::round: {
+    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(RetTy);
+    MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
+    unsigned NElts =
+        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+
+    InstructionCost Cost;
+    if (SLT == MVT::f64) {
+      if (IID == Intrinsic::round)
+        Cost = 3 * get64BitInstrCost(CostKind) + 5 * getFullRateInstrCost();
+      else if (ST->haveRoundOpsF64() || IID == Intrinsic::floor)
+        Cost = get64BitInstrCost(CostKind);
+      else
+        break;
+    } else if (SLT == MVT::f32 || SLT == MVT::f16) {
+      Cost = (IID == Intrinsic::round ? 6 : 1) * getFullRateInstrCost();
+      if (SLT == MVT::f32 && RetTy->getScalarType()->isHalfTy())
+        Cost += 2 * getFullRateInstrCost();
+    } else {
+      break;
+    }
+    return LT.first * NElts * Cost;
   }
   case Intrinsic::ctlz:
   case Intrinsic::cttz:
