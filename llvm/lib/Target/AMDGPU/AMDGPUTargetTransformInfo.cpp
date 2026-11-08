@@ -985,6 +985,22 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
       return LT.first * NElts * Cost;
     }
 
+    if (SLT == MVT::f16) {
+      // v_exp_f32 with conversions and base scaling.
+      unsigned NumFullRateOps = 0;
+      unsigned NumTransOps = 1;
+      if (IID == Intrinsic::exp10 && ICA.getFlags().approxFunc()) {
+        NumFullRateOps = 3;
+        NumTransOps = 2;
+      } else if (IID != Intrinsic::exp2) {
+        NumFullRateOps = ICA.getFlags().approxFunc() ? 1 : 3;
+      }
+
+      InstructionCost Cost = NumFullRateOps * getFullRateInstrCost() +
+                             NumTransOps * getTransInstrCost(CostKind);
+      return LT.first * NElts * Cost;
+    }
+
     break;
   }
   case Intrinsic::log:
@@ -1017,6 +1033,17 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
       return LT.first * NElts * Cost;
     }
 
+    if (SLT == MVT::f16) {
+      // v_log_f32 with conversions and base scaling.
+      unsigned NumFullRateOps = 0;
+      if (IID != Intrinsic::log2)
+        NumFullRateOps = ICA.getFlags().approxFunc() ? 1 : 3;
+
+      InstructionCost Cost =
+          NumFullRateOps * getFullRateInstrCost() + getTransInstrCost(CostKind);
+      return LT.first * NElts * Cost;
+    }
+
     break;
   }
   case Intrinsic::sin:
@@ -1026,7 +1053,7 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     unsigned NElts =
         LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
 
-    if (SLT == MVT::f32) {
+    if (SLT == MVT::f32 || SLT == MVT::f16) {
       // LowerTrig: fmul(1/2pi) + v_sin/v_cos.
       unsigned NumFullRateOps = ST->hasTrigReducedRange() ? 2 : 1;
 
