@@ -277,6 +277,25 @@ define void @sqrt_f64() {
   ret void
 }
 
+define void @sqrt_f64_afn() {
+; ALL-LABEL: 'sqrt_f64_afn'
+; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %f64 = call afn double @llvm.sqrt.f64(double poison)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2f64 = call afn <2 x double> @llvm.sqrt.v2f64(<2 x double> poison)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4f64 = call afn <4 x double> @llvm.sqrt.v4f64(<4 x double> poison)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; ALL-SIZE-LABEL: 'sqrt_f64_afn'
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %f64 = call afn double @llvm.sqrt.f64(double poison)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2f64 = call afn <2 x double> @llvm.sqrt.v2f64(<2 x double> poison)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4f64 = call afn <4 x double> @llvm.sqrt.v4f64(<4 x double> poison)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %f64 = call afn double @llvm.sqrt.f64(double poison)
+  %v2f64 = call afn <2 x double> @llvm.sqrt.v2f64(<2 x double> poison)
+  %v4f64 = call afn <4 x double> @llvm.sqrt.v4f64(<4 x double> poison)
+  ret void
+}
+
 define void @sqrt_f32_afn() #0 {
 ; ALL-LABEL: 'sqrt_f32_afn'
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %f32 = call afn float @llvm.sqrt.f32(float poison)
