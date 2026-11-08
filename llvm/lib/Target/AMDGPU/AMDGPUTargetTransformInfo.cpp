@@ -838,6 +838,10 @@ static bool intrinsicHasPackedVectorBenefit(Intrinsic::ID ID) {
   case Intrinsic::canonicalize:
   // There's a small benefit to using vector ops in the legalized code.
   case Intrinsic::round:
+  case Intrinsic::smin:
+  case Intrinsic::smax:
+  case Intrinsic::umin:
+  case Intrinsic::umax:
   case Intrinsic::uadd_sat:
   case Intrinsic::usub_sat:
   case Intrinsic::sadd_sat:
@@ -1015,8 +1019,7 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   if ((ST->hasVOP3PInsts() &&
        (SLT == MVT::f16 || SLT == MVT::i16 ||
         (SLT == MVT::bf16 && ST->hasBF16PackedInsts()))) ||
-      (ST->hasAnyPackedFP64Ops() && SLT == MVT::f64) ||
-      (ST->hasAnyPackedU64Ops() && SLT == MVT::i64)) {
+      (ST->hasAnyPackedFP64Ops() && SLT == MVT::f64)) {
     NElts = (NElts + 1) / 2;
   } else if (SLT == MVT::f32) {
     bool HasPk2FP32Op = ST->hasAnyPackedFP32Ops() &&
@@ -1067,22 +1070,40 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
         SLT == MVT::f64 ? get64BitInstrCost(CostKind) : getFullRateInstrCost();
     break;
   }
+  case Intrinsic::smin:
+  case Intrinsic::smax:
+  case Intrinsic::umin:
+  case Intrinsic::umax:
+    // v_cmp and two v_cndmask without native i64 min and max
+    InstRate = (SLT == MVT::i64 && !ST->useMinMaxI64Insts() ? 3 : 1) *
+               getFullRateInstrCost();
+    break;
   case Intrinsic::uadd_sat:
   case Intrinsic::usub_sat:
   case Intrinsic::sadd_sat:
   case Intrinsic::ssub_sat: {
-    if (SLT == MVT::i16 || SLT == MVT::i32)
-      InstRate = getFullRateInstrCost();
-
-    static const auto ValidSatTys = {MVT::v2i16, MVT::v4i16};
-    if (any_of(ValidSatTys, equal_to(LT.second)))
-      NElts = 1;
+    const bool IsSigned =
+        IID == Intrinsic::sadd_sat || IID == Intrinsic::ssub_sat;
+    unsigned NumOps = 1;
+    if (SLT == MVT::i64 && IsSigned)
+      NumOps = 8;
+    else if (SLT == MVT::i64)
+      NumOps = IID == Intrinsic::usub_sat && ST->useMinMaxI64Insts() &&
+                       ST->hasAddSubU64Insts()
+                   ? 2
+                   : 4;
+    else if (IsSigned && !ST->hasAddNoCarryInsts())
+      NumOps = SLT == MVT::i16 ? 7 : 6;
+    InstRate = NumOps * getFullRateInstrCost();
     break;
   }
   case Intrinsic::abs:
     // Expansion takes 2 instructions for VALU
     if (SLT == MVT::i16 || SLT == MVT::i32)
       InstRate = 2 * getFullRateInstrCost();
+    else if (SLT == MVT::i64)
+      InstRate = (ST->useMinMaxI64Insts() && ST->hasAddSubU64Insts() ? 2 : 5) *
+                 getFullRateInstrCost();
     break;
   default:
     break;
