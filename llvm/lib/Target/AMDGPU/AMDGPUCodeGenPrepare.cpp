@@ -1431,7 +1431,7 @@ bool AMDGPUCodeGenPrepareImpl::tryNarrowMathIfNoOverflow(Instruction *I) {
   NewCost +=
       TTI.getCastInstrCost(Instruction::ZExt, OldType, NewType,
                            TTI.getCastContextHint(I), TTI::TCK_RecipThroughput);
-  if (NewCost >= OldCost)
+  if (NewCost > OldCost)
     return false;
 
   IRBuilder<> Builder(I);

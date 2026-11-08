@@ -608,7 +608,9 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     if (SLT == MVT::i64) {
       if (ST->hasAnyPackedU64Ops())
         NElts = (NElts + 1) / 2;
-      return 2 * getFullRateInstrCost() * LT.first * NElts;
+      bool HasU64Op = ST->hasAddSubU64Insts() ||
+                      (ISD == ISD::ADD && ST->hasLshlAddU64Inst());
+      return (HasU64Op ? 1 : 2) * getFullRateInstrCost() * LT.first * NElts;
     }
 
     if (ST->hasVOP3PInsts() && SLT == MVT::i16)
@@ -1041,6 +1043,15 @@ InstructionCost GCNTTIImpl::getCmpSelInstrCost(
   // width to enable SimplifyCFG's speculativelyExecuteBB optimization.
   if (CostKind == TTI::TCK_SizeAndLatency)
     return 1;
+
+  // A 64-bit select is a v_cndmask_b32 per half.
+  if (Opcode == Instruction::Select &&
+      getDataLayout().getTypeSizeInBits(ValTy->getScalarType()) == 64) {
+    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(ValTy);
+    unsigned NElts =
+        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+    return 2 * getFullRateInstrCost() * LT.first * NElts;
+  }
 
   return BaseT::getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind,
                                    Op1Info, Op2Info, I);
