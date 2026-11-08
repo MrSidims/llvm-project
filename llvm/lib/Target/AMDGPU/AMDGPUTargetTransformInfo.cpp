@@ -575,6 +575,11 @@ static bool isFusedFMul(const SITargetLowering &TLI, Type *Ty,
          canFuseFMulWithFAddSub(TLI, Ty, FMul, Outer);
 }
 
+static unsigned getNumIRElts(Type *Ty) {
+  auto *VTy = dyn_cast<FixedVectorType>(Ty);
+  return VTy ? VTy->getNumElements() : 1;
+}
+
 InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
     TTI::OperandValueInfo Op1Info, TTI::OperandValueInfo Op2Info,
@@ -664,6 +669,62 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
 
     // i32
     return QuarterRateCost * NElts * LT.first;
+  }
+  case ISD::UDIV:
+  case ISD::SDIV:
+  case ISD::UREM:
+  case ISD::SREM: {
+    unsigned Bits = Ty->getScalarSizeInBits();
+    if (Bits > 64)
+      break;
+
+    const bool IsSigned = ISD == ISD::SDIV || ISD == ISD::SREM;
+    const bool IsRem = ISD == ISD::UREM || ISD == ISD::SREM;
+    const bool Is64 = Bits > 32;
+    const int FullRateCost = getFullRateInstrCost();
+    const int QuarterRateCost = getQuarterRateInstrCost(CostKind);
+    const int Rate64Cost = get64BitInstrCost(CostKind);
+    const int TransCost = getTransInstrCost(CostKind);
+
+    int Cost;
+    if (Op2Info.isPowerOf2() || (IsSigned && Op2Info.isNegatedPowerOf2())) {
+      // Shifts and masks.
+      if (!IsSigned)
+        Cost = IsRem ? (Is64 ? 2 : 1) * FullRateCost
+                     : (Is64 ? Rate64Cost : FullRateCost);
+      else if (IsRem)
+        Cost = (Is64 ? 7 : 5) * FullRateCost;
+      else
+        Cost =
+            (Is64 ? Rate64Cost : 0) + 4 * FullRateCost +
+            (Op2Info.isNegatedPowerOf2() ? (Is64 ? 2 : 1) : 0) * FullRateCost;
+    } else if (Op2Info.isConstant()) {
+      // Multiply by a magic constant.
+      if (Bits <= 16)
+        Cost = (IsRem ? 8 : 6) * FullRateCost;
+      else if (!Is64)
+        Cost = IsRem ? 2 * QuarterRateCost + 5 * FullRateCost
+                     : QuarterRateCost + 4 * FullRateCost;
+      else if (!IsSigned)
+        Cost = IsRem ? 6 * QuarterRateCost + Rate64Cost + 13 * FullRateCost
+                     : 4 * QuarterRateCost + 2 * Rate64Cost + 8 * FullRateCost;
+      else
+        Cost = IsRem ? 9 * QuarterRateCost + Rate64Cost + 12 * FullRateCost
+                     : 7 * QuarterRateCost + Rate64Cost + 10 * FullRateCost;
+    } else if (Bits <= 16) {
+      // f32 reciprocal based expansion.
+      Cost = TransCost +
+             (IsRem ? QuarterRateCost + 7 * FullRateCost : 6 * FullRateCost);
+    } else if (!Is64) {
+      unsigned NumFullRateOps =
+          IsSigned ? (IsRem ? 19 : 22) : (IsRem ? 12 : 14);
+      Cost = TransCost + 4 * QuarterRateCost + NumFullRateOps * FullRateCost;
+    } else {
+      unsigned NumFullRateOps = (IsRem ? 81 : 84) + (IsSigned ? 15 : 0);
+      Cost =
+          2 * TransCost + 25 * QuarterRateCost + NumFullRateOps * FullRateCost;
+    }
+    return getNumIRElts(Ty) * Cost;
   }
   case ISD::FMUL:
     // Check possible fuse {fadd|fsub}(a,fmul(b,c)) and return zero cost for
