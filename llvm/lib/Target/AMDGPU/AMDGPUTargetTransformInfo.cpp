@@ -1014,6 +1014,65 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
 
     break;
   }
+  case Intrinsic::ctlz:
+  case Intrinsic::cttz:
+  case Intrinsic::ctpop:
+  case Intrinsic::bswap: {
+    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(RetTy);
+    MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
+    unsigned NElts =
+        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+
+    unsigned NumOps = 1;
+    if (SLT == MVT::i64) {
+      NumOps = IID == Intrinsic::ctpop ? 3 : IID == Intrinsic::bswap ? 2 : 5;
+    } else if (SLT == MVT::i32 && RetTy->getScalarSizeInBits() == 32) {
+      // A zero input needs a select unless it is poison.
+      ArrayRef<const Value *> Args = ICA.getArgs();
+      if ((IID == Intrinsic::ctlz || IID == Intrinsic::cttz) &&
+          (Args.size() < 2 || !match(Args[1], PatternMatch::m_One())))
+        NumOps = 2;
+    } else {
+      break;
+    }
+    return LT.first * NElts * NumOps * getFullRateInstrCost();
+  }
+  case Intrinsic::fshl:
+  case Intrinsic::fshr: {
+    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(RetTy);
+    MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
+    if ((SLT != MVT::i16 && SLT != MVT::i32 && SLT != MVT::i64) ||
+        (SLT == MVT::i32 && RetTy->getScalarSizeInBits() < 32))
+      break;
+    unsigned NElts =
+        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+
+    ArrayRef<const Value *> Args = ICA.getArgs();
+    bool IsConstAmt = Args.size() == 3 && isa<Constant>(Args[2]);
+    // A variable amount is inverted and one input is shifted twice.
+    if (SLT == MVT::i64) {
+      unsigned NumShifts = IsConstAmt ? 1 : 3;
+      unsigned NumOps = IsConstAmt ? 2 : 3;
+      return LT.first * NElts *
+             (NumShifts * get64BitInstrCost(CostKind) +
+              NumOps * getFullRateInstrCost());
+    }
+    if (SLT == MVT::i16) {
+      unsigned NumOps;
+      if (IsConstAmt)
+        NumOps = 3 * (ST->hasVOP3PInsts() && NElts == 2 ? 1 : NElts);
+      else if (ST->hasVOP3PInsts() && NElts == 2)
+        NumOps = 7;
+      else
+        NumOps =
+            5 * NElts + (NElts > 1 && !ST->useRealTrue16Insts() ? NElts : 0);
+      return LT.first * NumOps * getFullRateInstrCost();
+    }
+
+    // v_alignbit_b32 shifts right, a variable left shift is expanded.
+    unsigned NumOps = IID == Intrinsic::fshr || IsConstAmt ? 1 : 4;
+    return LT.first * NElts * NumOps * getFullRateInstrCost();
+  }
   default:
     break;
   }

@@ -13,28 +13,28 @@ define void @ctlz(i8 %c, i16 %h, <2 x i16> %vh, i32 %a, <2 x i32> %va, <4 x i32>
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = call i8 @llvm.ctlz.i8(i8 %c, i1 false)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = call i16 @llvm.ctlz.i16(i16 %h, i1 false)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i16 = call <2 x i16> @llvm.ctlz.v2i16(<2 x i16> %vh, i1 false)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = call i32 @llvm.ctlz.i32(i32 %a, i1 false)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i32 = call i32 @llvm.ctlz.i32(i32 %a, i1 false)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32_poison = call i32 @llvm.ctlz.i32(i32 %a, i1 true)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i32 = call <2 x i32> @llvm.ctlz.v2i32(<2 x i32> %va, i1 false)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i32_poison = call <2 x i32> @llvm.ctlz.v2i32(<2 x i32> %va, i1 true)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i32_poison = call <2 x i32> @llvm.ctlz.v2i32(<2 x i32> %va, i1 true)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4i32 = call <4 x i32> @llvm.ctlz.v4i32(<4 x i32> %va4, i1 false)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = call i64 @llvm.ctlz.i64(i64 %b, i1 false)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64_poison = call i64 @llvm.ctlz.i64(i64 %b, i1 true)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i64 = call <2 x i64> @llvm.ctlz.v2i64(<2 x i64> %vb, i1 false)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %i64 = call i64 @llvm.ctlz.i64(i64 %b, i1 false)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %i64_poison = call i64 @llvm.ctlz.i64(i64 %b, i1 true)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %v2i64 = call <2 x i64> @llvm.ctlz.v2i64(<2 x i64> %vb, i1 false)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'ctlz'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = call i8 @llvm.ctlz.i8(i8 %c, i1 false)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = call i16 @llvm.ctlz.i16(i16 %h, i1 false)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i16 = call <2 x i16> @llvm.ctlz.v2i16(<2 x i16> %vh, i1 false)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = call i32 @llvm.ctlz.i32(i32 %a, i1 false)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i32 = call i32 @llvm.ctlz.i32(i32 %a, i1 false)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32_poison = call i32 @llvm.ctlz.i32(i32 %a, i1 true)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i32 = call <2 x i32> @llvm.ctlz.v2i32(<2 x i32> %va, i1 false)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i32_poison = call <2 x i32> @llvm.ctlz.v2i32(<2 x i32> %va, i1 true)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i32_poison = call <2 x i32> @llvm.ctlz.v2i32(<2 x i32> %va, i1 true)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4i32 = call <4 x i32> @llvm.ctlz.v4i32(<4 x i32> %va4, i1 false)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = call i64 @llvm.ctlz.i64(i64 %b, i1 false)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64_poison = call i64 @llvm.ctlz.i64(i64 %b, i1 true)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i64 = call <2 x i64> @llvm.ctlz.v2i64(<2 x i64> %vb, i1 false)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %i64 = call i64 @llvm.ctlz.i64(i64 %b, i1 false)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %i64_poison = call i64 @llvm.ctlz.i64(i64 %b, i1 true)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %v2i64 = call <2 x i64> @llvm.ctlz.v2i64(<2 x i64> %vb, i1 false)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %i8 = call i8 @llvm.ctlz.i8(i8 %c, i1 false)
@@ -56,28 +56,28 @@ define void @cttz(i8 %c, i16 %h, <2 x i16> %vh, i32 %a, <2 x i32> %va, <4 x i32>
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = call i8 @llvm.cttz.i8(i8 %c, i1 false)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = call i16 @llvm.cttz.i16(i16 %h, i1 false)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i16 = call <2 x i16> @llvm.cttz.v2i16(<2 x i16> %vh, i1 false)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = call i32 @llvm.cttz.i32(i32 %a, i1 false)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i32 = call i32 @llvm.cttz.i32(i32 %a, i1 false)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32_poison = call i32 @llvm.cttz.i32(i32 %a, i1 true)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i32 = call <2 x i32> @llvm.cttz.v2i32(<2 x i32> %va, i1 false)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i32_poison = call <2 x i32> @llvm.cttz.v2i32(<2 x i32> %va, i1 true)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i32_poison = call <2 x i32> @llvm.cttz.v2i32(<2 x i32> %va, i1 true)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4i32 = call <4 x i32> @llvm.cttz.v4i32(<4 x i32> %va4, i1 false)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = call i64 @llvm.cttz.i64(i64 %b, i1 false)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64_poison = call i64 @llvm.cttz.i64(i64 %b, i1 true)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i64 = call <2 x i64> @llvm.cttz.v2i64(<2 x i64> %vb, i1 false)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %i64 = call i64 @llvm.cttz.i64(i64 %b, i1 false)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %i64_poison = call i64 @llvm.cttz.i64(i64 %b, i1 true)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %v2i64 = call <2 x i64> @llvm.cttz.v2i64(<2 x i64> %vb, i1 false)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'cttz'
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = call i8 @llvm.cttz.i8(i8 %c, i1 false)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = call i16 @llvm.cttz.i16(i16 %h, i1 false)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i16 = call <2 x i16> @llvm.cttz.v2i16(<2 x i16> %vh, i1 false)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = call i32 @llvm.cttz.i32(i32 %a, i1 false)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i32 = call i32 @llvm.cttz.i32(i32 %a, i1 false)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32_poison = call i32 @llvm.cttz.i32(i32 %a, i1 true)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i32 = call <2 x i32> @llvm.cttz.v2i32(<2 x i32> %va, i1 false)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i32_poison = call <2 x i32> @llvm.cttz.v2i32(<2 x i32> %va, i1 true)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i32_poison = call <2 x i32> @llvm.cttz.v2i32(<2 x i32> %va, i1 true)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v4i32 = call <4 x i32> @llvm.cttz.v4i32(<4 x i32> %va4, i1 false)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = call i64 @llvm.cttz.i64(i64 %b, i1 false)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64_poison = call i64 @llvm.cttz.i64(i64 %b, i1 true)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i64 = call <2 x i64> @llvm.cttz.v2i64(<2 x i64> %vb, i1 false)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %i64 = call i64 @llvm.cttz.i64(i64 %b, i1 false)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %i64_poison = call i64 @llvm.cttz.i64(i64 %b, i1 true)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %v2i64 = call <2 x i64> @llvm.cttz.v2i64(<2 x i64> %vb, i1 false)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %i8 = call i8 @llvm.cttz.i8(i8 %c, i1 false)
@@ -102,8 +102,8 @@ define void @ctpop(i8 %c, i16 %h, <2 x i16> %vh, i32 %a, <2 x i32> %va, <4 x i32
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = call i32 @llvm.ctpop.i32(i32 %a)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i32 = call <2 x i32> @llvm.ctpop.v2i32(<2 x i32> %va)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i32 = call <4 x i32> @llvm.ctpop.v4i32(<4 x i32> %va4)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = call i64 @llvm.ctpop.i64(i64 %b)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i64 = call <2 x i64> @llvm.ctpop.v2i64(<2 x i64> %vb)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %i64 = call i64 @llvm.ctpop.i64(i64 %b)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2i64 = call <2 x i64> @llvm.ctpop.v2i64(<2 x i64> %vb)
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; ALL-SIZE-LABEL: 'ctpop'
@@ -113,8 +113,8 @@ define void @ctpop(i8 %c, i16 %h, <2 x i16> %vh, i32 %a, <2 x i32> %va, <4 x i32
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = call i32 @llvm.ctpop.i32(i32 %a)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i32 = call <2 x i32> @llvm.ctpop.v2i32(<2 x i32> %va)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i32 = call <4 x i32> @llvm.ctpop.v4i32(<4 x i32> %va4)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = call i64 @llvm.ctpop.i64(i64 %b)
-; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i64 = call <2 x i64> @llvm.ctpop.v2i64(<2 x i64> %vb)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %i64 = call i64 @llvm.ctpop.i64(i64 %b)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2i64 = call <2 x i64> @llvm.ctpop.v2i64(<2 x i64> %vb)
 ; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %i8 = call i8 @llvm.ctpop.i8(i8 %c)
@@ -135,8 +135,8 @@ define void @bswap(i8 %c, i16 %h, <2 x i16> %vh, i32 %a, <2 x i32> %va, <4 x i32
 ; GFX6-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = call i32 @llvm.bswap.i32(i32 %a)
 ; GFX6-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i32 = call <2 x i32> @llvm.bswap.v2i32(<2 x i32> %va)
 ; GFX6-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i32 = call <4 x i32> @llvm.bswap.v4i32(<4 x i32> %va4)
-; GFX6-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = call i64 @llvm.bswap.i64(i64 %b)
-; GFX6-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i64 = call <2 x i64> @llvm.bswap.v2i64(<2 x i64> %vb)
+; GFX6-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i64 = call i64 @llvm.bswap.i64(i64 %b)
+; GFX6-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i64 = call <2 x i64> @llvm.bswap.v2i64(<2 x i64> %vb)
 ; GFX6-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX8PLUS-LABEL: 'bswap'
@@ -145,8 +145,8 @@ define void @bswap(i8 %c, i16 %h, <2 x i16> %vh, i32 %a, <2 x i32> %va, <4 x i32
 ; GFX8PLUS-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = call i32 @llvm.bswap.i32(i32 %a)
 ; GFX8PLUS-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i32 = call <2 x i32> @llvm.bswap.v2i32(<2 x i32> %va)
 ; GFX8PLUS-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i32 = call <4 x i32> @llvm.bswap.v4i32(<4 x i32> %va4)
-; GFX8PLUS-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = call i64 @llvm.bswap.i64(i64 %b)
-; GFX8PLUS-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i64 = call <2 x i64> @llvm.bswap.v2i64(<2 x i64> %vb)
+; GFX8PLUS-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i64 = call i64 @llvm.bswap.i64(i64 %b)
+; GFX8PLUS-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i64 = call <2 x i64> @llvm.bswap.v2i64(<2 x i64> %vb)
 ; GFX8PLUS-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX6-SIZE-LABEL: 'bswap'
@@ -155,8 +155,8 @@ define void @bswap(i8 %c, i16 %h, <2 x i16> %vh, i32 %a, <2 x i32> %va, <4 x i32
 ; GFX6-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = call i32 @llvm.bswap.i32(i32 %a)
 ; GFX6-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i32 = call <2 x i32> @llvm.bswap.v2i32(<2 x i32> %va)
 ; GFX6-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i32 = call <4 x i32> @llvm.bswap.v4i32(<4 x i32> %va4)
-; GFX6-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = call i64 @llvm.bswap.i64(i64 %b)
-; GFX6-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i64 = call <2 x i64> @llvm.bswap.v2i64(<2 x i64> %vb)
+; GFX6-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i64 = call i64 @llvm.bswap.i64(i64 %b)
+; GFX6-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i64 = call <2 x i64> @llvm.bswap.v2i64(<2 x i64> %vb)
 ; GFX6-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX9PLUS-SIZE-LABEL: 'bswap'
@@ -165,8 +165,8 @@ define void @bswap(i8 %c, i16 %h, <2 x i16> %vh, i32 %a, <2 x i32> %va, <4 x i32
 ; GFX9PLUS-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i32 = call i32 @llvm.bswap.i32(i32 %a)
 ; GFX9PLUS-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i32 = call <2 x i32> @llvm.bswap.v2i32(<2 x i32> %va)
 ; GFX9PLUS-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i32 = call <4 x i32> @llvm.bswap.v4i32(<4 x i32> %va4)
-; GFX9PLUS-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i64 = call i64 @llvm.bswap.i64(i64 %b)
-; GFX9PLUS-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i64 = call <2 x i64> @llvm.bswap.v2i64(<2 x i64> %vb)
+; GFX9PLUS-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %i64 = call i64 @llvm.bswap.i64(i64 %b)
+; GFX9PLUS-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2i64 = call <2 x i64> @llvm.bswap.v2i64(<2 x i64> %vb)
 ; GFX9PLUS-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %i16 = call i16 @llvm.bswap.i16(i16 %h)
