@@ -1966,45 +1966,45 @@ end:
   ret i8 %res
 }
 
-define i8 @fold_selects_from_bitcast_dominance_multiblock2(<4 x i64> %v, i8 %a, i1 %flag) {
+define i8 @fold_selects_from_bitcast_dominance_multiblock2(<4 x i32> %v, i8 %a, i1 %flag) {
 ; CHECK-OPT-LABEL: define i8 @fold_selects_from_bitcast_dominance_multiblock2(
-; CHECK-OPT-SAME: <4 x i64> [[V:%.*]], i8 [[A:%.*]], i1 [[FLAG:%.*]]) {
+; CHECK-OPT-SAME: <4 x i32> [[V:%.*]], i8 [[A:%.*]], i1 [[FLAG:%.*]]) {
 ; CHECK-OPT-NEXT:  [[ENTRY:.*:]]
 ; CHECK-OPT-NEXT:    br label %[[FIRST:.*]]
 ; CHECK-OPT:       [[FIRST]]:
 ; CHECK-OPT-NEXT:    br label %[[SECOND:.*]]
 ; CHECK-OPT:       [[SECOND]]:
 ; CHECK-OPT-NEXT:    [[COND:%.*]] = icmp eq i8 [[A]], 0
-; CHECK-OPT-NEXT:    [[TMP0:%.*]] = select i1 [[COND]], <4 x i64> [[V]], <4 x i64> zeroinitializer
-; CHECK-OPT-NEXT:    [[TMP1:%.*]] = bitcast <4 x i64> [[TMP0]] to <32 x i8>
+; CHECK-OPT-NEXT:    [[TMP0:%.*]] = select i1 [[COND]], <4 x i32> [[V]], <4 x i32> zeroinitializer
+; CHECK-OPT-NEXT:    [[TMP1:%.*]] = bitcast <4 x i32> [[TMP0]] to <16 x i8>
 ; CHECK-OPT-NEXT:    br i1 [[FLAG]], label %[[THEN:.*]], label %[[ELSE:.*]]
 ; CHECK-OPT:       [[THEN]]:
-; CHECK-OPT-NEXT:    [[S1:%.*]] = extractelement <32 x i8> [[TMP1]], i64 0
+; CHECK-OPT-NEXT:    [[S1:%.*]] = extractelement <16 x i8> [[TMP1]], i64 0
 ; CHECK-OPT-NEXT:    br label %[[COMBINE:.*]]
 ; CHECK-OPT:       [[ELSE]]:
-; CHECK-OPT-NEXT:    [[S2:%.*]] = extractelement <32 x i8> [[TMP1]], i64 7
+; CHECK-OPT-NEXT:    [[S2:%.*]] = extractelement <16 x i8> [[TMP1]], i64 7
 ; CHECK-OPT-NEXT:    br label %[[COMBINE]]
 ; CHECK-OPT:       [[COMBINE]]:
 ; CHECK-OPT-NEXT:    [[R1:%.*]] = phi i8 [ [[S1]], %[[THEN]] ], [ [[S2]], %[[ELSE]] ]
-; CHECK-OPT-NEXT:    [[S3:%.*]] = extractelement <32 x i8> [[TMP1]], i64 1
-; CHECK-OPT-NEXT:    [[S4:%.*]] = extractelement <32 x i8> [[TMP1]], i64 8
-; CHECK-OPT-NEXT:    [[S5:%.*]] = extractelement <32 x i8> [[TMP1]], i64 9
+; CHECK-OPT-NEXT:    [[S3:%.*]] = extractelement <16 x i8> [[TMP1]], i64 1
+; CHECK-OPT-NEXT:    [[S4:%.*]] = extractelement <16 x i8> [[TMP1]], i64 8
+; CHECK-OPT-NEXT:    [[S5:%.*]] = extractelement <16 x i8> [[TMP1]], i64 9
 ; CHECK-OPT-NEXT:    [[R2:%.*]] = add i8 [[R1]], [[S3]]
 ; CHECK-OPT-NEXT:    [[R3:%.*]] = add i8 [[R2]], [[S4]]
 ; CHECK-OPT-NEXT:    [[R4:%.*]] = add i8 [[R3]], [[S5]]
 ; CHECK-OPT-NEXT:    ret i8 [[R4]]
 ;
 ; CHECK-NOOPT-LABEL: define i8 @fold_selects_from_bitcast_dominance_multiblock2(
-; CHECK-NOOPT-SAME: <4 x i64> [[V:%.*]], i8 [[A:%.*]], i1 [[FLAG:%.*]]) {
+; CHECK-NOOPT-SAME: <4 x i32> [[V:%.*]], i8 [[A:%.*]], i1 [[FLAG:%.*]]) {
 ; CHECK-NOOPT-NEXT:  [[ENTRY:.*:]]
-; CHECK-NOOPT-NEXT:    [[TMP0:%.*]] = bitcast <4 x i64> [[V]] to <32 x i8>
+; CHECK-NOOPT-NEXT:    [[TMP0:%.*]] = bitcast <4 x i32> [[V]] to <16 x i8>
 ; CHECK-NOOPT-NEXT:    br label %[[FIRST:.*]]
 ; CHECK-NOOPT:       [[FIRST]]:
-; CHECK-NOOPT-NEXT:    [[VECEXT1:%.*]] = extractelement <32 x i8> [[TMP0]], i64 0
-; CHECK-NOOPT-NEXT:    [[VECEXT2:%.*]] = extractelement <32 x i8> [[TMP0]], i64 7
-; CHECK-NOOPT-NEXT:    [[VECEXT3:%.*]] = extractelement <32 x i8> [[TMP0]], i64 1
-; CHECK-NOOPT-NEXT:    [[VECEXT4:%.*]] = extractelement <32 x i8> [[TMP0]], i64 8
-; CHECK-NOOPT-NEXT:    [[VECEXT5:%.*]] = extractelement <32 x i8> [[TMP0]], i64 9
+; CHECK-NOOPT-NEXT:    [[VECEXT1:%.*]] = extractelement <16 x i8> [[TMP0]], i64 0
+; CHECK-NOOPT-NEXT:    [[VECEXT2:%.*]] = extractelement <16 x i8> [[TMP0]], i64 7
+; CHECK-NOOPT-NEXT:    [[VECEXT3:%.*]] = extractelement <16 x i8> [[TMP0]], i64 1
+; CHECK-NOOPT-NEXT:    [[VECEXT4:%.*]] = extractelement <16 x i8> [[TMP0]], i64 8
+; CHECK-NOOPT-NEXT:    [[VECEXT5:%.*]] = extractelement <16 x i8> [[TMP0]], i64 9
 ; CHECK-NOOPT-NEXT:    br label %[[SECOND:.*]]
 ; CHECK-NOOPT:       [[SECOND]]:
 ; CHECK-NOOPT-NEXT:    [[COND:%.*]] = icmp eq i8 [[A]], 0
@@ -2026,15 +2026,15 @@ define i8 @fold_selects_from_bitcast_dominance_multiblock2(<4 x i64> %v, i8 %a, 
 ; CHECK-NOOPT-NEXT:    ret i8 [[R4]]
 ;
 entry:
-  %0 = bitcast <4 x i64> %v to <32 x i8>
+  %0 = bitcast <4 x i32> %v to <16 x i8>
   br label %first
 
 first:
-  %vecext1 = extractelement <32 x i8> %0, i64 0
-  %vecext2 = extractelement <32 x i8> %0, i64 7
-  %vecext3 = extractelement <32 x i8> %0, i64 1
-  %vecext4 = extractelement <32 x i8> %0, i64 8
-  %vecext5 = extractelement <32 x i8> %0, i64 9
+  %vecext1 = extractelement <16 x i8> %0, i64 0
+  %vecext2 = extractelement <16 x i8> %0, i64 7
+  %vecext3 = extractelement <16 x i8> %0, i64 1
+  %vecext4 = extractelement <16 x i8> %0, i64 8
+  %vecext5 = extractelement <16 x i8> %0, i64 9
   br label %second
 
 second:
@@ -2060,19 +2060,19 @@ combine:
   ret i8 %r4
 }
 
-define i8 @fold_selects_from_bitcast_dominance_multiblock3(<4 x i64> %v1, <4 x i64> %v2, i8 %a, i1 %flag1, i1 %flag2, i1 %flag3, i1 %flag4, i1 %cond2) {
+define i8 @fold_selects_from_bitcast_dominance_multiblock3(<4 x i32> %v1, <4 x i32> %v2, i8 %a, i1 %flag1, i1 %flag2, i1 %flag3, i1 %flag4, i1 %cond2) {
 ; CHECK-OPT-LABEL: define i8 @fold_selects_from_bitcast_dominance_multiblock3(
-; CHECK-OPT-SAME: <4 x i64> [[V1:%.*]], <4 x i64> [[V2:%.*]], i8 [[A:%.*]], i1 [[FLAG1:%.*]], i1 [[FLAG2:%.*]], i1 [[FLAG3:%.*]], i1 [[FLAG4:%.*]], i1 [[COND2:%.*]]) {
+; CHECK-OPT-SAME: <4 x i32> [[V1:%.*]], <4 x i32> [[V2:%.*]], i8 [[A:%.*]], i1 [[FLAG1:%.*]], i1 [[FLAG2:%.*]], i1 [[FLAG3:%.*]], i1 [[FLAG4:%.*]], i1 [[COND2:%.*]]) {
 ; CHECK-OPT-NEXT:  [[ENTRY:.*:]]
-; CHECK-OPT-NEXT:    [[TMP0:%.*]] = select i1 [[COND2]], <4 x i64> [[V2]], <4 x i64> zeroinitializer
-; CHECK-OPT-NEXT:    [[TMP1:%.*]] = bitcast <4 x i64> [[TMP0]] to <32 x i8>
+; CHECK-OPT-NEXT:    [[TMP0:%.*]] = select i1 [[COND2]], <4 x i32> [[V2]], <4 x i32> zeroinitializer
+; CHECK-OPT-NEXT:    [[TMP1:%.*]] = bitcast <4 x i32> [[TMP0]] to <16 x i8>
 ; CHECK-OPT-NEXT:    br label %[[FIRST:.*]]
 ; CHECK-OPT:       [[FIRST]]:
 ; CHECK-OPT-NEXT:    br label %[[T0:.*]]
 ; CHECK-OPT:       [[T0]]:
 ; CHECK-OPT-NEXT:    [[COND1:%.*]] = icmp eq i8 [[A]], 0
-; CHECK-OPT-NEXT:    [[TMP2:%.*]] = select i1 [[COND1]], <4 x i64> [[V1]], <4 x i64> zeroinitializer
-; CHECK-OPT-NEXT:    [[TMP3:%.*]] = bitcast <4 x i64> [[TMP2]] to <32 x i8>
+; CHECK-OPT-NEXT:    [[TMP2:%.*]] = select i1 [[COND1]], <4 x i32> [[V1]], <4 x i32> zeroinitializer
+; CHECK-OPT-NEXT:    [[TMP3:%.*]] = bitcast <4 x i32> [[TMP2]] to <16 x i8>
 ; CHECK-OPT-NEXT:    br i1 [[FLAG1]], label %[[R0:.*]], label %[[T1:.*]]
 ; CHECK-OPT:       [[T1]]:
 ; CHECK-OPT-NEXT:    br i1 [[FLAG2]], label %[[R1:.*]], label %[[T2:.*]]
@@ -2081,48 +2081,48 @@ define i8 @fold_selects_from_bitcast_dominance_multiblock3(<4 x i64> %v1, <4 x i
 ; CHECK-OPT:       [[T3]]:
 ; CHECK-OPT-NEXT:    br i1 [[FLAG4]], label %[[R3:.*]], label %[[R4:.*]]
 ; CHECK-OPT:       [[R0]]:
-; CHECK-OPT-NEXT:    [[RES0:%.*]] = extractelement <32 x i8> [[TMP3]], i64 0
-; CHECK-OPT-NEXT:    [[RES1:%.*]] = extractelement <32 x i8> [[TMP1]], i64 1
+; CHECK-OPT-NEXT:    [[RES0:%.*]] = extractelement <16 x i8> [[TMP3]], i64 0
+; CHECK-OPT-NEXT:    [[RES1:%.*]] = extractelement <16 x i8> [[TMP1]], i64 1
 ; CHECK-OPT-NEXT:    [[RES01:%.*]] = add i8 [[RES0]], [[RES1]]
 ; CHECK-OPT-NEXT:    ret i8 [[RES01]]
 ; CHECK-OPT:       [[R1]]:
-; CHECK-OPT-NEXT:    [[RES2:%.*]] = extractelement <32 x i8> [[TMP3]], i64 2
-; CHECK-OPT-NEXT:    [[RES3:%.*]] = extractelement <32 x i8> [[TMP1]], i64 3
+; CHECK-OPT-NEXT:    [[RES2:%.*]] = extractelement <16 x i8> [[TMP3]], i64 2
+; CHECK-OPT-NEXT:    [[RES3:%.*]] = extractelement <16 x i8> [[TMP1]], i64 3
 ; CHECK-OPT-NEXT:    [[RES23:%.*]] = add i8 [[RES2]], [[RES3]]
 ; CHECK-OPT-NEXT:    ret i8 [[RES23]]
 ; CHECK-OPT:       [[R2]]:
-; CHECK-OPT-NEXT:    [[RES4:%.*]] = extractelement <32 x i8> [[TMP3]], i64 4
-; CHECK-OPT-NEXT:    [[RES5:%.*]] = extractelement <32 x i8> [[TMP1]], i64 5
+; CHECK-OPT-NEXT:    [[RES4:%.*]] = extractelement <16 x i8> [[TMP3]], i64 4
+; CHECK-OPT-NEXT:    [[RES5:%.*]] = extractelement <16 x i8> [[TMP1]], i64 5
 ; CHECK-OPT-NEXT:    [[RES45:%.*]] = add i8 [[RES4]], [[RES5]]
 ; CHECK-OPT-NEXT:    ret i8 [[RES45]]
 ; CHECK-OPT:       [[R3]]:
-; CHECK-OPT-NEXT:    [[RES6:%.*]] = extractelement <32 x i8> [[TMP3]], i64 6
-; CHECK-OPT-NEXT:    [[RES7:%.*]] = extractelement <32 x i8> [[TMP1]], i64 7
+; CHECK-OPT-NEXT:    [[RES6:%.*]] = extractelement <16 x i8> [[TMP3]], i64 6
+; CHECK-OPT-NEXT:    [[RES7:%.*]] = extractelement <16 x i8> [[TMP1]], i64 7
 ; CHECK-OPT-NEXT:    [[RES67:%.*]] = add i8 [[RES6]], [[RES7]]
 ; CHECK-OPT-NEXT:    ret i8 [[RES67]]
 ; CHECK-OPT:       [[R4]]:
-; CHECK-OPT-NEXT:    [[RES8:%.*]] = extractelement <32 x i8> [[TMP3]], i64 8
-; CHECK-OPT-NEXT:    [[RES9:%.*]] = extractelement <32 x i8> [[TMP1]], i64 9
+; CHECK-OPT-NEXT:    [[RES8:%.*]] = extractelement <16 x i8> [[TMP3]], i64 8
+; CHECK-OPT-NEXT:    [[RES9:%.*]] = extractelement <16 x i8> [[TMP1]], i64 9
 ; CHECK-OPT-NEXT:    [[RES89:%.*]] = add i8 [[RES8]], [[RES9]]
 ; CHECK-OPT-NEXT:    ret i8 [[RES89]]
 ;
 ; CHECK-NOOPT-LABEL: define i8 @fold_selects_from_bitcast_dominance_multiblock3(
-; CHECK-NOOPT-SAME: <4 x i64> [[V1:%.*]], <4 x i64> [[V2:%.*]], i8 [[A:%.*]], i1 [[FLAG1:%.*]], i1 [[FLAG2:%.*]], i1 [[FLAG3:%.*]], i1 [[FLAG4:%.*]], i1 [[COND2:%.*]]) {
+; CHECK-NOOPT-SAME: <4 x i32> [[V1:%.*]], <4 x i32> [[V2:%.*]], i8 [[A:%.*]], i1 [[FLAG1:%.*]], i1 [[FLAG2:%.*]], i1 [[FLAG3:%.*]], i1 [[FLAG4:%.*]], i1 [[COND2:%.*]]) {
 ; CHECK-NOOPT-NEXT:  [[ENTRY:.*:]]
-; CHECK-NOOPT-NEXT:    [[TMP0:%.*]] = bitcast <4 x i64> [[V1]] to <32 x i8>
-; CHECK-NOOPT-NEXT:    [[TMP1:%.*]] = bitcast <4 x i64> [[V2]] to <32 x i8>
+; CHECK-NOOPT-NEXT:    [[TMP0:%.*]] = bitcast <4 x i32> [[V1]] to <16 x i8>
+; CHECK-NOOPT-NEXT:    [[TMP1:%.*]] = bitcast <4 x i32> [[V2]] to <16 x i8>
 ; CHECK-NOOPT-NEXT:    br label %[[FIRST:.*]]
 ; CHECK-NOOPT:       [[FIRST]]:
-; CHECK-NOOPT-NEXT:    [[VECEXT00:%.*]] = extractelement <32 x i8> [[TMP0]], i64 0
-; CHECK-NOOPT-NEXT:    [[VECEXT02:%.*]] = extractelement <32 x i8> [[TMP0]], i64 2
-; CHECK-NOOPT-NEXT:    [[VECEXT04:%.*]] = extractelement <32 x i8> [[TMP0]], i64 4
-; CHECK-NOOPT-NEXT:    [[VECEXT06:%.*]] = extractelement <32 x i8> [[TMP0]], i64 6
-; CHECK-NOOPT-NEXT:    [[VECEXT08:%.*]] = extractelement <32 x i8> [[TMP0]], i64 8
-; CHECK-NOOPT-NEXT:    [[VECEXT11:%.*]] = extractelement <32 x i8> [[TMP1]], i64 1
-; CHECK-NOOPT-NEXT:    [[VECEXT13:%.*]] = extractelement <32 x i8> [[TMP1]], i64 3
-; CHECK-NOOPT-NEXT:    [[VECEXT15:%.*]] = extractelement <32 x i8> [[TMP1]], i64 5
-; CHECK-NOOPT-NEXT:    [[VECEXT17:%.*]] = extractelement <32 x i8> [[TMP1]], i64 7
-; CHECK-NOOPT-NEXT:    [[VECEXT19:%.*]] = extractelement <32 x i8> [[TMP1]], i64 9
+; CHECK-NOOPT-NEXT:    [[VECEXT00:%.*]] = extractelement <16 x i8> [[TMP0]], i64 0
+; CHECK-NOOPT-NEXT:    [[VECEXT02:%.*]] = extractelement <16 x i8> [[TMP0]], i64 2
+; CHECK-NOOPT-NEXT:    [[VECEXT04:%.*]] = extractelement <16 x i8> [[TMP0]], i64 4
+; CHECK-NOOPT-NEXT:    [[VECEXT06:%.*]] = extractelement <16 x i8> [[TMP0]], i64 6
+; CHECK-NOOPT-NEXT:    [[VECEXT08:%.*]] = extractelement <16 x i8> [[TMP0]], i64 8
+; CHECK-NOOPT-NEXT:    [[VECEXT11:%.*]] = extractelement <16 x i8> [[TMP1]], i64 1
+; CHECK-NOOPT-NEXT:    [[VECEXT13:%.*]] = extractelement <16 x i8> [[TMP1]], i64 3
+; CHECK-NOOPT-NEXT:    [[VECEXT15:%.*]] = extractelement <16 x i8> [[TMP1]], i64 5
+; CHECK-NOOPT-NEXT:    [[VECEXT17:%.*]] = extractelement <16 x i8> [[TMP1]], i64 7
+; CHECK-NOOPT-NEXT:    [[VECEXT19:%.*]] = extractelement <16 x i8> [[TMP1]], i64 9
 ; CHECK-NOOPT-NEXT:    br label %[[T0:.*]]
 ; CHECK-NOOPT:       [[T0]]:
 ; CHECK-NOOPT-NEXT:    [[COND1:%.*]] = icmp eq i8 [[A]], 0
@@ -2160,21 +2160,21 @@ define i8 @fold_selects_from_bitcast_dominance_multiblock3(<4 x i64> %v1, <4 x i
 ; CHECK-NOOPT-NEXT:    ret i8 [[RES89]]
 ;
 entry:
-  %0 = bitcast <4 x i64> %v1 to <32 x i8>
-  %1 = bitcast <4 x i64> %v2 to <32 x i8>
+  %0 = bitcast <4 x i32> %v1 to <16 x i8>
+  %1 = bitcast <4 x i32> %v2 to <16 x i8>
   br label %first
 
 first:
-  %vecext00 = extractelement <32 x i8> %0, i64 0
-  %vecext02 = extractelement <32 x i8> %0, i64 2
-  %vecext04 = extractelement <32 x i8> %0, i64 4
-  %vecext06 = extractelement <32 x i8> %0, i64 6
-  %vecext08 = extractelement <32 x i8> %0, i64 8
-  %vecext11 = extractelement <32 x i8> %1, i64 1
-  %vecext13 = extractelement <32 x i8> %1, i64 3
-  %vecext15 = extractelement <32 x i8> %1, i64 5
-  %vecext17 = extractelement <32 x i8> %1, i64 7
-  %vecext19 = extractelement <32 x i8> %1, i64 9
+  %vecext00 = extractelement <16 x i8> %0, i64 0
+  %vecext02 = extractelement <16 x i8> %0, i64 2
+  %vecext04 = extractelement <16 x i8> %0, i64 4
+  %vecext06 = extractelement <16 x i8> %0, i64 6
+  %vecext08 = extractelement <16 x i8> %0, i64 8
+  %vecext11 = extractelement <16 x i8> %1, i64 1
+  %vecext13 = extractelement <16 x i8> %1, i64 3
+  %vecext15 = extractelement <16 x i8> %1, i64 5
+  %vecext17 = extractelement <16 x i8> %1, i64 7
+  %vecext19 = extractelement <16 x i8> %1, i64 9
   br label %t0
 
 t0:
