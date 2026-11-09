@@ -630,6 +630,15 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
       return 2 * getFullRateInstrCost() * LT.first * NElts;
     }
 
+    // i8 vectors are operated on as packed dwords.
+    if (Ty->isVectorTy() && Ty->getScalarType()->isIntegerTy(8) &&
+        ((!Op1Info.isConstant() && !Op2Info.isConstant()) || ISD == ISD::AND ||
+         (ISD == ISD::OR && !ST->has16BitInsts()) ||
+         (ISD == ISD::XOR && Args.size() == 2 &&
+          (match(Args[0], PatternMatch::m_AllOnes()) ||
+           match(Args[1], PatternMatch::m_AllOnes())))))
+      return divideCeil(getNumIRElts(Ty), 4) * getFullRateInstrCost();
+
     if (ST->has16BitInsts() && SLT == MVT::i16)
       NElts = (NElts + 1) / 2;
 

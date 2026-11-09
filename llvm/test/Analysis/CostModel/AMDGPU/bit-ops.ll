@@ -8,9 +8,9 @@
 define amdgpu_kernel void @or() #0 {
 ; SLOW16-LABEL: 'or'
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = or i8 undef, undef
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = or <2 x i8> undef, undef
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = or <3 x i8> undef, undef
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = or <4 x i8> undef, undef
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = or <2 x i8> undef, undef
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = or <3 x i8> undef, undef
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = or <4 x i8> undef, undef
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = or i16 undef, undef
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i16 = or <2 x i16> undef, undef
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i16 = or <3 x i16> undef, undef
@@ -27,9 +27,9 @@ define amdgpu_kernel void @or() #0 {
 ;
 ; FAST16-LABEL: 'or'
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = or i8 undef, undef
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = or <2 x i8> undef, undef
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = or <3 x i8> undef, undef
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = or <4 x i8> undef, undef
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = or <2 x i8> undef, undef
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = or <3 x i8> undef, undef
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = or <4 x i8> undef, undef
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = or i16 undef, undef
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i16 = or <2 x i16> undef, undef
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i16 = or <3 x i16> undef, undef
@@ -46,9 +46,9 @@ define amdgpu_kernel void @or() #0 {
 ;
 ; SLOW16-SIZE-LABEL: 'or'
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = or i8 undef, undef
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = or <2 x i8> undef, undef
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = or <3 x i8> undef, undef
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = or <4 x i8> undef, undef
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = or <2 x i8> undef, undef
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = or <3 x i8> undef, undef
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = or <4 x i8> undef, undef
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = or i16 undef, undef
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i16 = or <2 x i16> undef, undef
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i16 = or <3 x i16> undef, undef
@@ -65,9 +65,9 @@ define amdgpu_kernel void @or() #0 {
 ;
 ; FAST16-SIZE-LABEL: 'or'
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = or i8 undef, undef
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = or <2 x i8> undef, undef
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = or <3 x i8> undef, undef
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = or <4 x i8> undef, undef
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = or <2 x i8> undef, undef
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = or <3 x i8> undef, undef
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = or <4 x i8> undef, undef
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = or i16 undef, undef
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i16 = or <2 x i16> undef, undef
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i16 = or <3 x i16> undef, undef
@@ -104,9 +104,9 @@ define amdgpu_kernel void @or() #0 {
 define amdgpu_kernel void @xor() #0 {
 ; SLOW16-LABEL: 'xor'
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = xor i8 undef, undef
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = xor <2 x i8> undef, undef
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = xor <3 x i8> undef, undef
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = xor <4 x i8> undef, undef
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = xor <2 x i8> undef, undef
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = xor <3 x i8> undef, undef
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = xor <4 x i8> undef, undef
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = xor i16 undef, undef
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i16 = xor <2 x i16> undef, undef
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i16 = xor <3 x i16> undef, undef
@@ -123,9 +123,9 @@ define amdgpu_kernel void @xor() #0 {
 ;
 ; FAST16-LABEL: 'xor'
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = xor i8 undef, undef
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = xor <2 x i8> undef, undef
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = xor <3 x i8> undef, undef
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = xor <4 x i8> undef, undef
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = xor <2 x i8> undef, undef
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = xor <3 x i8> undef, undef
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = xor <4 x i8> undef, undef
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = xor i16 undef, undef
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i16 = xor <2 x i16> undef, undef
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i16 = xor <3 x i16> undef, undef
@@ -142,9 +142,9 @@ define amdgpu_kernel void @xor() #0 {
 ;
 ; SLOW16-SIZE-LABEL: 'xor'
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = xor i8 undef, undef
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = xor <2 x i8> undef, undef
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = xor <3 x i8> undef, undef
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = xor <4 x i8> undef, undef
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = xor <2 x i8> undef, undef
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = xor <3 x i8> undef, undef
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = xor <4 x i8> undef, undef
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = xor i16 undef, undef
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i16 = xor <2 x i16> undef, undef
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i16 = xor <3 x i16> undef, undef
@@ -161,9 +161,9 @@ define amdgpu_kernel void @xor() #0 {
 ;
 ; FAST16-SIZE-LABEL: 'xor'
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = xor i8 undef, undef
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = xor <2 x i8> undef, undef
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = xor <3 x i8> undef, undef
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = xor <4 x i8> undef, undef
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = xor <2 x i8> undef, undef
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = xor <3 x i8> undef, undef
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = xor <4 x i8> undef, undef
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = xor i16 undef, undef
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i16 = xor <2 x i16> undef, undef
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i16 = xor <3 x i16> undef, undef
@@ -200,9 +200,9 @@ define amdgpu_kernel void @xor() #0 {
 define amdgpu_kernel void @and() #0 {
 ; SLOW16-LABEL: 'and'
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = and i8 undef, undef
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = and <2 x i8> undef, undef
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = and <3 x i8> undef, undef
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = and <4 x i8> undef, undef
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = and <2 x i8> undef, undef
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = and <3 x i8> undef, undef
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = and <4 x i8> undef, undef
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = and i16 undef, undef
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i16 = and <2 x i16> undef, undef
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i16 = and <3 x i16> undef, undef
@@ -219,9 +219,9 @@ define amdgpu_kernel void @and() #0 {
 ;
 ; FAST16-LABEL: 'and'
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = and i8 undef, undef
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = and <2 x i8> undef, undef
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = and <3 x i8> undef, undef
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = and <4 x i8> undef, undef
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = and <2 x i8> undef, undef
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = and <3 x i8> undef, undef
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = and <4 x i8> undef, undef
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = and i16 undef, undef
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i16 = and <2 x i16> undef, undef
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i16 = and <3 x i16> undef, undef
@@ -238,9 +238,9 @@ define amdgpu_kernel void @and() #0 {
 ;
 ; SLOW16-SIZE-LABEL: 'and'
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = and i8 undef, undef
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = and <2 x i8> undef, undef
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = and <3 x i8> undef, undef
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = and <4 x i8> undef, undef
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = and <2 x i8> undef, undef
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = and <3 x i8> undef, undef
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = and <4 x i8> undef, undef
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = and i16 undef, undef
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i16 = and <2 x i16> undef, undef
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i16 = and <3 x i16> undef, undef
@@ -257,9 +257,9 @@ define amdgpu_kernel void @and() #0 {
 ;
 ; FAST16-SIZE-LABEL: 'and'
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i8 = and i8 undef, undef
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2i8 = and <2 x i8> undef, undef
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3i8 = and <3 x i8> undef, undef
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4i8 = and <4 x i8> undef, undef
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i8 = and <2 x i8> undef, undef
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v3i8 = and <3 x i8> undef, undef
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v4i8 = and <4 x i8> undef, undef
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %i16 = and i16 undef, undef
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2i16 = and <2 x i16> undef, undef
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v3i16 = and <3 x i16> undef, undef
@@ -295,81 +295,81 @@ define amdgpu_kernel void @and() #0 {
 
 define void @i8_vector_operands(<4 x i8> %a, <4 x i8> %b, <16 x i8> %c, <16 x i8> %d) {
 ; SLOW16-LABEL: 'i8_vector_operands'
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %and = and <4 x i8> %a, %b
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or = or <4 x i8> %a, %b
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor = xor <4 x i8> %a, %b
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %and_const = and <4 x i8> %a, splat (i8 7)
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or_const = or <4 x i8> %a, splat (i8 7)
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and = and <4 x i8> %a, %b
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or = or <4 x i8> %a, %b
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %xor = xor <4 x i8> %a, %b
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_const = and <4 x i8> %a, splat (i8 7)
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or_const = or <4 x i8> %a, splat (i8 7)
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_const = xor <4 x i8> %a, splat (i8 7)
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_nonsplat = xor <4 x i8> %a, <i8 7, i8 6, i8 5, i8 4>
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %not = xor <4 x i8> %a, splat (i8 -1)
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or_const_lhs = or <4 x i8> splat (i8 7), %a
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %not = xor <4 x i8> %a, splat (i8 -1)
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or_const_lhs = or <4 x i8> splat (i8 7), %a
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_const_lhs = xor <4 x i8> splat (i8 7), %a
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %not_lhs = xor <4 x i8> splat (i8 -1), %a
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16and = and <16 x i8> %c, %d
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16or_const = or <16 x i8> %c, splat (i8 7)
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %not_lhs = xor <4 x i8> splat (i8 -1), %a
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16and = and <16 x i8> %c, %d
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16or_const = or <16 x i8> %c, splat (i8 7)
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16xor_const = xor <16 x i8> %c, splat (i8 7)
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16not = xor <16 x i8> %c, splat (i8 -1)
-; SLOW16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16or_const_lhs = or <16 x i8> splat (i8 7), %c
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16not = xor <16 x i8> %c, splat (i8 -1)
+; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16or_const_lhs = or <16 x i8> splat (i8 7), %c
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16xor_const_lhs = xor <16 x i8> splat (i8 7), %c
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FAST16-LABEL: 'i8_vector_operands'
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %and = and <4 x i8> %a, %b
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or = or <4 x i8> %a, %b
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor = xor <4 x i8> %a, %b
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %and_const = and <4 x i8> %a, splat (i8 7)
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and = and <4 x i8> %a, %b
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or = or <4 x i8> %a, %b
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %xor = xor <4 x i8> %a, %b
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_const = and <4 x i8> %a, splat (i8 7)
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or_const = or <4 x i8> %a, splat (i8 7)
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_const = xor <4 x i8> %a, splat (i8 7)
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_nonsplat = xor <4 x i8> %a, <i8 7, i8 6, i8 5, i8 4>
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %not = xor <4 x i8> %a, splat (i8 -1)
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %not = xor <4 x i8> %a, splat (i8 -1)
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or_const_lhs = or <4 x i8> splat (i8 7), %a
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_const_lhs = xor <4 x i8> splat (i8 7), %a
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %not_lhs = xor <4 x i8> splat (i8 -1), %a
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16and = and <16 x i8> %c, %d
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %not_lhs = xor <4 x i8> splat (i8 -1), %a
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16and = and <16 x i8> %c, %d
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16or_const = or <16 x i8> %c, splat (i8 7)
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16xor_const = xor <16 x i8> %c, splat (i8 7)
-; FAST16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16not = xor <16 x i8> %c, splat (i8 -1)
+; FAST16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16not = xor <16 x i8> %c, splat (i8 -1)
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16or_const_lhs = or <16 x i8> splat (i8 7), %c
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16xor_const_lhs = xor <16 x i8> splat (i8 7), %c
 ; FAST16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SLOW16-SIZE-LABEL: 'i8_vector_operands'
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %and = and <4 x i8> %a, %b
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or = or <4 x i8> %a, %b
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor = xor <4 x i8> %a, %b
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %and_const = and <4 x i8> %a, splat (i8 7)
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or_const = or <4 x i8> %a, splat (i8 7)
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and = and <4 x i8> %a, %b
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or = or <4 x i8> %a, %b
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %xor = xor <4 x i8> %a, %b
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_const = and <4 x i8> %a, splat (i8 7)
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or_const = or <4 x i8> %a, splat (i8 7)
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_const = xor <4 x i8> %a, splat (i8 7)
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_nonsplat = xor <4 x i8> %a, <i8 7, i8 6, i8 5, i8 4>
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %not = xor <4 x i8> %a, splat (i8 -1)
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or_const_lhs = or <4 x i8> splat (i8 7), %a
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %not = xor <4 x i8> %a, splat (i8 -1)
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or_const_lhs = or <4 x i8> splat (i8 7), %a
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_const_lhs = xor <4 x i8> splat (i8 7), %a
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %not_lhs = xor <4 x i8> splat (i8 -1), %a
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16and = and <16 x i8> %c, %d
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16or_const = or <16 x i8> %c, splat (i8 7)
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %not_lhs = xor <4 x i8> splat (i8 -1), %a
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16and = and <16 x i8> %c, %d
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16or_const = or <16 x i8> %c, splat (i8 7)
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16xor_const = xor <16 x i8> %c, splat (i8 7)
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16not = xor <16 x i8> %c, splat (i8 -1)
-; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16or_const_lhs = or <16 x i8> splat (i8 7), %c
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16not = xor <16 x i8> %c, splat (i8 -1)
+; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16or_const_lhs = or <16 x i8> splat (i8 7), %c
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16xor_const_lhs = xor <16 x i8> splat (i8 7), %c
 ; SLOW16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FAST16-SIZE-LABEL: 'i8_vector_operands'
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %and = and <4 x i8> %a, %b
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or = or <4 x i8> %a, %b
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor = xor <4 x i8> %a, %b
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %and_const = and <4 x i8> %a, splat (i8 7)
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and = and <4 x i8> %a, %b
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %or = or <4 x i8> %a, %b
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %xor = xor <4 x i8> %a, %b
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %and_const = and <4 x i8> %a, splat (i8 7)
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or_const = or <4 x i8> %a, splat (i8 7)
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_const = xor <4 x i8> %a, splat (i8 7)
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_nonsplat = xor <4 x i8> %a, <i8 7, i8 6, i8 5, i8 4>
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %not = xor <4 x i8> %a, splat (i8 -1)
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %not = xor <4 x i8> %a, splat (i8 -1)
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %or_const_lhs = or <4 x i8> splat (i8 7), %a
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %xor_const_lhs = xor <4 x i8> splat (i8 7), %a
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %not_lhs = xor <4 x i8> splat (i8 -1), %a
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16and = and <16 x i8> %c, %d
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %not_lhs = xor <4 x i8> splat (i8 -1), %a
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16and = and <16 x i8> %c, %d
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16or_const = or <16 x i8> %c, splat (i8 7)
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16xor_const = xor <16 x i8> %c, splat (i8 7)
-; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16not = xor <16 x i8> %c, splat (i8 -1)
+; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v16not = xor <16 x i8> %c, splat (i8 -1)
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16or_const_lhs = or <16 x i8> splat (i8 7), %c
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16xor_const_lhs = xor <16 x i8> splat (i8 7), %c
 ; FAST16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
