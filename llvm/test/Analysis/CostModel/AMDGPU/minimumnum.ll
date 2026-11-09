@@ -211,6 +211,106 @@ define void @minimumnum_bf16() {
   ret void
 }
 
+define void @minimumnum_bf16_flags(bfloat %a, bfloat %b, <2 x bfloat> %va, <2 x bfloat> %vb) {
+; GFX7-LABEL: 'minimumnum_bf16_flags'
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX7-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX8-LABEL: 'minimumnum_bf16_flags'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX9-LABEL: 'minimumnum_bf16_flags'
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX12-LABEL: 'minimumnum_bf16_flags'
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX12-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX1251-LABEL: 'minimumnum_bf16_flags'
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX7-SIZE-LABEL: 'minimumnum_bf16_flags'
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX7-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; GFX8-SIZE-LABEL: 'minimumnum_bf16_flags'
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX8-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; GFX9-SIZE-LABEL: 'minimumnum_bf16_flags'
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; GFX12-SIZE-LABEL: 'minimumnum_bf16_flags'
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX12-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; GFX1251-SIZE-LABEL: 'minimumnum_bf16_flags'
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %nnan = call nnan bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+  %nsz = call nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+  %nnan_nsz = call nnan nsz bfloat @llvm.minimumnum.bf16(bfloat %a, bfloat %b)
+  %v2_nnan = call nnan <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+  %v2_nsz = call nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+  %v2_nnan_nsz = call nnan nsz <2 x bfloat> @llvm.minimumnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+  ret void
+}
+
 define void @minimumnum_f32() {
 ; GFX7-LABEL: 'minimumnum_f32'
 ; GFX7-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %f32 = call float @llvm.minimumnum.f32(float poison, float poison)

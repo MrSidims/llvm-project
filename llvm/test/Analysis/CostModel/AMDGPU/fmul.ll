@@ -302,6 +302,8 @@ define amdgpu_kernel void @fmul_bf16() #0 {
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fmul <5 x bfloat> poison, poison
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fmul <16 x bfloat> poison, poison
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17bf16 = fmul <17 x bfloat> poison, poison
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fmul nnan bfloat poison, poison
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16_nnan = fmul nnan <2 x bfloat> poison, poison
 ; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SLOW-LABEL: 'fmul_bf16'
@@ -312,6 +314,8 @@ define amdgpu_kernel void @fmul_bf16() #0 {
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fmul <5 x bfloat> poison, poison
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fmul <16 x bfloat> poison, poison
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v17bf16 = fmul <17 x bfloat> poison, poison
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fmul nnan bfloat poison, poison
+; SLOW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16_nnan = fmul nnan <2 x bfloat> poison, poison
 ; SLOW-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX8-LABEL: 'fmul_bf16'
@@ -322,6 +326,8 @@ define amdgpu_kernel void @fmul_bf16() #0 {
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fmul <5 x bfloat> poison, poison
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fmul <16 x bfloat> poison, poison
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17bf16 = fmul <17 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fmul nnan bfloat poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16_nnan = fmul nnan <2 x bfloat> poison, poison
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1250-LABEL: 'fmul_bf16'
@@ -332,6 +338,8 @@ define amdgpu_kernel void @fmul_bf16() #0 {
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v5bf16 = fmul <5 x bfloat> poison, poison
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v16bf16 = fmul <16 x bfloat> poison, poison
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v17bf16 = fmul <17 x bfloat> poison, poison
+; GFX1250-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fmul nnan bfloat poison, poison
+; GFX1250-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2bf16_nnan = fmul nnan <2 x bfloat> poison, poison
 ; GFX1250-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1251-LABEL: 'fmul_bf16'
@@ -342,6 +350,8 @@ define amdgpu_kernel void @fmul_bf16() #0 {
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v5bf16 = fmul <5 x bfloat> poison, poison
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v16bf16 = fmul <16 x bfloat> poison, poison
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v17bf16 = fmul <17 x bfloat> poison, poison
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fmul nnan bfloat poison, poison
+; GFX1251-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2bf16_nnan = fmul nnan <2 x bfloat> poison, poison
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX9-SIZE-LABEL: 'fmul_bf16'
@@ -352,6 +362,8 @@ define amdgpu_kernel void @fmul_bf16() #0 {
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fmul <5 x bfloat> poison, poison
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fmul <16 x bfloat> poison, poison
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17bf16 = fmul <17 x bfloat> poison, poison
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fmul nnan bfloat poison, poison
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16_nnan = fmul nnan <2 x bfloat> poison, poison
 ; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SLOW-SIZE-LABEL: 'fmul_bf16'
@@ -362,6 +374,8 @@ define amdgpu_kernel void @fmul_bf16() #0 {
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fmul <5 x bfloat> poison, poison
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fmul <16 x bfloat> poison, poison
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v17bf16 = fmul <17 x bfloat> poison, poison
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fmul nnan bfloat poison, poison
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16_nnan = fmul nnan <2 x bfloat> poison, poison
 ; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX1250-SIZE-LABEL: 'fmul_bf16'
@@ -372,6 +386,8 @@ define amdgpu_kernel void @fmul_bf16() #0 {
 ; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v5bf16 = fmul <5 x bfloat> poison, poison
 ; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v16bf16 = fmul <16 x bfloat> poison, poison
 ; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v17bf16 = fmul <17 x bfloat> poison, poison
+; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fmul nnan bfloat poison, poison
+; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2bf16_nnan = fmul nnan <2 x bfloat> poison, poison
 ; GFX1250-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX1251-SIZE-LABEL: 'fmul_bf16'
@@ -382,6 +398,8 @@ define amdgpu_kernel void @fmul_bf16() #0 {
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v5bf16 = fmul <5 x bfloat> poison, poison
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v16bf16 = fmul <16 x bfloat> poison, poison
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v17bf16 = fmul <17 x bfloat> poison, poison
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fmul nnan bfloat poison, poison
+; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %v2bf16_nnan = fmul nnan <2 x bfloat> poison, poison
 ; GFX1251-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %bf16 = fmul bfloat poison, poison
@@ -391,6 +409,8 @@ define amdgpu_kernel void @fmul_bf16() #0 {
   %v5bf16 = fmul <5 x bfloat> poison, poison
   %v16bf16 = fmul <16 x bfloat> poison, poison
   %v17bf16 = fmul <17 x bfloat> poison, poison
+  %bf16_nnan = fmul nnan bfloat poison, poison
+  %v2bf16_nnan = fmul nnan <2 x bfloat> poison, poison
   ret void
 }
 

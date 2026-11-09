@@ -1553,6 +1553,62 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
   ret void
 }
 
+define void @fdiv_bf16_nnan(bfloat %a, bfloat %b, <2 x bfloat> %va, <2 x bfloat> %vb) #0 {
+; CIFASTF64-LABEL: 'fdiv_bf16_nnan'
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; CISLOWF64-LABEL: 'fdiv_bf16_nnan'
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 70 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; SIFASTF64-LABEL: 'fdiv_bf16_nnan'
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; SISLOWF64-LABEL: 'fdiv_bf16_nnan'
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 70 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; FP16-LABEL: 'fdiv_bf16_nnan'
+; FP16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; FP16-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; CIFASTF64-SIZE-LABEL: 'fdiv_bf16_nnan'
+; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; CISLOWF64-SIZE-LABEL: 'fdiv_bf16_nnan'
+; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; SIFASTF64-SIZE-LABEL: 'fdiv_bf16_nnan'
+; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; SISLOWF64-SIZE-LABEL: 'fdiv_bf16_nnan'
+; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; FP16-SIZE-LABEL: 'fdiv_bf16_nnan'
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %bf16 = fdiv nnan bfloat %a, %b
+  %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+  ret void
+}
+
 define i32 @frem(i32 %arg) {
 ; CIFASTF64-LABEL: 'frem'
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %F32 = frem float undef, undef

@@ -90,6 +90,22 @@ define void @minnum_bf16() {
   ret void
 }
 
+define void @minnum_bf16_nnan(bfloat %a, bfloat %b, <2 x bfloat> %va, <2 x bfloat> %vb) {
+; ALL-LABEL: 'minnum_bf16_nnan'
+; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minnum.bf16(bfloat %a, bfloat %b)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; SIZE-LABEL: 'minnum_bf16_nnan'
+; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.minnum.bf16(bfloat %a, bfloat %b)
+; SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.minnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %nnan = call nnan bfloat @llvm.minnum.bf16(bfloat %a, bfloat %b)
+  %v2_nnan = call nnan <2 x bfloat> @llvm.minnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+  ret void
+}
+
 define void @minnum_f32() {
 ; ALL-LABEL: 'minnum_f32'
 ; ALL-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %f32 = call float @llvm.minnum.f32(float undef, float undef)
@@ -302,6 +318,22 @@ define void @minnum_f16_no_ieee(<2 x half> %va, <2 x half> %vb, <3 x half> %wa, 
   %v4f16 = call <4 x half> @llvm.minnum.v4f16(<4 x half> %xa, <4 x half> %xb)
   %v8f16 = call <8 x half> @llvm.minnum.v8f16(<8 x half> %ya, <8 x half> %yb)
   %v4f16_nsz = call nsz <4 x half> @llvm.minnum.v4f16(<4 x half> %xa, <4 x half> %xb)
+  ret void
+}
+
+define void @minnum_bf16_no_ieee(bfloat %a, bfloat %b, <2 x bfloat> %va, <2 x bfloat> %vb) #0 {
+; ALL-LABEL: 'minnum_bf16_no_ieee'
+; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = call bfloat @llvm.minnum.bf16(bfloat %a, bfloat %b)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16 = call <2 x bfloat> @llvm.minnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; SIZE-LABEL: 'minnum_bf16_no_ieee'
+; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = call bfloat @llvm.minnum.bf16(bfloat %a, bfloat %b)
+; SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16 = call <2 x bfloat> @llvm.minnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %bf16 = call bfloat @llvm.minnum.bf16(bfloat %a, bfloat %b)
+  %v2bf16 = call <2 x bfloat> @llvm.minnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
   ret void
 }
 
