@@ -889,6 +889,8 @@ static bool intrinsicHasPackedVectorBenefit(Intrinsic::ID ID) {
   case Intrinsic::minimumnum:
   case Intrinsic::maximumnum:
   case Intrinsic::canonicalize:
+  case Intrinsic::minnum:
+  case Intrinsic::maxnum:
   case Intrinsic::smin:
   case Intrinsic::smax:
   case Intrinsic::umin:
@@ -1124,6 +1126,35 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     }
     return LT.first * NElts * Cost;
   }
+  case Intrinsic::minimum:
+  case Intrinsic::maximum: {
+    std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(RetTy);
+    MVT::SimpleValueType SLT = LT.second.getScalarType().SimpleTy;
+    unsigned NElts =
+        LT.second.isVector() ? LT.second.getVectorNumElements() : 1;
+
+    unsigned Opc = IID == Intrinsic::minimum ? ISD::FMINIMUM : ISD::FMAXIMUM;
+    InstructionCost Cost;
+    if (SLT != MVT::f64 && SLT != MVT::f32 && SLT != MVT::f16)
+      break;
+    const bool NoNaNs = ICA.getFlags().noNaNs();
+    const bool IsPacked =
+        SLT == MVT::f16 && (TLI->isOperationLegal(Opc, MVT::v2f16) ||
+                            (NoNaNs && ST->hasVOP3PInsts()));
+    if (IsPacked)
+      NElts = divideCeil(NElts, 2);
+    if (IsPacked || NoNaNs ||
+        TLI->isOperationLegal(Opc, LT.second.getScalarType()))
+      Cost = SLT == MVT::f64 ? get64BitInstrCost(CostKind)
+                             : getFullRateInstrCost();
+    else if (SLT == MVT::f64)
+      Cost = 2 * get64BitInstrCost(CostKind) + 2 * getFullRateInstrCost();
+    else
+      Cost = 3 * getFullRateInstrCost();
+    if (SLT == MVT::f32 && RetTy->getScalarType()->isHalfTy())
+      Cost += 3 * getFullRateInstrCost();
+    return LT.first * NElts * Cost;
+  }
   case Intrinsic::ctlz:
   case Intrinsic::cttz:
   case Intrinsic::ctpop:
@@ -1228,16 +1259,24 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   case Intrinsic::copysign:
     return NElts * getFullRateInstrCost();
   case Intrinsic::minimumnum:
-  case Intrinsic::maximumnum: {
-    // Instruction + 2 canonicalizes. For cases that need type promotion, we the
-    // promotion takes the place of the canonicalize.
-    unsigned NumOps = 3;
+  case Intrinsic::maximumnum:
+  case Intrinsic::minnum:
+  case Intrinsic::maxnum: {
+    // Instruction + 2 canonicalizes. For f16 promoted to f32, the 3 conversions
+    // take the place of the canonicalizes.
+    unsigned NumOps =
+        ST->hasIEEEMinimumMaximumInsts() || ICA.getFlags().noNaNs() ? 1 : 3;
+    const bool ExpandsToCanonicalize =
+        SLT == MVT::f16 && !ST->hasVOP3PInsts() && NElts > 2 &&
+        (IID == Intrinsic::minnum || IID == Intrinsic::maxnum);
     if (const IntrinsicInst *II = ICA.getInst()) {
       // Directly legal with ieee=0
       // TODO: Not directly legal with strictfp
-      if (fpenvIEEEMode(*II) == KnownIEEEMode::Off)
+      if (fpenvIEEEMode(*II) == KnownIEEEMode::Off && !ExpandsToCanonicalize)
         NumOps = 1;
     }
+    if (SLT == MVT::f32 && RetTy->getScalarType()->isHalfTy())
+      NumOps = 4;
 
     unsigned BaseRate =
         SLT == MVT::f64 ? get64BitInstrCost(CostKind) : getFullRateInstrCost();
