@@ -295,39 +295,39 @@ define amdgpu_kernel void @fadd_f16() #0 {
 
 define amdgpu_kernel void @fadd_bf16() #0 {
 ; FASTF16-LABEL: 'fadd_bf16'
-; FASTF16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = fadd bfloat poison, poison
-; FASTF16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
-; FASTF16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
-; FASTF16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
-; FASTF16-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
-; FASTF16-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
-; FASTF16-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
-; FASTF16-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fadd nnan bfloat poison, poison
-; FASTF16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16_nnan = fadd nnan <2 x bfloat> poison, poison
+; FASTF16-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %bf16 = fadd bfloat poison, poison
+; FASTF16-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
+; FASTF16-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
+; FASTF16-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
+; FASTF16-NEXT:  Cost Model: Found an estimated cost of 45 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
+; FASTF16-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
+; FASTF16-NEXT:  Cost Model: Found an estimated cost of 153 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
+; FASTF16-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %bf16_nnan = fadd nnan bfloat poison, poison
+; FASTF16-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2bf16_nnan = fadd nnan <2 x bfloat> poison, poison
 ; FASTF16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SLOWF64-LABEL: 'fadd_bf16'
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = fadd bfloat poison, poison
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fadd nnan bfloat poison, poison
-; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16_nnan = fadd nnan <2 x bfloat> poison, poison
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16 = fadd bfloat poison, poison
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 68 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16_nnan = fadd nnan bfloat poison, poison
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2bf16_nnan = fadd nnan <2 x bfloat> poison, poison
 ; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX8-LABEL: 'fadd_bf16'
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = fadd bfloat poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fadd nnan bfloat poison, poison
-; GFX8-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16_nnan = fadd nnan <2 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %bf16 = fadd bfloat poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 30 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 50 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 170 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %bf16_nnan = fadd nnan bfloat poison, poison
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %v2bf16_nnan = fadd nnan <2 x bfloat> poison, poison
 ; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; GFX1250-LABEL: 'fadd_bf16'
@@ -355,27 +355,27 @@ define amdgpu_kernel void @fadd_bf16() #0 {
 ; GFX1251-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FASTF16-SIZE-LABEL: 'fadd_bf16'
-; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = fadd bfloat poison, poison
-; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
-; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
-; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
-; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
-; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
-; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
-; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fadd nnan bfloat poison, poison
-; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16_nnan = fadd nnan <2 x bfloat> poison, poison
+; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %bf16 = fadd bfloat poison, poison
+; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
+; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
+; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
+; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 45 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
+; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
+; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 153 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
+; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %bf16_nnan = fadd nnan bfloat poison, poison
+; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2bf16_nnan = fadd nnan <2 x bfloat> poison, poison
 ; FASTF16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SLOWF64-SIZE-LABEL: 'fadd_bf16'
-; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = fadd bfloat poison, poison
-; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
-; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
-; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
-; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
-; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
-; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
-; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16_nnan = fadd nnan bfloat poison, poison
-; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16_nnan = fadd nnan <2 x bfloat> poison, poison
+; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16 = fadd bfloat poison, poison
+; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2bf16 = fadd <2 x bfloat> poison, poison
+; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v3bf16 = fadd <3 x bfloat> poison, poison
+; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v4bf16 = fadd <4 x bfloat> poison, poison
+; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v5bf16 = fadd <5 x bfloat> poison, poison
+; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %v16bf16 = fadd <16 x bfloat> poison, poison
+; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 68 for instruction: %v17bf16 = fadd <17 x bfloat> poison, poison
+; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16_nnan = fadd nnan bfloat poison, poison
+; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2bf16_nnan = fadd nnan <2 x bfloat> poison, poison
 ; SLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; GFX1250-SIZE-LABEL: 'fadd_bf16'

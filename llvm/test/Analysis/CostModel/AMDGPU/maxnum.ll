@@ -63,23 +63,50 @@ define void @maxnum_f16() {
 }
 
 define void @maxnum_bf16() {
-; ALL-LABEL: 'maxnum_bf16'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat undef, bfloat undef)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> undef, <2 x bfloat> undef)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v3bf16 = call <3 x bfloat> @llvm.maxnum.v3bf16(<3 x bfloat> undef, <3 x bfloat> undef)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4bf16 = call <4 x bfloat> @llvm.maxnum.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8bf16 = call <8 x bfloat> @llvm.maxnum.v8bf16(<8 x bfloat> undef, <8 x bfloat> undef)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16bf16 = call <16 x bfloat> @llvm.maxnum.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX9-LABEL: 'maxnum_bf16'
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat undef, bfloat undef)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> undef, <2 x bfloat> undef)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %v3bf16 = call <3 x bfloat> @llvm.maxnum.v3bf16(<3 x bfloat> undef, <3 x bfloat> undef)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v4bf16 = call <4 x bfloat> @llvm.maxnum.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %v8bf16 = call <8 x bfloat> @llvm.maxnum.v8bf16(<8 x bfloat> undef, <8 x bfloat> undef)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16bf16 = call <16 x bfloat> @llvm.maxnum.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
-; SIZE-LABEL: 'maxnum_bf16'
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat undef, bfloat undef)
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> undef, <2 x bfloat> undef)
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v3bf16 = call <3 x bfloat> @llvm.maxnum.v3bf16(<3 x bfloat> undef, <3 x bfloat> undef)
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v4bf16 = call <4 x bfloat> @llvm.maxnum.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef)
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v8bf16 = call <8 x bfloat> @llvm.maxnum.v8bf16(<8 x bfloat> undef, <8 x bfloat> undef)
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v16bf16 = call <16 x bfloat> @llvm.maxnum.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef)
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+; GFX8-LABEL: 'maxnum_bf16'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat undef, bfloat undef)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> undef, <2 x bfloat> undef)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 30 for instruction: %v3bf16 = call <3 x bfloat> @llvm.maxnum.v3bf16(<3 x bfloat> undef, <3 x bfloat> undef)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v4bf16 = call <4 x bfloat> @llvm.maxnum.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %v8bf16 = call <8 x bfloat> @llvm.maxnum.v8bf16(<8 x bfloat> undef, <8 x bfloat> undef)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 160 for instruction: %v16bf16 = call <16 x bfloat> @llvm.maxnum.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; SLOWF64-LABEL: 'maxnum_bf16'
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat undef, bfloat undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> undef, <2 x bfloat> undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v3bf16 = call <3 x bfloat> @llvm.maxnum.v3bf16(<3 x bfloat> undef, <3 x bfloat> undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v4bf16 = call <4 x bfloat> @llvm.maxnum.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8bf16 = call <8 x bfloat> @llvm.maxnum.v8bf16(<8 x bfloat> undef, <8 x bfloat> undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16bf16 = call <16 x bfloat> @llvm.maxnum.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX9-SIZE-LABEL: 'maxnum_bf16'
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat undef, bfloat undef)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> undef, <2 x bfloat> undef)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %v3bf16 = call <3 x bfloat> @llvm.maxnum.v3bf16(<3 x bfloat> undef, <3 x bfloat> undef)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v4bf16 = call <4 x bfloat> @llvm.maxnum.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %v8bf16 = call <8 x bfloat> @llvm.maxnum.v8bf16(<8 x bfloat> undef, <8 x bfloat> undef)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 144 for instruction: %v16bf16 = call <16 x bfloat> @llvm.maxnum.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; SLOW-SIZE-LABEL: 'maxnum_bf16'
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat undef, bfloat undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> undef, <2 x bfloat> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v3bf16 = call <3 x bfloat> @llvm.maxnum.v3bf16(<3 x bfloat> undef, <3 x bfloat> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v4bf16 = call <4 x bfloat> @llvm.maxnum.v4bf16(<4 x bfloat> undef, <4 x bfloat> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %v8bf16 = call <8 x bfloat> @llvm.maxnum.v8bf16(<8 x bfloat> undef, <8 x bfloat> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %v16bf16 = call <16 x bfloat> @llvm.maxnum.v16bf16(<16 x bfloat> undef, <16 x bfloat> undef)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %bf16 = call bfloat @llvm.maxnum.bf16(bfloat undef, bfloat undef)
   %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> undef, <2 x bfloat> undef)
@@ -91,15 +118,30 @@ define void @maxnum_bf16() {
 }
 
 define void @maxnum_bf16_nnan(bfloat %a, bfloat %b, <2 x bfloat> %va, <2 x bfloat> %vb) {
-; ALL-LABEL: 'maxnum_bf16_nnan'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX9-LABEL: 'maxnum_bf16_nnan'
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %nnan = call nnan bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
-; SIZE-LABEL: 'maxnum_bf16_nnan'
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %nnan = call nnan bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+; GFX8-LABEL: 'maxnum_bf16_nnan'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %nnan = call nnan bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; SLOWF64-LABEL: 'maxnum_bf16_nnan'
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %nnan = call nnan bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX9-SIZE-LABEL: 'maxnum_bf16_nnan'
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %nnan = call nnan bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; SLOW-SIZE-LABEL: 'maxnum_bf16_nnan'
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %nnan = call nnan bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2_nnan = call nnan <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %nnan = call nnan bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
   %v2_nnan = call nnan <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
@@ -257,15 +299,30 @@ define void @maxnum_f16_no_ieee(<2 x half> %va, <2 x half> %vb, <3 x half> %wa, 
 }
 
 define void @maxnum_bf16_no_ieee(bfloat %a, bfloat %b, <2 x bfloat> %va, <2 x bfloat> %vb) #0 {
-; ALL-LABEL: 'maxnum_bf16_no_ieee'
-; ALL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
-; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+; GFX9-LABEL: 'maxnum_bf16_no_ieee'
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX9-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
-; SIZE-LABEL: 'maxnum_bf16_no_ieee'
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
-; SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+; GFX8-LABEL: 'maxnum_bf16_no_ieee'
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX8-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; SLOWF64-LABEL: 'maxnum_bf16_no_ieee'
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; SLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; GFX9-SIZE-LABEL: 'maxnum_bf16_no_ieee'
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; GFX9-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+; SLOW-SIZE-LABEL: 'maxnum_bf16_no_ieee'
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16 = call bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)
+; SLOW-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %bf16 = call bfloat @llvm.maxnum.bf16(bfloat %a, bfloat %b)
   %v2bf16 = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> %va, <2 x bfloat> %vb)

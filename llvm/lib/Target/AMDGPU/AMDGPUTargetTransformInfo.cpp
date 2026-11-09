@@ -753,6 +753,10 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
     [[fallthrough]];
   case ISD::FADD:
   case ISD::FSUB:
+    if (Ty->getScalarType()->isBFloatTy() && !ST->hasBF16PackedInsts())
+      return getBF16EmulationCost(getNumIRElts(Ty), 2, getFullRateInstrCost(),
+                                  CtxI && isa<FPMathOperator>(CtxI) &&
+                                      CtxI->hasNoNaNs());
     if (ST->hasAnyPackedFP32Ops() && SLT == MVT::f32)
       NElts = (NElts + 1) / 2;
     if (ST->hasBF16PackedInsts() && SLT == MVT::bf16)
@@ -773,6 +777,23 @@ InstructionCost GCNTTIImpl::getArithmeticInstrCost(
   case ISD::FREM:
     // FIXME: frem should be handled separately. The fdiv in it is most of it,
     // but the current lowering is also not entirely correct.
+    if (Ty->getScalarType()->isBFloatTy()) {
+      unsigned NumElts = getNumIRElts(Ty);
+      if (ISD == ISD::FDIV && ST->hasBF16TransInsts()) {
+        if (!Args.empty() && match(Args[0], PatternMatch::m_FPOne()))
+          return NumElts * getTransInstrCost(CostKind);
+        if (CtxI && (CtxI->hasApproxFunc() || CtxI->hasAllowReciprocal()))
+          return NumElts *
+                 (getTransInstrCost(CostKind) + getFullRateInstrCost());
+      }
+      InstructionCost F32Cost =
+          getArithmeticInstrCost(Opcode, Type::getFloatTy(Ty->getContext()),
+                                 CostKind, Op1Info, Op2Info, Args, CtxI);
+      return getBF16EmulationCost(NumElts, 2, F32Cost,
+                                  CtxI && isa<FPMathOperator>(CtxI) &&
+                                      CtxI->hasNoNaNs());
+    }
+
     if (SLT == MVT::f64) {
       int Cost = 7 * get64BitInstrCost(CostKind) +
                  getQuarterRateInstrCost(CostKind) +
@@ -936,6 +957,84 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   Type *RetTy = ICA.getReturnType();
 
   Intrinsic::ID IID = ICA.getID();
+  if (RetTy->getScalarType()->isBFloatTy()) {
+    unsigned NumSrcs = 1;
+    bool IsNative = false;
+    switch (IID) {
+    case Intrinsic::fma:
+    case Intrinsic::fmuladd:
+      NumSrcs = 3;
+      IsNative = ST->hasBF16PackedInsts();
+      break;
+    case Intrinsic::minnum:
+    case Intrinsic::maxnum:
+      NumSrcs = 2;
+      IsNative = ST->hasBF16PackedInsts();
+      break;
+    case Intrinsic::minimumnum:
+    case Intrinsic::maximumnum:
+      NumSrcs = 2;
+      IsNative = ST->hasBF16PackedInsts();
+      if (!IsNative && ST->has16BitInsts()) {
+        const FastMathFlags FMF = ICA.getFlags();
+        return InstructionCost(getNumIRElts(RetTy) *
+                               (4 + (FMF.noNaNs() ? 0 : 6) +
+                                (FMF.noSignedZeros() ? 0 : 4))) *
+               getFullRateInstrCost();
+      }
+      break;
+    case Intrinsic::minimum:
+    case Intrinsic::maximum: {
+      NumSrcs = 2;
+      IsNative = TLI->isOperationLegal(
+          IID == Intrinsic::minimum ? ISD::FMINIMUM : ISD::FMAXIMUM, MVT::bf16);
+      const unsigned NumElts = getNumIRElts(RetTy);
+      if (!IsNative && NumElts > 1 && ST->hasBF16PackedInsts()) {
+        const FastMathFlags FMF = ICA.getFlags();
+        unsigned NumOps = divideCeil(NumElts, 2);
+        if (!FMF.noNaNs() || !FMF.noSignedZeros())
+          NumOps += NumElts * (2 + (FMF.noNaNs() ? 0 : 2) +
+                               (FMF.noSignedZeros() ? 0 : 4));
+        return InstructionCost(NumOps) * getFullRateInstrCost();
+      }
+      break;
+    }
+    case Intrinsic::canonicalize:
+      IsNative = ST->hasBF16PackedInsts();
+      break;
+    case Intrinsic::sqrt:
+      IsNative = ST->hasBF16TransInsts();
+      break;
+    case Intrinsic::floor:
+    case Intrinsic::ceil:
+    case Intrinsic::trunc:
+    case Intrinsic::rint:
+    case Intrinsic::nearbyint:
+    case Intrinsic::roundeven:
+    case Intrinsic::round:
+      break;
+    default:
+      IsNative = true;
+      break;
+    }
+
+    if (!IsNative && ST->has16BitInsts() &&
+        (IID == Intrinsic::minnum || IID == Intrinsic::maxnum))
+      return getBF16EmulationCost(getNumIRElts(RetTy), NumSrcs,
+                                  getFullRateInstrCost(),
+                                  ICA.getFlags().noNaNs());
+
+    if (!IsNative) {
+      Type *FloatTy = Type::getFloatTy(RetTy->getContext());
+      SmallVector<Type *, 3> FloatArgTys(ICA.getArgTypes().size(), FloatTy);
+      IntrinsicCostAttributes FloatICA(IID, FloatTy, FloatArgTys,
+                                       ICA.getFlags(), ICA.getInst());
+      return getBF16EmulationCost(getNumIRElts(RetTy), NumSrcs,
+                                  getIntrinsicInstrCost(FloatICA, CostKind),
+                                  ICA.getFlags().noNaNs());
+    }
+  }
+
   switch (IID) {
   case Intrinsic::exp:
   case Intrinsic::exp2:
@@ -1083,7 +1182,7 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
       return LT.first * NElts * Cost;
     }
 
-    if (SLT == MVT::f16)
+    if (SLT == MVT::f16 || SLT == MVT::bf16)
       return LT.first * NElts * getTransInstrCost(CostKind);
 
     if (SLT == MVT::f64) {
@@ -1245,7 +1344,8 @@ GCNTTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
       break;
     }
 
-    if ((SLT == MVT::f32 && ST->hasFastFMAF32()) || SLT == MVT::f16)
+    if ((SLT == MVT::f32 && ST->hasFastFMAF32()) || SLT == MVT::f16 ||
+        SLT == MVT::bf16)
       InstRate = getFullRateInstrCost();
     else if (SLT == MVT::f32 && IID == Intrinsic::fmuladd)
       // v_mad_f32 or a separate fmul and fadd
@@ -1511,17 +1611,7 @@ InstructionCost GCNTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
             Opcode, Dst->getWithNewType(Type::getFloatTy(Dst->getContext())),
             Src, CCH, CostKind, I);
 
-      // Native rounding can convert a pair. With 16 bit instructions the
-      // expansion extracts the low significand bit, adds the rounding bias,
-      // preserves NaNs and shifts the result. Without gfx9 instructions the two
-      // additions cannot use v_add3_u32.
-      InstructionCost RoundCost =
-          ST->hasBF16ConversionInsts()
-              ? InstructionCost(divideCeil(NElts, 2)) * getFullRateInstrCost()
-              : Scale(!ST->has16BitInsts() ? 1
-                      : ST->hasGFX9Insts() ? 6
-                                           : 7);
-      return FloatCost + RoundCost;
+      return FloatCost + getBF16RoundCost(NElts);
     }
 
     if (NarrowSource) {
@@ -2507,6 +2597,27 @@ GCNTTIImpl::getTypeLegalizationCost(Type *Ty) const {
 
   Cost.first += (Size + 255) / 256;
   return Cost;
+}
+
+InstructionCost GCNTTIImpl::getBF16RoundCost(unsigned NumElts,
+                                             bool NoNaNs) const {
+  // Native rounding can convert a pair. With 16 bit instructions the expansion
+  // extracts the low significand bit, adds the rounding bias, preserves NaNs
+  // and shifts the result. Without gfx9 instructions the two additions cannot
+  // use v_add3_u32.
+  const unsigned NumOps = ST->hasBF16ConversionInsts() ? divideCeil(NumElts, 2)
+                          : !ST->has16BitInsts()       ? NumElts
+                          : ST->hasGFX9Insts() ? (NoNaNs ? 3 : 6) * NumElts
+                                               : (NoNaNs ? 4 : 7) * NumElts;
+  return InstructionCost(NumOps) * getFullRateInstrCost();
+}
+
+InstructionCost GCNTTIImpl::getBF16EmulationCost(unsigned NumElts,
+                                                 unsigned NumSrcs,
+                                                 InstructionCost OpCost,
+                                                 bool NoNaNs) const {
+  return NumElts * (NumSrcs * getFullRateInstrCost() + OpCost) +
+         getBF16RoundCost(NumElts, NoNaNs);
 }
 
 unsigned GCNTTIImpl::getCacheLineSize() const {

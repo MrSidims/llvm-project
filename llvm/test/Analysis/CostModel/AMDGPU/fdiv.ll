@@ -1437,10 +1437,10 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 17 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 17 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; CISLOWF64-LABEL: 'fdiv_f16_bf16_fpmath'
@@ -1448,10 +1448,10 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 70 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 70 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SIFASTF64-LABEL: 'fdiv_f16_bf16_fpmath'
@@ -1459,10 +1459,10 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 17 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 17 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SISLOWF64-LABEL: 'fdiv_f16_bf16_fpmath'
@@ -1470,10 +1470,10 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 70 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 70 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FP16-LABEL: 'fdiv_f16_bf16_fpmath'
@@ -1481,10 +1481,10 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
-; FP16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
-; FP16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
-; FP16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
-; FP16-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; FP16-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; FP16-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; FP16-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; FP16-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; CIFASTF64-SIZE-LABEL: 'fdiv_f16_bf16_fpmath'
@@ -1492,10 +1492,10 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 ; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
 ; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
 ; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
-; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
-; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
-; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
-; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 30 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
 ; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CISLOWF64-SIZE-LABEL: 'fdiv_f16_bf16_fpmath'
@@ -1503,10 +1503,10 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 ; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
 ; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
 ; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
-; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
-; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
-; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
-; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
 ; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIFASTF64-SIZE-LABEL: 'fdiv_f16_bf16_fpmath'
@@ -1514,10 +1514,10 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 ; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
 ; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
 ; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
-; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
-; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
-; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
-; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 30 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
 ; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SISLOWF64-SIZE-LABEL: 'fdiv_f16_bf16_fpmath'
@@ -1525,10 +1525,10 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 ; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
 ; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
 ; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
-; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
-; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
-; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
-; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
 ; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FP16-SIZE-LABEL: 'fdiv_f16_bf16_fpmath'
@@ -1536,10 +1536,10 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %f16_ulp25 = fdiv half %a, %b, !fpmath !5
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %f16_arcp_ninf = fdiv ninf arcp half %a, %b
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %v2f16_ulp25 = fdiv <2 x half> %va, %vb, !fpmath !5
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %bf16_ulp1 = fdiv bfloat %c, %d, !fpmath !4
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %bf16_ulp25 = fdiv bfloat %c, %d, !fpmath !5
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 11 for instruction: %bf16_arcp_ninf = fdiv ninf arcp bfloat %c, %d
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v2bf16_ulp25 = fdiv <2 x bfloat> %vc, %vd, !fpmath !5
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %f16_ulp1 = fdiv half %a, %b, !fpmath !1
@@ -1555,53 +1555,53 @@ define void @fdiv_f16_bf16_fpmath(half %a, half %b, <2 x half> %va, <2 x half> %
 
 define void @fdiv_bf16_nnan(bfloat %a, bfloat %b, <2 x bfloat> %va, <2 x bfloat> %vb) #0 {
 ; CIFASTF64-LABEL: 'fdiv_bf16_nnan'
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16 = fdiv nnan bfloat %a, %b
-; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 17 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
 ; CIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; CISLOWF64-LABEL: 'fdiv_bf16_nnan'
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %bf16 = fdiv nnan bfloat %a, %b
-; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 70 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
 ; CISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SIFASTF64-LABEL: 'fdiv_bf16_nnan'
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %bf16 = fdiv nnan bfloat %a, %b
-; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 17 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
 ; SIFASTF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; SISLOWF64-LABEL: 'fdiv_bf16_nnan'
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 35 for instruction: %bf16 = fdiv nnan bfloat %a, %b
-; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 70 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 76 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
 ; SISLOWF64-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; FP16-LABEL: 'fdiv_bf16_nnan'
-; FP16-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %bf16 = fdiv nnan bfloat %a, %b
-; FP16-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; FP16-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; FP16-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
 ; FP16-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
 ;
 ; CIFASTF64-SIZE-LABEL: 'fdiv_bf16_nnan'
-; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16 = fdiv nnan bfloat %a, %b
-; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 30 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
 ; CIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; CISLOWF64-SIZE-LABEL: 'fdiv_bf16_nnan'
-; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %bf16 = fdiv nnan bfloat %a, %b
-; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
 ; CISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SIFASTF64-SIZE-LABEL: 'fdiv_bf16_nnan'
-; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %bf16 = fdiv nnan bfloat %a, %b
-; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 15 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 30 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
 ; SIFASTF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; SISLOWF64-SIZE-LABEL: 'fdiv_bf16_nnan'
-; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %bf16 = fdiv nnan bfloat %a, %b
-; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 38 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 44 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
 ; SISLOWF64-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
 ; FP16-SIZE-LABEL: 'fdiv_bf16_nnan'
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %bf16 = fdiv nnan bfloat %a, %b
-; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 17 for instruction: %bf16 = fdiv nnan bfloat %a, %b
+; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %v2bf16 = fdiv nnan <2 x bfloat> %va, %vb
 ; FP16-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
 ;
   %bf16 = fdiv nnan bfloat %a, %b

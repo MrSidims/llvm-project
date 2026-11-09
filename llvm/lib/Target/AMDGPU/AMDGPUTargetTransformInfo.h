@@ -100,6 +100,15 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
   // quarter. This also applies to some integer operations.
   int get64BitInstrCost(TTI::TargetCostKind CostKind) const;
 
+  // Cost of rounding f32 lanes to bf16.
+  InstructionCost getBF16RoundCost(unsigned NumElts, bool NoNaNs = false) const;
+
+  // Cost of a bf16 operation computed in f32 with extended sources and a
+  // rounded result.
+  InstructionCost getBF16EmulationCost(unsigned NumElts, unsigned NumSrcs,
+                                       InstructionCost OpCost,
+                                       bool NoNaNs = false) const;
+
   std::pair<InstructionCost, MVT> getTypeLegalizationCost(Type *Ty) const;
 
   /// \returns true if V might be divergent even when all of its operands
