@@ -62,6 +62,37 @@ define amdgpu_kernel void @mul_i64() #0 {
   ret void
 }
 
+define void @mul_i64_const(i64 %a, i64 %b, <2 x i64> %va) {
+; ALL-LABEL: 'mul_i64_const'
+; ALL-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %var = mul i64 %a, %b
+; ALL-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %wide = mul i64 %a, 1311768467463790327
+; ALL-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %hi_zero = mul i64 %a, 305419897
+; ALL-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %hi_ones = mul i64 %a, -7
+; ALL-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %lo_zero = mul i64 %a, 1311768469162688512
+; ALL-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v2wide = mul <2 x i64> %va, splat (i64 1311768467463790327)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v2hi_zero = mul <2 x i64> %va, splat (i64 305419897)
+; ALL-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: ret void
+;
+; ALL-SIZE-LABEL: 'mul_i64_const'
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %var = mul i64 %a, %b
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %wide = mul i64 %a, 1311768467463790327
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %hi_zero = mul i64 %a, 305419897
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %hi_ones = mul i64 %a, -7
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 12 for instruction: %lo_zero = mul i64 %a, 1311768469162688512
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2wide = mul <2 x i64> %va, splat (i64 1311768467463790327)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %v2hi_zero = mul <2 x i64> %va, splat (i64 305419897)
+; ALL-SIZE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: ret void
+;
+  %var = mul i64 %a, %b
+  %wide = mul i64 %a, 1311768467463790327
+  %hi_zero = mul i64 %a, 305419897
+  %hi_ones = mul i64 %a, -7
+  %lo_zero = mul i64 %a, 1311768469162688512
+  %v2wide = mul <2 x i64> %va, splat (i64 1311768467463790327)
+  %v2hi_zero = mul <2 x i64> %va, splat (i64 305419897)
+  ret void
+}
+
 define amdgpu_kernel void @mul_i16() #0 {
 ; SLOW16-LABEL: 'mul_i16'
 ; SLOW16-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %i16 = mul i16 undef, undef
