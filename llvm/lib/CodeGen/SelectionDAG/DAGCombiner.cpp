@@ -20938,11 +20938,14 @@ SDValue DAGCombiner::visitUINT_TO_FP(SDNode *N) {
     return DAG.getNode(ISD::UINT_TO_FP, DL, VT, Trunc);
   }
 
-  // fold (uint_to_fp (trunc nuw x)) -> (uint_to_fp x)
+  // fold (uint_to_fp (trunc nuw x)) -> (uint_to_fp nneg x)
   if (N0.getOpcode() == ISD::TRUNCATE && N0->getFlags().hasNoUnsignedWrap() &&
       TLI.isTypeDesirableForOp(ISD::UINT_TO_FP,
-                               N0.getOperand(0).getValueType()))
-    return DAG.getNode(ISD::UINT_TO_FP, DL, VT, N0.getOperand(0));
+                               N0.getOperand(0).getValueType())) {
+    SDNodeFlags Flags = N->getFlags();
+    Flags.setNonNeg(true);
+    return DAG.getNode(ISD::UINT_TO_FP, DL, VT, N0.getOperand(0), Flags);
+  }
 
   return SDValue();
 }
