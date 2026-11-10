@@ -4,8 +4,9 @@
 define void @sitofp_ashr(ptr addrspace(1) %in, ptr addrspace(1) %out) {
 ; CHECK-LABEL: @sitofp_ashr(
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i64>, ptr addrspace(1) [[IN:%.*]], align 16
-; CHECK-NEXT:    [[TMP2:%.*]] = ashr <2 x i64> [[TMP1]], splat (i64 32)
-; CHECK-NEXT:    [[TMP3:%.*]] = sitofp <2 x i64> [[TMP2]] to <2 x float>
+; CHECK-NEXT:    [[TMP2:%.*]] = lshr <2 x i64> [[TMP1]], splat (i64 32)
+; CHECK-NEXT:    [[TMP5:%.*]] = trunc nuw <2 x i64> [[TMP2]] to <2 x i32>
+; CHECK-NEXT:    [[TMP3:%.*]] = sitofp <2 x i32> [[TMP5]] to <2 x float>
 ; CHECK-NEXT:    [[TMP4:%.*]] = fmul nnan <2 x float> [[TMP3]], <float 3.000000e+00, float 5.000000e+00>
 ; CHECK-NEXT:    store <2 x float> [[TMP4]], ptr addrspace(1) [[OUT:%.*]], align 8
 ; CHECK-NEXT:    ret void
@@ -29,7 +30,8 @@ define void @uitofp_lshr(ptr addrspace(1) %in, ptr addrspace(1) %out) {
 ; CHECK-LABEL: @uitofp_lshr(
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i64>, ptr addrspace(1) [[IN:%.*]], align 16
 ; CHECK-NEXT:    [[TMP2:%.*]] = lshr <2 x i64> [[TMP1]], splat (i64 32)
-; CHECK-NEXT:    [[TMP3:%.*]] = uitofp nneg <2 x i64> [[TMP2]] to <2 x float>
+; CHECK-NEXT:    [[TMP5:%.*]] = trunc nuw <2 x i64> [[TMP2]] to <2 x i32>
+; CHECK-NEXT:    [[TMP3:%.*]] = uitofp <2 x i32> [[TMP5]] to <2 x float>
 ; CHECK-NEXT:    [[TMP4:%.*]] = fmul nnan <2 x float> [[TMP3]], <float 3.000000e+00, float 5.000000e+00>
 ; CHECK-NEXT:    store <2 x float> [[TMP4]], ptr addrspace(1) [[OUT:%.*]], align 8
 ; CHECK-NEXT:    ret void

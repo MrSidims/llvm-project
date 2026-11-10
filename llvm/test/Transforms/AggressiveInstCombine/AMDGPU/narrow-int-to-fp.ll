@@ -4,7 +4,8 @@
 define float @uitofp_lshr32(i64 %x) {
 ; CHECK-LABEL: @uitofp_lshr32(
 ; CHECK-NEXT:    [[S:%.*]] = lshr i64 [[X:%.*]], 32
-; CHECK-NEXT:    [[R:%.*]] = uitofp i64 [[S]] to float
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nuw i64 [[S]] to i32
+; CHECK-NEXT:    [[R:%.*]] = uitofp i32 [[TMP1]] to float
 ; CHECK-NEXT:    ret float [[R]]
 ;
   %s = lshr i64 %x, 32
@@ -26,7 +27,8 @@ define float @uitofp_lshr31(i64 %x) {
 define double @uitofp_and(i64 %x) {
 ; CHECK-LABEL: @uitofp_and(
 ; CHECK-NEXT:    [[M:%.*]] = and i64 [[X:%.*]], 4294967295
-; CHECK-NEXT:    [[R:%.*]] = uitofp i64 [[M]] to double
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nuw i64 [[M]] to i32
+; CHECK-NEXT:    [[R:%.*]] = uitofp i32 [[TMP1]] to double
 ; CHECK-NEXT:    ret double [[R]]
 ;
   %m = and i64 %x, 4294967295
@@ -37,7 +39,8 @@ define double @uitofp_and(i64 %x) {
 define half @uitofp_and_byte(i64 %x) {
 ; CHECK-LABEL: @uitofp_and_byte(
 ; CHECK-NEXT:    [[M:%.*]] = and i64 [[X:%.*]], 255
-; CHECK-NEXT:    [[R:%.*]] = uitofp i64 [[M]] to half
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nuw i64 [[M]] to i32
+; CHECK-NEXT:    [[R:%.*]] = uitofp nneg i32 [[TMP1]] to half
 ; CHECK-NEXT:    ret half [[R]]
 ;
   %m = and i64 %x, 255
@@ -48,7 +51,8 @@ define half @uitofp_and_byte(i64 %x) {
 define float @sitofp_ashr32(i64 %x) {
 ; CHECK-LABEL: @sitofp_ashr32(
 ; CHECK-NEXT:    [[S:%.*]] = ashr i64 [[X:%.*]], 32
-; CHECK-NEXT:    [[R:%.*]] = sitofp i64 [[S]] to float
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nsw i64 [[S]] to i32
+; CHECK-NEXT:    [[R:%.*]] = sitofp i32 [[TMP1]] to float
 ; CHECK-NEXT:    ret float [[R]]
 ;
   %s = ashr i64 %x, 32
@@ -73,7 +77,8 @@ define double @sitofp_sext_add(i32 %x, i32 %y) {
 ; CHECK-NEXT:    [[YE:%.*]] = sext i32 [[Y:%.*]] to i64
 ; CHECK-NEXT:    [[A:%.*]] = add nsw i64 [[XE]], [[YE]]
 ; CHECK-NEXT:    [[S:%.*]] = ashr i64 [[A]], 1
-; CHECK-NEXT:    [[R:%.*]] = sitofp i64 [[S]] to double
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nsw i64 [[S]] to i32
+; CHECK-NEXT:    [[R:%.*]] = sitofp i32 [[TMP1]] to double
 ; CHECK-NEXT:    ret double [[R]]
 ;
   %xe = sext i32 %x to i64
@@ -98,7 +103,8 @@ define float @uitofp_ashr32(i64 %x) {
 define bfloat @sitofp_ashr32_bf16(i64 %x) {
 ; CHECK-LABEL: @sitofp_ashr32_bf16(
 ; CHECK-NEXT:    [[S:%.*]] = ashr i64 [[X:%.*]], 32
-; CHECK-NEXT:    [[R:%.*]] = sitofp i64 [[S]] to bfloat
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nsw i64 [[S]] to i32
+; CHECK-NEXT:    [[R:%.*]] = sitofp i32 [[TMP1]] to bfloat
 ; CHECK-NEXT:    ret bfloat [[R]]
 ;
   %s = ashr i64 %x, 32
@@ -131,7 +137,8 @@ define double @sitofp_i128(i128 %x) {
 define float @uitofp_i48(i48 %x) {
 ; CHECK-LABEL: @uitofp_i48(
 ; CHECK-NEXT:    [[S:%.*]] = lshr i48 [[X:%.*]], 16
-; CHECK-NEXT:    [[R:%.*]] = uitofp i48 [[S]] to float
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nuw i48 [[S]] to i32
+; CHECK-NEXT:    [[R:%.*]] = uitofp i32 [[TMP1]] to float
 ; CHECK-NEXT:    ret float [[R]]
 ;
   %s = lshr i48 %x, 16
@@ -164,7 +171,8 @@ define float @uitofp_i32(i32 %x) {
 define <2 x float> @uitofp_vec(<2 x i64> %x) {
 ; CHECK-LABEL: @uitofp_vec(
 ; CHECK-NEXT:    [[S:%.*]] = lshr <2 x i64> [[X:%.*]], splat (i64 32)
-; CHECK-NEXT:    [[R:%.*]] = uitofp <2 x i64> [[S]] to <2 x float>
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nuw <2 x i64> [[S]] to <2 x i32>
+; CHECK-NEXT:    [[R:%.*]] = uitofp <2 x i32> [[TMP1]] to <2 x float>
 ; CHECK-NEXT:    ret <2 x float> [[R]]
 ;
   %s = lshr <2 x i64> %x, splat (i64 32)
@@ -175,7 +183,8 @@ define <2 x float> @uitofp_vec(<2 x i64> %x) {
 define <2 x double> @sitofp_vec(<2 x i64> %x) {
 ; CHECK-LABEL: @sitofp_vec(
 ; CHECK-NEXT:    [[S:%.*]] = ashr <2 x i64> [[X:%.*]], splat (i64 32)
-; CHECK-NEXT:    [[R:%.*]] = sitofp <2 x i64> [[S]] to <2 x double>
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nsw <2 x i64> [[S]] to <2 x i32>
+; CHECK-NEXT:    [[R:%.*]] = sitofp <2 x i32> [[TMP1]] to <2 x double>
 ; CHECK-NEXT:    ret <2 x double> [[R]]
 ;
   %s = ashr <2 x i64> %x, splat (i64 32)
@@ -196,7 +205,8 @@ define <2 x double> @sitofp_vec_nonsplat(<2 x i64> %x) {
 
 define float @uitofp_range(i64 range(i64 0, 4294967296) %x) {
 ; CHECK-LABEL: @uitofp_range(
-; CHECK-NEXT:    [[R:%.*]] = uitofp i64 [[X:%.*]] to float
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nuw i64 [[X:%.*]] to i32
+; CHECK-NEXT:    [[R:%.*]] = uitofp i32 [[TMP1]] to float
 ; CHECK-NEXT:    ret float [[R]]
 ;
   %r = uitofp i64 %x to float
@@ -206,7 +216,8 @@ define float @uitofp_range(i64 range(i64 0, 4294967296) %x) {
 define float @uitofp_flags(i64 %x) {
 ; CHECK-LABEL: @uitofp_flags(
 ; CHECK-NEXT:    [[S:%.*]] = lshr i64 [[X:%.*]], 32
-; CHECK-NEXT:    [[R:%.*]] = uitofp ninf nneg i64 [[S]] to float
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nuw i64 [[S]] to i32
+; CHECK-NEXT:    [[R:%.*]] = uitofp ninf i32 [[TMP1]] to float
 ; CHECK-NEXT:    ret float [[R]]
 ;
   %s = lshr i64 %x, 32
@@ -217,7 +228,8 @@ define float @uitofp_flags(i64 %x) {
 define float @sitofp_flags(i64 %x) {
 ; CHECK-LABEL: @sitofp_flags(
 ; CHECK-NEXT:    [[S:%.*]] = ashr i64 [[X:%.*]], 32
-; CHECK-NEXT:    [[R:%.*]] = sitofp ninf nsz i64 [[S]] to float
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nsw i64 [[S]] to i32
+; CHECK-NEXT:    [[R:%.*]] = sitofp ninf nsz i32 [[TMP1]] to float
 ; CHECK-NEXT:    ret float [[R]]
 ;
   %s = ashr i64 %x, 32
@@ -229,7 +241,8 @@ define float @uitofp_multi_use(i64 %x, ptr %p) {
 ; CHECK-LABEL: @uitofp_multi_use(
 ; CHECK-NEXT:    [[S:%.*]] = lshr i64 [[X:%.*]], 32
 ; CHECK-NEXT:    store i64 [[S]], ptr [[P:%.*]], align 8
-; CHECK-NEXT:    [[R:%.*]] = uitofp i64 [[S]] to float
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc nuw i64 [[S]] to i32
+; CHECK-NEXT:    [[R:%.*]] = uitofp i32 [[TMP1]] to float
 ; CHECK-NEXT:    ret float [[R]]
 ;
   %s = lshr i64 %x, 32
@@ -253,5 +266,14 @@ define float @sitofp_unknown(i64 %x) {
 ; CHECK-NEXT:    ret float [[R]]
 ;
   %r = sitofp i64 %x to float
+  ret float %r
+}
+
+define float @uitofp_constant() {
+; CHECK-LABEL: @uitofp_constant(
+; CHECK-NEXT:    [[R:%.*]] = uitofp i64 7 to float
+; CHECK-NEXT:    ret float [[R]]
+;
+  %r = uitofp i64 7 to float
   ret float %r
 }

@@ -842,6 +842,67 @@ static bool tryToFPToSat(Instruction &I, TargetTransformInfo &TTI) {
   return true;
 }
 
+/// Convert an int to fp cast from the widest narrower legal integer type that
+/// holds the source value, if TTI reports the truncate and the narrow
+/// conversion as cheaper than the original conversion.
+static bool tryToNarrowIntToFP(Instruction &I, const DataLayout &DL,
+                               TargetTransformInfo &TTI, AssumptionCache &AC,
+                               DominatorTree &DT) {
+  if (!isa<SIToFPInst, UIToFPInst>(I) || isa<Constant>(I.getOperand(0)))
+    return false;
+
+  bool IsSigned = isa<SIToFPInst>(I);
+  Value *Src = I.getOperand(0);
+  Type *SrcTy = Src->getType();
+  unsigned SrcBits = SrcTy->getScalarSizeInBits();
+  if (SrcBits <= 8)
+    return false;
+  unsigned Bits =
+      IsSigned ? ComputeMaxSignificantBits(Src, DL, &AC, &I, &DT)
+               : computeKnownBits(Src, DL, &AC, &I, &DT).countMaxActiveBits();
+
+  // A non-negative source may be converted as signed or as unsigned.
+  auto GetConvertCost = [&](Type *Ty, bool IsNonNeg) {
+    constexpr auto CostKind = TTI::TCK_RecipThroughput;
+    InstructionCost Cost = TTI.getCastInstrCost(
+        I.getOpcode(), I.getType(), Ty, TTI::CastContextHint::None, CostKind);
+    if (!IsSigned && IsNonNeg)
+      Cost = std::min(
+          Cost, TTI.getCastInstrCost(Instruction::SIToFP, I.getType(), Ty,
+                                     TTI::CastContextHint::None, CostKind));
+    return Cost;
+  };
+
+  InstructionCost WideCost = GetConvertCost(SrcTy, Bits < SrcBits);
+  for (unsigned Width = bit_floor(SrcBits - 1); Width >= Bits && Width >= 8;
+       Width /= 2) {
+    if (!DL.isLegalInteger(Width))
+      continue;
+    Type *NarrowTy =
+        SrcTy->getWithNewType(IntegerType::get(I.getContext(), Width));
+    InstructionCost NarrowCost =
+        TTI.getCastInstrCost(Instruction::Trunc, NarrowTy, SrcTy,
+                             TTI::CastContextHint::None,
+                             TTI::TCK_RecipThroughput) +
+        GetConvertCost(NarrowTy, Bits < Width);
+    if (!NarrowCost.isValid() || NarrowCost >= WideCost)
+      continue;
+
+    IRBuilder<> Builder(&I);
+    Value *Trunc = Builder.CreateTrunc(Src, NarrowTy, "", /*IsNUW=*/!IsSigned,
+                                       /*IsNSW=*/IsSigned);
+    auto *NewI = cast<Instruction>(
+        Builder.CreateCast(cast<CastInst>(I).getOpcode(), Trunc, I.getType()));
+    NewI->copyFastMathFlags(&I);
+    if (!IsSigned && Bits < Width)
+      NewI->setNonNeg();
+    NewI->takeName(&I);
+    I.replaceAllUsesWith(NewI);
+    return true;
+  }
+  return false;
+}
+
 /// Try to replace a mathlib call to sqrt with the LLVM intrinsic. This avoids
 /// pessimistic codegen that has to account for setting errno and can enable
 /// vectorization.
@@ -2673,6 +2734,7 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
       MadeChange |= tryToRecognizePopCount1(I);
       MadeChange |= tryToRecognizePopCount2n3(I);
       MadeChange |= tryToFPToSat(I, TTI);
+      MadeChange |= tryToNarrowIntToFP(I, DL, TTI, AC, DT);
       MadeChange |= tryToRecognizeTableBasedPatterns(I, DL, TTI);
       MadeChange |= foldConsecutiveLoads(I, DL, TTI, AA, DT);
       MadeChange |= foldPatternedLoads(I, DL);
