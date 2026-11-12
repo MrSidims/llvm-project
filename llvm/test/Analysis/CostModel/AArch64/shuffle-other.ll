@@ -591,4 +591,21 @@ bb:
   ret void
 }
 
+define void @narrow_two_source(<2 x half> %h2a, <2 x half> %h2b, <3 x half> %h3a, <3 x half> %h3b, <3 x float> %f3a, <3 x float> %f3b, <3 x i32> %i3a, <3 x i32> %i3b, <6 x i16> %i6a, <6 x i16> %i6b) {
+; CHECK-LABEL: 'narrow_two_source'
+; CHECK-NEXT:  Cost Model: Found costs of RThru:4 CodeSize:2 Lat:4 SizeLat:4 for: %h2 = shufflevector <2 x half> %h2a, <2 x half> %h2b, <2 x i32> <i32 3, i32 1>
+; CHECK-NEXT:  Cost Model: Found costs of RThru:8 CodeSize:4 Lat:8 SizeLat:8 for: %h3 = shufflevector <3 x half> %h3a, <3 x half> %h3b, <3 x i32> <i32 4, i32 0, i32 2>
+; CHECK-NEXT:  Cost Model: Found costs of 2 for: %f3 = shufflevector <3 x float> %f3a, <3 x float> %f3b, <3 x i32> <i32 0, i32 4, i32 2>
+; CHECK-NEXT:  Cost Model: Found costs of RThru:12 CodeSize:6 Lat:12 SizeLat:12 for: %i3 = shufflevector <3 x i32> %i3a, <3 x i32> %i3b, <3 x i32> <i32 5, i32 1, i32 0>
+; CHECK-NEXT:  Cost Model: Found costs of RThru:24 CodeSize:12 Lat:24 SizeLat:24 for: %i6 = shufflevector <6 x i16> %i6a, <6 x i16> %i6b, <6 x i32> <i32 0, i32 6, i32 1, i32 7, i32 2, i32 8>
+; CHECK-NEXT:  Cost Model: Found costs of RThru:0 CodeSize:1 Lat:1 SizeLat:1 for: ret void
+;
+  %h2 = shufflevector <2 x half> %h2a, <2 x half> %h2b, <2 x i32> <i32 3, i32 1>
+  %h3 = shufflevector <3 x half> %h3a, <3 x half> %h3b, <3 x i32> <i32 4, i32 0, i32 2>
+  %f3 = shufflevector <3 x float> %f3a, <3 x float> %f3b, <3 x i32> <i32 0, i32 4, i32 2>
+  %i3 = shufflevector <3 x i32> %i3a, <3 x i32> %i3b, <3 x i32> <i32 5, i32 1, i32 0>
+  %i6 = shufflevector <6 x i16> %i6a, <6 x i16> %i6b, <6 x i32> <i32 0, i32 6, i32 1, i32 7, i32 2, i32 8>
+  ret void
+}
+
 attributes #0 = { "target-features"="+sve,+neon" }
