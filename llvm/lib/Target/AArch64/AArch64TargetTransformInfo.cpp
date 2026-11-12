@@ -919,6 +919,13 @@ AArch64TTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     if (EltTy->isFloatTy() || EltTy->isDoubleTy() ||
         (EltTy->isHalfTy() && ST->hasFullFP16()))
       return getArithmeticInstrCost(Instruction::FMul, RetTy, CostKind);
+    if (EltTy->isHalfTy() && !RetTy->isVectorTy()) {
+      InstructionCost Cost =
+          getArithmeticInstrCost(Instruction::FMul, RetTy, CostKind);
+      if (ICA.getID() == Intrinsic::fmuladd)
+        Cost += getArithmeticInstrCost(Instruction::FAdd, RetTy, CostKind);
+      return Cost;
+    }
     break;
   }
   case Intrinsic::stepvector: {

@@ -691,10 +691,10 @@ define void @fma() {
 
 define void @fma_fp16() {
 ; CHECK-BASE-LABEL: 'fma_fp16'
-; CHECK-BASE-NEXT:  Cost Model: Found costs of 1 for: %F16 = call half @llvm.fma.f16(half undef, half undef, half undef)
-; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:10 CodeSize:7 Lat:10 SizeLat:10 for: %V4F16 = call <4 x half> @llvm.fma.v4f16(<4 x half> undef, <4 x half> undef, <4 x half> undef)
-; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:22 CodeSize:15 Lat:22 SizeLat:22 for: %V8F16 = call <8 x half> @llvm.fma.v8f16(<8 x half> undef, <8 x half> undef, <8 x half> undef)
-; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:44 CodeSize:30 Lat:44 SizeLat:44 for: %V16F16 = call <16 x half> @llvm.fma.v16f16(<16 x half> undef, <16 x half> undef, <16 x half> undef)
+; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:5 CodeSize:1 Lat:3 SizeLat:1 for: %F16 = call half @llvm.fma.f16(half undef, half undef, half undef)
+; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:26 CodeSize:7 Lat:18 SizeLat:10 for: %V4F16 = call <4 x half> @llvm.fma.v4f16(<4 x half> undef, <4 x half> undef, <4 x half> undef)
+; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:54 CodeSize:15 Lat:38 SizeLat:22 for: %V8F16 = call <8 x half> @llvm.fma.v8f16(<8 x half> undef, <8 x half> undef, <8 x half> undef)
+; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:108 CodeSize:30 Lat:76 SizeLat:44 for: %V16F16 = call <16 x half> @llvm.fma.v16f16(<16 x half> undef, <16 x half> undef, <16 x half> undef)
 ; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:0 CodeSize:1 Lat:1 SizeLat:1 for: ret void
 ;
 ; CHECK-FP16-LABEL: 'fma_fp16'
@@ -741,7 +741,7 @@ define void @fmuladd() {
 
 define void @fmuladd_fp16() {
 ; CHECK-BASE-LABEL: 'fmuladd_fp16'
-; CHECK-BASE-NEXT:  Cost Model: Found costs of 1 for: %F16 = call half @llvm.fmuladd.f16(half undef, half undef, half undef)
+; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:9 CodeSize:2 Lat:6 SizeLat:2 for: %F16 = call half @llvm.fmuladd.f16(half undef, half undef, half undef)
 ; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:9 CodeSize:2 Lat:6 SizeLat:2 for: %V4F16 = call <4 x half> @llvm.fmuladd.v4f16(<4 x half> undef, <4 x half> undef, <4 x half> undef)
 ; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:18 CodeSize:2 Lat:6 SizeLat:2 for: %V8F16 = call <8 x half> @llvm.fmuladd.v8f16(<8 x half> undef, <8 x half> undef, <8 x half> undef)
 ; CHECK-BASE-NEXT:  Cost Model: Found costs of RThru:36 CodeSize:2 Lat:6 SizeLat:2 for: %V16F16 = call <16 x half> @llvm.fmuladd.v16f16(<16 x half> undef, <16 x half> undef, <16 x half> undef)
